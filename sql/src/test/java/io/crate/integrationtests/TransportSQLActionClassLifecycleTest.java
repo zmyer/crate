@@ -33,6 +33,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
 
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -427,6 +428,12 @@ public class TransportSQLActionClassLifecycleTest extends ClassLifecycleIntegrat
         assertEquals("Human", response.rows()[0][1]);
         assertEquals(2L, response.rows()[1][0]);
         assertEquals("Vogon", response.rows()[1][1]);
+    }
+
+    @Test
+    public void testUDFAggregation() throws Throwable {
+        SQLResponse resp = executor.exec("select python_max(num_docs) from sys.shards");
+        assertEquals(3L, ((BigInteger)resp.rows()[0][0]).longValue());
     }
 
     @Test

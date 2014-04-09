@@ -21,7 +21,6 @@
 
 package io.crate.udf;
 
-import com.google.common.collect.Lists;
 import io.crate.metadata.DynamicFunctionResolver;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionImplementation;
@@ -30,49 +29,54 @@ import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
-import org.python.core.*;
+import org.python.core.PyJavaType;
+import org.python.core.PyObject;
+import org.python.core.PyStringMap;
+import org.python.core.PyType;
 import org.python.util.PythonInterpreter;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class UDFService {
 
     protected final ESLogger logger;
     private final Settings settings;
-    List<UserDefinedScalarFunction<?, ?>> udfs = new ArrayList<>();
+    List<UserDefinedScalarFunction<?, ?>> scalars = new ArrayList<>();
+    List<UserDefinedAggregationFunction<?>> aggregations = new ArrayList<>();
     private MapBinder<FunctionIdent, FunctionImplementation> functionBinder;
     private MapBinder<String, DynamicFunctionResolver> resolverBinder;
 
-    public UDFService(Settings settings, MapBinder<FunctionIdent, FunctionImplementation> functionBinder, MapBinder<String, DynamicFunctionResolver> resolverBinder) {
+    public UDFService(Settings settings,
+                      MapBinder<FunctionIdent, FunctionImplementation> functionBinder,
+                      MapBinder<String, DynamicFunctionResolver> resolverBinder) {
         this.settings = settings;
         this.functionBinder = functionBinder;
         this.resolverBinder = resolverBinder;
         this.logger = Loggers.getLogger(getClass(), settings);
-
-       loadPlugins();
-
+        loadPlugins();
     }
 
     private void loadPlugins() {
         Environment env = new Environment(settings);
         File udfFile = new File(env.homeFile(), "udf");
 
-        if (udfFile.exists()) {
-            File[] pluginsFiles = udfFile.listFiles();
-            if (udfFile != null) {
-                for (File pluginFile : pluginsFiles) {
-                    if (pluginFile.isDirectory()) {
-                        this.loadPlugin(pluginFile);
-                    }
-                }
-            } else {
-                logger.debug("failed to list udf functions from {}. Check your right access.", udfFile.getAbsolutePath());
-            }
-            this.registerUDFS();
+        if (!udfFile.exists()) {
+            return;
         }
+
+        File[] pluginsFiles = udfFile.listFiles();
+        if (pluginsFiles != null) {
+            for (File pluginFile : pluginsFiles) {
+                if (pluginFile.isDirectory()) {
+                    loadPlugin(pluginFile);
+                }
+            }
+        } else {
+            logger.debug("failed to list udf functions from {}. Check your right access.", udfFile.getAbsolutePath());
+        }
+        this.registerUDFS();
     }
 
     protected void loadPlugin(File pluginFile) {
@@ -83,6 +87,11 @@ public class UDFService {
             // add the root
             PythonInterpreter python = new PythonInterpreter();
             File[] pythonFiles = pluginFile.listFiles();
+            if (pythonFiles == null) {
+                logger.trace("Could not list udf files in {}", pluginFile);
+                return;
+            }
+
             for (File pythonFile : pythonFiles) {
                 python.execfile(pythonFile.getPath());
                 PyStringMap locals = (PyStringMap)python.getLocals();
@@ -92,10 +101,17 @@ public class UDFService {
                         if (base instanceof PyJavaType) {
                             for (PyObject super_base: ((PyJavaType) base).getBases().asIterable()) {
                                 if (super_base instanceof PyJavaType) {
-                                    if (((PyJavaType)super_base).getName().endsWith("UserDefinedScalarFunction")) {
+                                    String className = ((PyJavaType) super_base).getName();
+                                    if (className.endsWith("UserDefinedScalarFunction")) {
                                         PyObject udf = item.__call__();
-                                        UserDefinedScalarFunction userDefinedFunction = (UserDefinedScalarFunction) udf.__tojava__(UserDefinedScalarFunction.class);
-                                        udfs.add(userDefinedFunction);
+                                        UserDefinedScalarFunction userDefinedFunction =
+                                                (UserDefinedScalarFunction) udf.__tojava__(UserDefinedScalarFunction.class);
+                                        scalars.add(userDefinedFunction);
+                                    } else if (className.endsWith("UserDefinedAggregationFunction")) {
+                                        PyObject udf = item.__call__();
+                                        UserDefinedAggregationFunction<?> userDefinedFunction =
+                                                (UserDefinedAggregationFunction<?>) udf.__tojava__(UserDefinedAggregationFunction.class);
+                                        aggregations.add(userDefinedFunction);
                                     }
                                 }
                             }
@@ -109,12 +125,22 @@ public class UDFService {
     }
 
     public void registerUDFS() {
-        for (UserDefinedScalarFunction<?, ?> udf : udfs) {
+        for (UserDefinedScalarFunction<?, ?> udf : scalars) {
             FunctionIdent ident = udf.ident();
             if (ident != null) {
                 functionBinder.addBinding(ident).toInstance(udf);
             }
+            DynamicFunctionResolver dynamicFunctionResolver = udf.dynamicFunctionResolver();
+            if (dynamicFunctionResolver != null) {
+                resolverBinder.addBinding(udf.name()).toInstance(dynamicFunctionResolver);
+            }
+        }
 
+        for (UserDefinedAggregationFunction<?> udf : aggregations) {
+            FunctionIdent ident = udf.ident();
+            if (ident != null) {
+                functionBinder.addBinding(ident).toInstance(udf);
+            }
             DynamicFunctionResolver dynamicFunctionResolver = udf.dynamicFunctionResolver();
             if (dynamicFunctionResolver != null) {
                 resolverBinder.addBinding(udf.name()).toInstance(dynamicFunctionResolver);
