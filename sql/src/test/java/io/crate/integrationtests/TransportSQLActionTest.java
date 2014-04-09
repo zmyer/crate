@@ -2845,4 +2845,18 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
         assertEquals(0L, response.rowCount());
     }
 
+    @Test
+    public void testUDFPluginScalar() throws Exception {
+        // generated using sqlalchemy
+        // session.query(func.count('*')).filter(Test.name == 'foo').scalar()
+
+        execute("select math_min(1,3) from information_schema.tables");
+        assertEquals(1L, response.rows()[0][0]);
+
+        execute("select math_min(3,1) from information_schema.tables");
+        assertEquals(1L, response.rows()[0][0]);
+
+        System.clearProperty("python.cachedir.skip");
+        System.clearProperty("python.console.encoding");
+    }
 }

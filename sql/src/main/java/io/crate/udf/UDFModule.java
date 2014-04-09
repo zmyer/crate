@@ -26,18 +26,25 @@ import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionImplementation;
 import org.elasticsearch.common.inject.AbstractModule;
 import org.elasticsearch.common.inject.multibindings.MapBinder;
+import org.elasticsearch.common.settings.Settings;
 
 public class UDFModule extends AbstractModule {
 
     private MapBinder<FunctionIdent, FunctionImplementation> functionBinder;
     private MapBinder<String, DynamicFunctionResolver> resolverBinder;
+    private Settings settings;
+
+    public UDFModule(Settings settings) {
+        this.settings = settings;
+        this.functionBinder = functionBinder;
+
+    }
 
     @Override
     protected void configure() {
         functionBinder = MapBinder.newMapBinder(binder(), FunctionIdent.class, FunctionImplementation.class);
         resolverBinder = MapBinder.newMapBinder(binder(), String.class, DynamicFunctionResolver.class);
 
-        UDFService udfService = new UDFService();
-        udfService.registerUDFS(functionBinder, resolverBinder);
+        UDFService udfService = new UDFService(settings, functionBinder, resolverBinder);
     }
 }

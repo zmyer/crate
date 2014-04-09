@@ -21,62 +21,95 @@
 
 package io.crate.udf;
 
-import io.crate.DataType;
+import com.google.common.collect.Lists;
 import io.crate.metadata.DynamicFunctionResolver;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionImplementation;
-import io.crate.metadata.FunctionInfo;
-import io.crate.planner.symbol.Function;
-import io.crate.planner.symbol.IntegerLiteral;
-import io.crate.planner.symbol.Symbol;
 import org.elasticsearch.common.inject.multibindings.MapBinder;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.env.Environment;
+import org.python.core.*;
+import org.python.util.PythonInterpreter;
 
-import javax.annotation.Nullable;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class UDFService {
 
-    List<UserDefinedFunction<?>> udfs = new ArrayList<>();
+    protected final ESLogger logger;
+    private final Settings settings;
+    List<UserDefinedScalarFunction<?, ?>> udfs = new ArrayList<>();
+    private MapBinder<FunctionIdent, FunctionImplementation> functionBinder;
+    private MapBinder<String, DynamicFunctionResolver> resolverBinder;
 
-    public UDFService() {
+    public UDFService(Settings settings, MapBinder<FunctionIdent, FunctionImplementation> functionBinder, MapBinder<String, DynamicFunctionResolver> resolverBinder) {
+        this.settings = settings;
+        this.functionBinder = functionBinder;
+        this.resolverBinder = resolverBinder;
+        this.logger = Loggers.getLogger(getClass(), settings);
+
        loadPlugins();
+
     }
 
     private void loadPlugins() {
-        UserDefinedFunction<Function> foo = new UserDefinedFunction<Function>() {
-            @Override
-            public String name() {
-                return "foo";
-            }
+        Environment env = new Environment(settings);
+        File udfFile = new File(env.homeFile(), "udf");
 
-            @Nullable
-            @Override
-            public FunctionIdent ident() {
-                return new FunctionIdent(name(), Arrays.asList(DataType.INTEGER));
+        if (udfFile.exists()) {
+            File[] pluginsFiles = udfFile.listFiles();
+            if (udfFile != null) {
+                for (File pluginFile : pluginsFiles) {
+                    if (pluginFile.isDirectory()) {
+                        this.loadPlugin(pluginFile);
+                    }
+                }
+            } else {
+                logger.debug("failed to list udf functions from {}. Check your right access.", udfFile.getAbsolutePath());
             }
-
-            @Nullable
-            @Override
-            public DynamicFunctionResolver dynamicFunctionResolver() {
-                return null;
-            }
-
-            @Override
-            public FunctionInfo info() {
-                return new FunctionInfo(ident(), DataType.INTEGER);
-            }
-
-            @Override
-            public Symbol normalizeSymbol(Function symbol) {
-                return new IntegerLiteral(1);
-            }
-        };
+            this.registerUDFS();
+        }
     }
 
-    public void registerUDFS(MapBinder<FunctionIdent, FunctionImplementation> functionBinder, MapBinder<String, DynamicFunctionResolver> resolverBinder) {
-        for (UserDefinedFunction<?> udf : udfs) {
+    protected void loadPlugin(File pluginFile) {
+        if (logger.isTraceEnabled()) {
+            logger.trace("--- adding udf function [" + pluginFile.getAbsolutePath() + "]");
+        }
+        try {
+            // add the root
+            PythonInterpreter python = new PythonInterpreter();
+            File[] pythonFiles = pluginFile.listFiles();
+            for (File pythonFile : pythonFiles) {
+                python.execfile(pythonFile.getPath());
+                PyStringMap locals = (PyStringMap)python.getLocals();
+                for (PyObject item : locals.itervalues().asIterable()) {
+                    if (item instanceof PyType) {
+                        PyObject base = ((PyType) item).getBase();
+                        if (base instanceof PyJavaType) {
+                            for (PyObject super_base: ((PyJavaType) base).getBases().asIterable()) {
+                                if (super_base instanceof PyJavaType) {
+                                    if (((PyJavaType)super_base).getName().endsWith("UserDefinedScalarFunction")) {
+                                        PyObject udf = item.__call__();
+                                        UserDefinedScalarFunction userDefinedFunction = (UserDefinedScalarFunction) udf.__tojava__(UserDefinedScalarFunction.class);
+                                        udfs.add(userDefinedFunction);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable e) {
+            logger.warn("failed to add plugin [" + pluginFile + "]", e);
+        }
+    }
+
+    public void registerUDFS() {
+        for (UserDefinedScalarFunction<?, ?> udf : udfs) {
             FunctionIdent ident = udf.ident();
             if (ident != null) {
                 functionBinder.addBinding(ident).toInstance(udf);

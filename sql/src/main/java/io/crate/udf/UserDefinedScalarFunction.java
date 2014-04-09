@@ -24,11 +24,12 @@ package io.crate.udf;
 import io.crate.metadata.DynamicFunctionResolver;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionImplementation;
+import io.crate.metadata.Scalar;
 import io.crate.planner.symbol.Symbol;
 
 import javax.annotation.Nullable;
 
-public interface UserDefinedFunction<SymbolType extends Symbol> extends FunctionImplementation<SymbolType> {
+public interface UserDefinedScalarFunction<ReturnType, InputType> extends Scalar<ReturnType, InputType> {
 
     public String name();
 

@@ -42,6 +42,8 @@ import io.crate.operation.reference.sys.shard.blob.BlobShardExpressionModule;
 import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.planner.PlanModule;
 import io.crate.rest.action.RestSQLAction;
+import io.crate.udf.UDFModule;
+import io.crate.udf.UDFService;
 import org.elasticsearch.cluster.settings.ClusterDynamicSettingsModule;
 import org.elasticsearch.common.component.LifecycleComponent;
 import org.elasticsearch.common.inject.Module;
@@ -90,6 +92,7 @@ public class SQLPlugin extends AbstractPlugin {
     public Collection<Class<? extends Module>> modules() {
         Collection<Class<? extends Module>> modules = newArrayList();
         if (!settings.getAsBoolean("node.client", false)) {
+            modules.add(UDFModule.class);
             modules.add(SQLModule.class);
             modules.add(TransportExecutorModule.class);
             modules.add(CollectOperationModule.class);
