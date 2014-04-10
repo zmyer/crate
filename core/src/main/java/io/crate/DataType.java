@@ -156,6 +156,18 @@ public enum DataType {
             out.writeGenericValue(v);
         }
     }),
+    ANY("any", new Streamer<Object>() {
+        @SuppressWarnings("unchecked")
+        @Override
+        public Object readFrom(StreamInput in) throws IOException {
+            return in.readGenericValue();
+        }
+
+        @Override
+        public void writeTo(StreamOutput out, Object v) throws IOException {
+            out.writeGenericValue(v);
+        }
+    }),
     IP("ip", Streamer.BYTES_REF),
 
     // TODO: remove DataType
