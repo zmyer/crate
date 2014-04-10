@@ -2853,10 +2853,11 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
         execute("select math_min(1,3) from information_schema.tables");
         assertEquals(1L, response.rows()[0][0]);
 
-        execute("select math_min(3,1) from information_schema.tables");
+        execute("select ruby_math_min(3,1) from information_schema.tables");
         assertEquals(1L, response.rows()[0][0]);
 
         System.clearProperty("python.cachedir.skip");
         System.clearProperty("python.console.encoding");
+        System.clearProperty("java.net.preferIPv4Stack");
     }
 }

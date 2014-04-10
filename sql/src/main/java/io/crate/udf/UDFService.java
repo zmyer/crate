@@ -22,7 +22,6 @@
 package io.crate.udf;
 
 import com.google.common.io.Files;
-import com.sun.script.javascript.RhinoScriptEngineFactory;
 import io.crate.metadata.DynamicFunctionResolver;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionImplementation;
@@ -31,15 +30,18 @@ import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
+import org.jruby.Ruby;
+import org.jruby.RubyClass;
+import org.jruby.runtime.Block;
+import org.jruby.runtime.ThreadContext;
+import org.jruby.runtime.builtin.IRubyObject;
 import org.python.core.PyJavaType;
 import org.python.core.PyObject;
 import org.python.core.PyType;
-import org.python.jsr223.PyScriptEngineFactory;
 
 import javax.script.*;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -47,7 +49,8 @@ public class UDFService {
 
     protected final ESLogger logger;
     private final Settings settings;
-    private final List<ScriptEngineFactory> scriptEngineFactories;
+    private final ScriptEngineManager scriptEngineManager;
+    private final ThreadContext threadContext;
     List<UserDefinedScalarFunction<?, ?>> scalars = new ArrayList<>();
     List<UserDefinedAggregationFunction<?>> aggregations = new ArrayList<>();
     private MapBinder<FunctionIdent, FunctionImplementation> functionBinder;
@@ -60,10 +63,8 @@ public class UDFService {
         this.functionBinder = functionBinder;
         this.resolverBinder = resolverBinder;
         this.logger = Loggers.getLogger(getClass(), settings);
-        this.scriptEngineFactories = Arrays.<ScriptEngineFactory>asList(
-                new RhinoScriptEngineFactory(),
-                new PyScriptEngineFactory()
-        );
+        scriptEngineManager = new ScriptEngineManager();
+        threadContext = Ruby.getGlobalRuntime().getCurrentContext();
         loadPlugins();
     }
 
@@ -99,31 +100,35 @@ public class UDFService {
             return;
         }
         for (File file : files) {
-            for (ScriptEngineFactory scriptEngineFactory : scriptEngineFactories) {
-                if (!scriptEngineFactory.getExtensions().contains(Files.getFileExtension(file.getName()))) {
+            ScriptEngine scriptEngine = scriptEngineManager.getEngineByExtension(Files.getFileExtension(file.getName()));
+            if (scriptEngine == null) {
+                continue;
+            }
+            ScriptContext scriptContext = scriptEngine.getContext();
+            scriptEngine.eval(
+                    new BufferedReader(new InputStreamReader(new FileInputStream(file))),
+                    scriptContext
+            );
+            for (Integer scope : scriptContext.getScopes()) {
+                Bindings bindings = scriptContext.getBindings(scope);
+                if (bindings == null) {
                     continue;
                 }
-                ScriptEngine scriptEngine = scriptEngineFactory.getScriptEngine();
-                ScriptContext scriptContext = scriptEngine.getContext();
-                scriptEngine.eval(
-                        new BufferedReader(new InputStreamReader(new FileInputStream(file))),
-                        scriptContext
-                );
-                for (Integer scope : scriptContext.getScopes()) {
-                    Bindings bindings = scriptContext.getBindings(scope);
-                    if (bindings == null) {
-                        continue;
-                    }
-                    for (Map.Entry<String, Object> entry : bindings.entrySet()) {
-                        Object value = entry.getValue();
-                        tryLoadClass(value);
-                    }
+                for (Map.Entry<String, Object> entry : bindings.entrySet()) {
+                    Object value = entry.getValue();
+                    tryLoadClass(value);
                 }
             }
         }
     }
 
     private void tryLoadClass(Object value) {
+        if (value instanceof RubyClass) {
+            // TODO: check if userDefinedScalar or aggregation
+            IRubyObject instance = ((RubyClass) value).newInstance(threadContext, Block.NULL_BLOCK);
+            Object o = instance.toJava(UserDefinedScalarFunction.class);
+            scalars.add((UserDefinedScalarFunction)o);
+        }
         if (value instanceof PyType && !(value instanceof PyJavaType)) {
             if (((PyType) value).isSubType(PyJavaType.fromClass(UserDefinedAggregationFunction.class))) {
                 PyObject udf = ((PyType) value).__call__();
