@@ -48,13 +48,13 @@ import java.util.Map;
 public class UDFService {
 
     protected final ESLogger logger;
-    private final Settings settings;
     private final ScriptEngineManager scriptEngineManager;
-    private final ThreadContext threadContext;
     List<UserDefinedScalarFunction<?, ?>> scalars = new ArrayList<>();
     List<UserDefinedAggregationFunction<?>> aggregations = new ArrayList<>();
+    private final Settings settings;
     private MapBinder<FunctionIdent, FunctionImplementation> functionBinder;
     private MapBinder<String, DynamicFunctionResolver> resolverBinder;
+    private ThreadContext rubyThreadContext;
 
     public UDFService(Settings settings,
                       MapBinder<FunctionIdent, FunctionImplementation> functionBinder,
@@ -63,9 +63,16 @@ public class UDFService {
         this.functionBinder = functionBinder;
         this.resolverBinder = resolverBinder;
         this.logger = Loggers.getLogger(getClass(), settings);
+
         scriptEngineManager = new ScriptEngineManager();
-        threadContext = Ruby.getGlobalRuntime().getCurrentContext();
         loadPlugins();
+    }
+
+    private ThreadContext rubyThreadContext() {
+        if (rubyThreadContext == null) {
+            rubyThreadContext = Ruby.getGlobalRuntime().getCurrentContext();
+        }
+        return rubyThreadContext;
     }
 
     private void loadPlugins() {
@@ -125,7 +132,7 @@ public class UDFService {
     private void tryLoadClass(Object value) {
         if (value instanceof RubyClass) {
             // TODO: check if userDefinedScalar or aggregation
-            IRubyObject instance = ((RubyClass) value).newInstance(threadContext, Block.NULL_BLOCK);
+            IRubyObject instance = ((RubyClass) value).newInstance(rubyThreadContext(), Block.NULL_BLOCK);
             Object o = instance.toJava(UserDefinedScalarFunction.class);
             scalars.add((UserDefinedScalarFunction)o);
         }

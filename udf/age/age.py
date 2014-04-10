@@ -3,7 +3,11 @@
 from io.crate.udf import UserDefinedScalarFunction, UserDefinedAggregationFunction
 from io.crate.operation.aggregation import AggregationState
 from io.crate import DataType
-from io.crate.metadata import FunctionIdent, FunctionInfo
+from io.crate.metadata import (
+    FunctionIdent,
+    FunctionInfo,
+    DynamicFunctionResolver
+)
 from java.util import Arrays
 from java.lang import Long
 
@@ -16,7 +20,7 @@ class PythonMax(UserDefinedAggregationFunction):
             self._value = 0
 
         def value(self):
-            return self._value
+            return Long(self._value)
 
         def add(self, value):
             if not value:
@@ -29,6 +33,12 @@ class PythonMax(UserDefinedAggregationFunction):
         def reduce(self, other):
             if other:
                 self.add(other.value())
+
+        def readFrom(self, input_stream):
+            self._value = input_stream.readLong()
+
+        def writeTo(self, output_stream):
+            output_stream.writeLong(self._value)
 
 
     def name(self):
@@ -55,21 +65,30 @@ class PythonMax(UserDefinedAggregationFunction):
 
 class MathMin(UserDefinedScalarFunction):
 
+    NAME = 'math_min'
+
+    class MathMinResolver(DynamicFunctionResolver):
+        def getForTypes(self, data_types):
+            return MathMin(FunctionInfo(
+                FunctionIdent(MathMin.NAME, data_types), data_types[0]))
+
+    def __init__(self, info=None):
+        self._info = info
+
     def name(self):
-        return 'math_min'
+        return MathMin.NAME
 
     def ident(self):
-        return FunctionIdent(self.name(),
-                             Arrays.asList(DataType.LONG, DataType.LONG))
+        return None
 
     def info(self):
-        return FunctionInfo(self.ident(), DataType.LONG)
+        return self._info
 
     def normalizeSymbol(self, symbol):
         return symbol
 
     def dynamicFunctionResolver(self):
-        return None
+        return MathMin.MathMinResolver()
 
     def evaluate(self, args):
         return Long(min(args[0].value(), args[1].value()))
