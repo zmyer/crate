@@ -21,6 +21,8 @@
 
 package io.crate.udf;
 
+import com.google.common.io.Files;
+import com.sun.script.javascript.RhinoScriptEngineFactory;
 import io.crate.metadata.DynamicFunctionResolver;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionImplementation;
@@ -31,18 +33,21 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.env.Environment;
 import org.python.core.PyJavaType;
 import org.python.core.PyObject;
-import org.python.core.PyStringMap;
 import org.python.core.PyType;
-import org.python.util.PythonInterpreter;
+import org.python.jsr223.PyScriptEngineFactory;
 
-import java.io.File;
+import javax.script.*;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class UDFService {
 
     protected final ESLogger logger;
     private final Settings settings;
+    private final List<ScriptEngineFactory> scriptEngineFactories;
     List<UserDefinedScalarFunction<?, ?>> scalars = new ArrayList<>();
     List<UserDefinedAggregationFunction<?>> aggregations = new ArrayList<>();
     private MapBinder<FunctionIdent, FunctionImplementation> functionBinder;
@@ -55,72 +60,82 @@ public class UDFService {
         this.functionBinder = functionBinder;
         this.resolverBinder = resolverBinder;
         this.logger = Loggers.getLogger(getClass(), settings);
+        this.scriptEngineFactories = Arrays.<ScriptEngineFactory>asList(
+                new RhinoScriptEngineFactory(),
+                new PyScriptEngineFactory()
+        );
         loadPlugins();
     }
 
     private void loadPlugins() {
         Environment env = new Environment(settings);
+        // TODO: make udf path configurable
         File udfFile = new File(env.homeFile(), "udf");
-
         if (!udfFile.exists()) {
             return;
         }
-
-        File[] pluginsFiles = udfFile.listFiles();
-        if (pluginsFiles != null) {
-            for (File pluginFile : pluginsFiles) {
-                if (pluginFile.isDirectory()) {
-                    loadPlugin(pluginFile);
+        File[] files = udfFile.listFiles();
+        if (files == null) {
+            logger.debug("failed to list udf functions from {}. Check your right access.",
+                    udfFile.getAbsolutePath());
+            return;
+        }
+        for (File file : files) {
+            if (file.isDirectory()) {
+                try {
+                    loadUDF(file);
+                } catch (IOException | ScriptException e) {
+                    logger.warn(e.getMessage(), e);
                 }
             }
-        } else {
-            logger.debug("failed to list udf functions from {}. Check your right access.", udfFile.getAbsolutePath());
         }
         this.registerUDFS();
     }
 
-    protected void loadPlugin(File pluginFile) {
-        if (logger.isTraceEnabled()) {
-            logger.trace("--- adding udf function [" + pluginFile.getAbsolutePath() + "]");
+    protected void loadUDF(File udfFile) throws IOException, ScriptException {
+        File[] files = udfFile.listFiles();
+        if (files == null) {
+            logger.trace("Could not list udf files in {}", udfFile);
+            return;
         }
-        try {
-            // add the root
-            PythonInterpreter python = new PythonInterpreter();
-            File[] pythonFiles = pluginFile.listFiles();
-            if (pythonFiles == null) {
-                logger.trace("Could not list udf files in {}", pluginFile);
-                return;
-            }
-
-            for (File pythonFile : pythonFiles) {
-                python.execfile(pythonFile.getPath());
-                PyStringMap locals = (PyStringMap)python.getLocals();
-                for (PyObject item : locals.itervalues().asIterable()) {
-                    if (item instanceof PyType) {
-                        PyObject base = ((PyType) item).getBase();
-                        if (base instanceof PyJavaType) {
-                            for (PyObject super_base: ((PyJavaType) base).getBases().asIterable()) {
-                                if (super_base instanceof PyJavaType) {
-                                    String className = ((PyJavaType) super_base).getName();
-                                    if (className.endsWith("UserDefinedScalarFunction")) {
-                                        PyObject udf = item.__call__();
-                                        UserDefinedScalarFunction userDefinedFunction =
-                                                (UserDefinedScalarFunction) udf.__tojava__(UserDefinedScalarFunction.class);
-                                        scalars.add(userDefinedFunction);
-                                    } else if (className.endsWith("UserDefinedAggregationFunction")) {
-                                        PyObject udf = item.__call__();
-                                        UserDefinedAggregationFunction<?> userDefinedFunction =
-                                                (UserDefinedAggregationFunction<?>) udf.__tojava__(UserDefinedAggregationFunction.class);
-                                        aggregations.add(userDefinedFunction);
-                                    }
-                                }
-                            }
-                        }
+        for (File file : files) {
+            for (ScriptEngineFactory scriptEngineFactory : scriptEngineFactories) {
+                if (!scriptEngineFactory.getExtensions().contains(Files.getFileExtension(file.getName()))) {
+                    continue;
+                }
+                ScriptEngine scriptEngine = scriptEngineFactory.getScriptEngine();
+                ScriptContext scriptContext = scriptEngine.getContext();
+                scriptEngine.eval(
+                        new BufferedReader(new InputStreamReader(new FileInputStream(file))),
+                        scriptContext
+                );
+                for (Integer scope : scriptContext.getScopes()) {
+                    Bindings bindings = scriptContext.getBindings(scope);
+                    if (bindings == null) {
+                        continue;
+                    }
+                    for (Map.Entry<String, Object> entry : bindings.entrySet()) {
+                        Object value = entry.getValue();
+                        tryLoadClass(value);
                     }
                 }
             }
-        } catch (Throwable e) {
-            logger.warn("failed to add plugin [" + pluginFile + "]", e);
+        }
+    }
+
+    private void tryLoadClass(Object value) {
+        if (value instanceof PyType && !(value instanceof PyJavaType)) {
+            if (((PyType) value).isSubType(PyJavaType.fromClass(UserDefinedAggregationFunction.class))) {
+                PyObject udf = ((PyType) value).__call__();
+                UserDefinedAggregationFunction<?> userDefinedFunction =
+                        (UserDefinedAggregationFunction<?>) udf.__tojava__(UserDefinedAggregationFunction.class);
+                aggregations.add(userDefinedFunction);
+            } else if (((PyType) value).isSubType(PyJavaType.fromClass(UserDefinedScalarFunction.class))) {
+                PyObject udf = ((PyType) value).__call__();
+                UserDefinedScalarFunction userDefinedFunction =
+                        (UserDefinedScalarFunction) udf.__tojava__(UserDefinedScalarFunction.class);
+                scalars.add(userDefinedFunction);
+            }
         }
     }
 
