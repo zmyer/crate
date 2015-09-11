@@ -1,5 +1,6 @@
 apply plugin: 'java'
 apply plugin: 'maven'
+apply plugin: 'antlr'
 
 archivesBaseName = 'crate-sql-parser'
 
@@ -11,13 +12,13 @@ configurations {
     antlr3
 }
 
+
 dependencies {
     compile 'com.google.code.findbugs:annotations:3.0.0'
     compile 'joda-time:joda-time:2.5'
     compile 'com.google.guava:guava:18.0'
-    compile 'org.antlr:antlr-runtime:3.5'
 
-    antlr3 'org.antlr:antlr:3.4'
+    antlr 'org.antlr:antlr4:4.5'
 
     testCompile ('org.testng:testng:6.8') {
         exclude group: 'junit', module: 'junit'
@@ -25,28 +26,10 @@ dependencies {
     testCompile 'junit:junit:4.11'
 }
 
-task generateWithANTLR3(type:Exec) {
-    String outputPath = 'src/main/java/io/crate/sql/parser';
-    ext.parserOutputFiles = files(
-            'src/main/java/io/crate/sql/parser/StatementLexer.java',
-            'src/main/java/io/crate/sql/parser/StatementParser.java',
-            'src/main/java/io/crate/sql/parser/StatementBuilder.java',
-            'src/main/java/io/crate/sql/parser/Statement.tokens',
-            'src/main/java/io/crate/sql/parser/StatementBuilder.tokens'
-    )
-    ext.parserInputFiles = files(
-            'src/main/java/io/crate/sql/parser/Statement.g',
-            'src/main/java/io/crate/sql/parser/StatementBuilder.g'
-    )
-
-    inputs.files(ext.parserInputFiles)
-    outputs.files(ext.parserOutputFiles)
-
-    commandLine = ['java', '-cp',  configurations.antlr3.getAsPath(), 'org.antlr.Tool', '-o', outputPath] + ext.parserInputFiles
-}
-
-tasks.withType(JavaCompile) {
-    it.dependsOn generateWithANTLR3
+generateGrammarSource {
+    source = 'src/main/antlr'
+    outputDirectory = new File('src/main/java/io/crate/sql/v4')
+    arguments += ['-package', 'io.crate.sql.v4', '-visitor', '-long-messages']
 }
 
 

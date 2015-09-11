@@ -47,6 +47,7 @@ import io.crate.sql.parser.ParsingException;
 import io.crate.sql.parser.SqlParser;
 import io.crate.sql.tree.Statement;
 import io.crate.types.DataType;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.TransportAction;
@@ -124,7 +125,7 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
     }
 
     public abstract Analysis getAnalysis(Statement statement, TRequest request);
-
+    public abstract Analysis getAnalysis(ParserRuleContext parserRuleContext, TRequest request);
 
     /**
      * create an empty SQLBaseResponse instance with no rows
@@ -197,8 +198,12 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
             return;
         }
         try {
+            ParserRuleContext statement = io.crate.sql.v4.SqlParser.createStatement(request.stmt);
+            Analysis analysis = getAnalysis(statement, request);
+            /*
             Statement statement = statementCache.get(request.stmt());
             Analysis analysis = getAnalysis(statement, request);
+            */
             processAnalysis(analysis, request, listener, attempt, jobId);
         } catch (Throwable e) {
             logger.debug("Error executing SQLRequest", e);

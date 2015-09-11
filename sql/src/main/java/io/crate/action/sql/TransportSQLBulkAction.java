@@ -33,6 +33,7 @@ import io.crate.operation.collect.StatsTables;
 import io.crate.planner.Planner;
 import io.crate.sql.tree.Statement;
 import io.crate.types.DataType;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.cluster.ClusterService;
@@ -69,6 +70,11 @@ public class TransportSQLBulkAction extends TransportBaseSQLAction<SQLBulkReques
     public Analysis getAnalysis(Statement statement, SQLBulkRequest request) {
         return analyzer.analyze(statement, new ParameterContext(
                 SQLRequest.EMPTY_ARGS, request.bulkArgs(), request.getDefaultSchema(), request.getRequestFlags()));
+    }
+
+    @Override
+    public Analysis getAnalysis(ParserRuleContext parserRuleContext, SQLBulkRequest request) {
+        return null;
     }
 
     @Override

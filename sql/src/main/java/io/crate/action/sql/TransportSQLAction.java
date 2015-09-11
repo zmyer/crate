@@ -24,6 +24,7 @@ package io.crate.action.sql;
 import io.crate.analyze.Analysis;
 import io.crate.analyze.Analyzer;
 import io.crate.analyze.ParameterContext;
+import io.crate.analyze.v4.Analyzer4;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Buckets;
 import io.crate.core.collections.Row;
@@ -36,6 +37,7 @@ import io.crate.operation.collect.StatsTables;
 import io.crate.planner.Planner;
 import io.crate.sql.tree.Statement;
 import io.crate.types.DataType;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.cluster.ClusterService;
@@ -55,11 +57,14 @@ import java.util.List;
 @Singleton
 public class TransportSQLAction extends TransportBaseSQLAction<SQLRequest, SQLResponse> {
 
+    private final Analyzer4 analyzer4;
+
     @Inject
     protected TransportSQLAction(
             ClusterService clusterService,
             Settings settings,
             ThreadPool threadPool,
+            Analyzer4 analyzer4,
             Analyzer analyzer,
             Planner planner,
             Provider<Executor> executor,
@@ -70,6 +75,7 @@ public class TransportSQLAction extends TransportBaseSQLAction<SQLRequest, SQLRe
         super(clusterService, settings, SQLAction.NAME, threadPool,
                 analyzer, planner, executor, statsTables, actionFilters,
                 transportKillJobsNodeAction);
+        this.analyzer4 = analyzer4;
         transportService.registerHandler(SQLAction.NAME, new TransportHandler());
     }
 
@@ -77,6 +83,12 @@ public class TransportSQLAction extends TransportBaseSQLAction<SQLRequest, SQLRe
     public Analysis getAnalysis(Statement statement, SQLRequest request) {
         return analyzer.analyze(statement, new ParameterContext(
                 request.args(), SQLBulkRequest.EMPTY_BULK_ARGS, request.getDefaultSchema(), request.getRequestFlags()));
+    }
+
+    @Override
+    public Analysis getAnalysis(ParserRuleContext parserRuleContext, SQLRequest request) {
+        return analyzer4.analyze(parserRuleContext, new ParameterContext(
+                request.args(), SQLBulkRequest.EMPTY_BULK_ARGS, request.getDefaultSchema()));
     }
 
     @Override
