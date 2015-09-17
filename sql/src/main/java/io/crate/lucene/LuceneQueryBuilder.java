@@ -82,7 +82,6 @@ import org.elasticsearch.common.lucene.search.Queries;
 import org.elasticsearch.common.lucene.search.RegexpFilter;
 import org.elasticsearch.common.lucene.search.XConstantScoreQuery;
 import org.elasticsearch.index.cache.IndexCache;
-import org.elasticsearch.index.cache.filter.FilterCache;
 import org.elasticsearch.index.fielddata.IndexFieldDataService;
 import org.elasticsearch.index.fielddata.IndexGeoPointFieldData;
 import org.elasticsearch.index.mapper.FieldMapper;
@@ -290,7 +289,7 @@ public class LuceneQueryBuilder {
 
             private TermsFilter termsFilter(String columnName, Literal arrayLiteral) {
                 TermsFilter termsFilter;
-                Object values = arrayLiteral.value();
+                Object values = arrayLiteral.copyValue();
                 if (values instanceof Collection) {
                     termsFilter = new TermsFilter(
                             columnName,
@@ -308,7 +307,7 @@ public class LuceneQueryBuilder {
             @Override
             protected Query applyArrayReference(Reference arrayReference, Literal literal, Context context) throws IOException {
                 QueryBuilderHelper builder = QueryBuilderHelper.forType(((CollectionType)arrayReference.valueType()).innerType());
-                return builder.eq(arrayReference.ident().columnIdent().fqn(), literal.value());
+                return builder.eq(arrayReference.ident().columnIdent().fqn(), literal.copyValue());
             }
 
             @Override
@@ -324,7 +323,7 @@ public class LuceneQueryBuilder {
             protected Query applyArrayReference(Reference arrayReference, Literal literal, Context context) throws IOException {
                 // 1 != any ( col ) -->  gt 1 or lt 1
                 String columnName = arrayReference.info().ident().columnIdent().fqn();
-                Object value = literal.value();
+                Object value = literal.copyValue();
 
                 QueryBuilderHelper builder = QueryBuilderHelper.forType(arrayReference.valueType());
                 BooleanQuery query = new BooleanQuery();
@@ -348,7 +347,7 @@ public class LuceneQueryBuilder {
                 BooleanFilter filter = new BooleanFilter();
 
                 BooleanFilter notFilter = new BooleanFilter();
-                for (Object value : toIterable(arrayLiteral.value())) {
+                for (Object value : toIterable(arrayLiteral.copyValue())) {
                     notFilter.add(builder.eqFilter(columnName, value), BooleanClause.Occur.MUST);
                 }
                 filter.add(notFilter, BooleanClause.Occur.MUST_NOT);
@@ -362,7 +361,7 @@ public class LuceneQueryBuilder {
             @Override
             protected Query applyArrayReference(Reference arrayReference, Literal literal, Context context) throws IOException {
                 String notLike = negateWildcard(
-                        convertWildcardToRegex(BytesRefs.toString(literal.value())));
+                        convertWildcardToRegex(BytesRefs.toString(literal.copyValue())));
                 return new RegexpQuery(new Term(
                         arrayReference.info().ident().columnIdent().fqn(),
                         notLike),
@@ -378,7 +377,7 @@ public class LuceneQueryBuilder {
 
                 String columnName = reference.ident().columnIdent().fqn();
                 QueryBuilderHelper builder = QueryBuilderHelper.forType(reference.valueType());
-                for (Object value : toIterable(arrayLiteral.value())) {
+                for (Object value : toIterable(arrayLiteral.copyValue())) {
                     notQuery.add(builder.like(columnName, value, context.indexCache.filter()), BooleanClause.Occur.MUST);
                 }
                 query.add(notQuery, BooleanClause.Occur.MUST_NOT);
@@ -392,7 +391,7 @@ public class LuceneQueryBuilder {
 
             @Override
             protected Query applyArrayReference(Reference arrayReference, Literal literal, Context context) throws IOException {
-                return likeQuery.toQuery(arrayReference, literal.value(), context);
+                return likeQuery.toQuery(arrayReference, literal.copyValue(), context);
             }
 
             @Override
@@ -400,7 +399,7 @@ public class LuceneQueryBuilder {
                 // col like ANY (['a', 'b']) --> or(like(col, 'a'), like(col, 'b'))
                 BooleanQuery booleanQuery = new BooleanQuery();
                 booleanQuery.setMinimumNumberShouldMatch(1);
-                for (Object value : toIterable(arrayLiteral.value())) {
+                for (Object value : toIterable(arrayLiteral.copyValue())) {
                     booleanQuery.add(likeQuery.toQuery(reference, value, context), BooleanClause.Occur.SHOULD);
                 }
                 return booleanQuery;
@@ -415,7 +414,7 @@ public class LuceneQueryBuilder {
                 if (tuple == null) {
                     return null;
                 }
-                return toQuery(tuple.v1(), tuple.v2().value(), context);
+                return toQuery(tuple.v1(), tuple.v2().copyValue(), context);
             }
 
             public Query toQuery(Reference reference, Object value, Context context) {
@@ -437,7 +436,7 @@ public class LuceneQueryBuilder {
                 Literal literal = tuple.v2();
                 CollectionType dataType = ((CollectionType) literal.valueType());
 
-                Set values = (Set) literal.value();
+                Set values = (Set) literal.copyValue();
                 DataType innerType = dataType.innerType();
                 BytesRef[] terms = getBytesRefs(values, TermBuilder.forType(innerType));
                 TermsFilter termsFilter = new TermsFilter(field, terms);
@@ -501,7 +500,7 @@ public class LuceneQueryBuilder {
                         type = ((CollectionType) type).innerType();
                     }
                     QueryBuilderHelper builder = QueryBuilderHelper.forType(type);
-                    Object value = literal.value();
+                    Object value = literal.copyValue();
                     buildTermsQuery(boolTermsFilter, value, columnName, builder);
 
                     if (boolTermsFilter.clauses().isEmpty()) {
@@ -520,7 +519,7 @@ public class LuceneQueryBuilder {
                     return new FilteredQuery(Queries.newMatchAllQuery(), filterClauses);
                 }
                 QueryBuilderHelper builder = QueryBuilderHelper.forType(tuple.v1().valueType());
-                return builder.eq(columnName, tuple.v2().value());
+                return builder.eq(columnName, tuple.v2().copyValue());
             }
 
             private void buildTermsQuery(BooleanFilter booleanFilter,
@@ -582,7 +581,7 @@ public class LuceneQueryBuilder {
                 return rangeQuery.toQuery(
                         arrayReference,
                         ((CollectionType)arrayReference.valueType()).innerType(),
-                        literal.value()
+                        literal.copyValue()
                 );
             }
 
@@ -591,7 +590,7 @@ public class LuceneQueryBuilder {
                 // col < ANY ([1,2,3]) --> or(col<1, col<2, col<3)
                 BooleanQuery booleanQuery = new BooleanQuery();
                 booleanQuery.setMinimumNumberShouldMatch(1);
-                for (Object value : toIterable(arrayLiteral.value())) {
+                for (Object value : toIterable(arrayLiteral.copyValue())) {
                     booleanQuery.add(inverseRangeQuery.toQuery(reference, reference.valueType(), value), BooleanClause.Occur.SHOULD);
                 }
                 return booleanQuery;
@@ -652,7 +651,7 @@ public class LuceneQueryBuilder {
                 if (tuple == null) {
                     return null;
                 }
-                return toQuery(tuple.v1(), tuple.v1().valueType(), tuple.v2().value());
+                return toQuery(tuple.v1(), tuple.v1().valueType(), tuple.v2().copyValue());
             }
 
             public Query toQuery(Reference reference, DataType type, Object value) {
@@ -676,10 +675,10 @@ public class LuceneQueryBuilder {
                 assert Symbol.isLiteral(arguments.get(3), DataTypes.OBJECT);
 
                 @SuppressWarnings("unchecked")
-                Map<String, Object> fields = (Map) ((Literal) arguments.get(0)).value();
-                BytesRef queryString = (BytesRef) ((Literal) arguments.get(1)).value();
-                BytesRef matchType = (BytesRef) ((Literal) arguments.get(2)).value();
-                Map options = (Map) ((Literal) arguments.get(3)).value();
+                Map<String, Object> fields = (Map) ((Literal) arguments.get(0)).copyValue();
+                BytesRef queryString = (BytesRef) ((Literal) arguments.get(1)).copyValue();
+                BytesRef matchType = (BytesRef) ((Literal) arguments.get(2)).copyValue();
+                Map options = (Map) ((Literal) arguments.get(3)).copyValue();
 
                 checkArgument(queryString != null, "cannot use NULL as query term in match predicate");
 
@@ -708,7 +707,7 @@ public class LuceneQueryBuilder {
                 Tuple<Reference, Literal> prepare = prepare(input);
                 if (prepare == null) { return null; }
                 String fieldName = prepare.v1().info().ident().columnIdent().fqn();
-                Object value = prepare.v2().value();
+                Object value = prepare.v2().copyValue();
 
                 // FIXME: nobody knows how Strings can arrive here
                 if (value instanceof String) {
@@ -738,7 +737,7 @@ public class LuceneQueryBuilder {
                 Tuple<Reference, Literal> prepare = prepare(input);
                 if (prepare == null) { return null; }
                 String fieldName = prepare.v1().info().ident().columnIdent().fqn();
-                Object value = prepare.v2().value();
+                Object value = prepare.v2().copyValue();
 
                 // FIXME: nobody knows how Strings can arrive here
                 if (value instanceof String || value instanceof BytesRef) {
@@ -788,7 +787,7 @@ public class LuceneQueryBuilder {
                 }
                 Query query = getQuery(inner, context);
                 if (query == null) return null;
-                Boolean negate = !(Boolean) outerPair.input().value();
+                Boolean negate = !(Boolean) outerPair.input().copyValue();
                 if (negate) {
                     BooleanQuery booleanQuery = new BooleanQuery();
                     booleanQuery.add(query, BooleanClause.Occur.MUST_NOT);
@@ -807,7 +806,7 @@ public class LuceneQueryBuilder {
                         innerPair.reference().info().ident().columnIdent().fqn(),
                         context.mapperService
                 );
-                Shape shape = (Shape) innerPair.input().value();
+                Shape shape = (Shape) innerPair.input().copyValue();
                 Geometry geometry = JtsSpatialContext.GEO.getGeometryFrom(shape);
                 IndexGeoPointFieldData fieldData = context.fieldDataService.getForField(mapper);
                 Filter filter;
@@ -863,7 +862,7 @@ public class LuceneQueryBuilder {
                     // must be something like eq(distance(..), non-literal) - fallback to genericFunction
                     return null;
                 }
-                Double distance = DataTypes.DOUBLE.value(functionLiteralPair.input().value());
+                Double distance = DataTypes.DOUBLE.value(functionLiteralPair.input().copyValue());
 
                 String fieldName = distanceRefLiteral.reference().info().ident().columnIdent().fqn();
                 FieldMapper mapper = getGeoPointFieldMapper(fieldName, context.mapperService);
@@ -871,7 +870,7 @@ public class LuceneQueryBuilder {
                 IndexGeoPointFieldData fieldData = context.fieldDataService.getForField(mapper);
 
                 Input geoPointInput = distanceRefLiteral.input();
-                Double[] pointValue = (Double[]) geoPointInput.value();
+                Double[] pointValue = (Double[]) geoPointInput.copyValue();
                 double lat = pointValue[1];
                 double lon = pointValue[0];
 
@@ -1034,7 +1033,7 @@ public class LuceneQueryBuilder {
             if (left.symbolType() == SymbolType.REFERENCE && right.symbolType().isValueSymbol()) {
                 String columnName = ((Reference) left).info().ident().columnIdent().name();
                 if (Context.FILTERED_FIELDS.contains(columnName)) {
-                    context.filteredFieldValues.put(columnName, ((Input) right).value());
+                    context.filteredFieldValues.put(columnName, ((Input) right).copyValue());
                     return true;
                 }
                 String unsupportedMessage = Context.UNSUPPORTED_FIELDS.get(columnName);
@@ -1154,7 +1153,7 @@ public class LuceneQueryBuilder {
                 for (LuceneCollectorExpression expression : expressions) {
                     expression.setNextDocId(doc);
                 }
-                Boolean value = condition.value();
+                Boolean value = condition.copyValue();
                 if (value == null) {
                     return false;
                 }

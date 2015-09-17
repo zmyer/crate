@@ -46,7 +46,12 @@ public class BlobShardSizeExpression extends SimpleObjectExpression<Long> implem
     }
 
     @Override
-    public Long value() {
+    public Long copyValue() {
         return totalUsageSupplier.get();
+    }
+
+    @Override
+    public Long sharedValue() {
+        return copyValue();
     }
 }

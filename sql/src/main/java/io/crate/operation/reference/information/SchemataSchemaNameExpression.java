@@ -28,7 +28,7 @@ import org.apache.lucene.util.BytesRef;
 public class SchemataSchemaNameExpression extends RowContextCollectorExpression<SchemaInfo, BytesRef> {
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return new BytesRef(this.row.name());
     }
 }

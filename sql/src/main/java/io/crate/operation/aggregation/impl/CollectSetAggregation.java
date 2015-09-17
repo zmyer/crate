@@ -64,7 +64,7 @@ public class CollectSetAggregation extends AggregationFunction<Set<Object>, Set<
 
     @Override
     public Set<Object> iterate(RamAccountingContext ramAccountingContext, Set<Object> state, Input... args) throws CircuitBreakingException {
-        Object value = args[0].value();
+        Object value = args[0].copyValue();
         if (value == null) {
             return state;
         }

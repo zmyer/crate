@@ -38,7 +38,7 @@ public class Literal<ReturnType>
         for (Literal literal : literals) {
             assert literal.valueType() == itemType :
                     String.format("Literal type: %s does not match item type: %s", literal.valueType(), itemType);
-            set.add(literal.value());
+            set.add(literal.copyValue());
         }
         return new Literal<>(new SetType(itemType), Collections.unmodifiableSet(set));
     }
@@ -49,7 +49,7 @@ public class Literal<ReturnType>
             assert literals.get(i).valueType().equals(itemType) || literals.get(i).valueType() == DataTypes.UNDEFINED:
                     String.format("Literal type: %s does not match item type: %s",
                             literals.get(i).valueType(), itemType);
-            values[i] = literals.get(i).value();
+            values[i] = literals.get(i).copyValue();
         }
         return new Literal<>(new ArrayType(itemType), values);
     }
@@ -58,7 +58,7 @@ public class Literal<ReturnType>
         Preconditions.checkArgument(DataTypes.isCollectionType(collectionLiteral.valueType()));
         Iterable values;
         int size;
-        Object literalValue = collectionLiteral.value();
+        Object literalValue = collectionLiteral.copyValue();
         if (literalValue instanceof Collection) {
             values = (Iterable)literalValue;
             size = ((Collection)literalValue).size();
@@ -126,8 +126,13 @@ public class Literal<ReturnType>
 
     @Override
     @SuppressWarnings("unchecked")
-    public ReturnType value() {
+    public ReturnType copyValue() {
         return (ReturnType)value;
+    }
+
+    @Override
+    public ReturnType sharedValue() {
+        return copyValue();
     }
 
     @Override
@@ -147,7 +152,7 @@ public class Literal<ReturnType>
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(value());
+        return Objects.hashCode(copyValue());
     }
 
     @Override
@@ -250,7 +255,7 @@ public class Literal<ReturnType>
             return literal;
         }
         try {
-            return newLiteral(type, type.value(literal.value()));
+            return newLiteral(type, type.value(literal.copyValue()));
         } catch (IllegalArgumentException | ClassCastException e) {
             throw new ConversionException(e.getLocalizedMessage());
         }

@@ -26,4 +26,9 @@ import io.crate.operation.Input;
 public abstract class LineCollectorExpression<ReturnType> implements Input<ReturnType> {
 
     public abstract void startCollect(CollectorContext context);
+
+    @Override
+    public ReturnType sharedValue() {
+        return copyValue();
+    }
 }

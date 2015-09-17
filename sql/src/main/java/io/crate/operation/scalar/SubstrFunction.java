@@ -62,17 +62,17 @@ public class SubstrFunction extends Scalar<BytesRef, Object> implements DynamicF
     @Override
     public BytesRef evaluate(Input[] args) {
         assert (args.length >= 2 && args.length <= 3);
-        final Object val = args[0].value();
+        final Object val = args[0].copyValue();
         if (val == null) {
             return null;
         }
         if (args.length == 3) {
             return evaluate(BytesRefs.toBytesRef(val),
-                    ((Number) args[1].value()).intValue(),
-                    ((Number) args[2].value()).intValue());
+                    ((Number) args[1].copyValue()).intValue(),
+                    ((Number) args[2].copyValue()).intValue());
 
         }
-        return evaluate(BytesRefs.toBytesRef(val), ((Number) args[1].value()).intValue());
+        return evaluate(BytesRefs.toBytesRef(val), ((Number) args[1].copyValue()).intValue());
     }
 
     private static BytesRef evaluate(@Nonnull BytesRef inputStr, int beginIdx) {
@@ -153,23 +153,23 @@ public class SubstrFunction extends Scalar<BytesRef, Object> implements DynamicF
             return symbol;
         }
 
-        final Object inputValue = ((Input) input).value();
-        final Object beginIdxValue = ((Input) beginIdx).value();
+        final Object inputValue = ((Input) input).copyValue();
+        final Object beginIdxValue = ((Input) beginIdx).copyValue();
         if (inputValue == null || beginIdxValue == null) {
             return Literal.NULL;
         }
         if (size == 3) {
-            if (((Input)symbol.arguments().get(2)).value() == null) {
+            if (((Input)symbol.arguments().get(2)).copyValue() == null) {
                 return Literal.NULL;
             }
             return Literal.newLiteral(
                     evaluate(BytesRefs.toBytesRef(inputValue),
-                    ((Number) ((Input) beginIdx).value()).intValue(),
-                    ((Number) ((Input) symbol.arguments().get(2)).value()).intValue()));
+                    ((Number) ((Input) beginIdx).copyValue()).intValue(),
+                    ((Number) ((Input) symbol.arguments().get(2)).copyValue()).intValue()));
         }
         return Literal.newLiteral(evaluate(
                 BytesRefs.toBytesRef(inputValue),
-                ((Number) ((Input) beginIdx).value()).intValue()));
+                ((Number) ((Input) beginIdx).copyValue()).intValue()));
     }
 
     private static boolean anyNonLiterals(Symbol input, Symbol beginIdx, List<Symbol> arguments) {

@@ -20,10 +20,10 @@ public abstract class Operator<I> extends Scalar<Boolean, I> implements Function
     }
 
     protected boolean containsNull(Symbol left, Symbol right) {
-        if (left.symbolType().isValueSymbol() && ((Input<?>)left).value() == null) {
+        if (left.symbolType().isValueSymbol() && ((Input<?>)left).copyValue() == null) {
             return true;
         }
-        if (right.symbolType().isValueSymbol() && ((Input<?>)right).value() == null) {
+        if (right.symbolType().isValueSymbol() && ((Input<?>)right).copyValue() == null) {
             return true;
         }
         return false;

@@ -55,7 +55,7 @@ public class NotPredicate extends Scalar<Boolean, Boolean> {
 
         Symbol arg = symbol.arguments().get(0);
         if (arg instanceof Input) {
-            Object value = ((Input) arg).value();
+            Object value = ((Input) arg).copyValue();
             if (value == null) {
                 return Literal.BOOLEAN_TRUE;
             }
@@ -69,7 +69,7 @@ public class NotPredicate extends Scalar<Boolean, Boolean> {
     @Override
     public Boolean evaluate(Input<Boolean>... args) {
         assert args.length == 1;
-        Boolean value = args[0].value();
+        Boolean value = args[0].copyValue();
         if (value == null) {
             return true;
         }

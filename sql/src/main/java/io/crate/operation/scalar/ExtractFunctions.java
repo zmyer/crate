@@ -105,7 +105,7 @@ public class ExtractFunctions {
         @Override
         public Integer evaluate(Input... args) {
             assert args.length == 1 : "extract only takes one argument";
-            Object value = args[0].value();
+            Object value = args[0].copyValue();
             if (value == null) {
                 return null;
             }

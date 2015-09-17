@@ -29,7 +29,12 @@ public class BlobShardPartitionOrphanedExpression extends SimpleObjectExpression
     public static final String NAME = "orphan_partition";
 
     @Override
-    public Boolean value() {
+    public Boolean copyValue() {
         return false;
+    }
+
+    @Override
+    public Boolean sharedValue() {
+        return copyValue();
     }
 }

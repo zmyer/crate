@@ -70,7 +70,7 @@ public abstract class RoundFunction extends Scalar<Number, Number> {
 
         @Override
         public Number evaluate(Input[] args) {
-            Object value = args[0].value();
+            Object value = args[0].copyValue();
             if (value == null) {
                 return null;
             }
@@ -90,7 +90,7 @@ public abstract class RoundFunction extends Scalar<Number, Number> {
 
         @Override
         public Number evaluate(Input[] args) {
-            Object value = args[0].value();
+            Object value = args[0].copyValue();
             if (value == null) {
                 return null;
             }
@@ -112,7 +112,7 @@ public abstract class RoundFunction extends Scalar<Number, Number> {
 
         @Override
         public Number evaluate(Input[] args) {
-            return (Number) args[0].value();
+            return (Number) args[0].copyValue();
         }
     }
 }

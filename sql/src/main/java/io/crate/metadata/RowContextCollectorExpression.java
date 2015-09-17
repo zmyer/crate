@@ -31,6 +31,11 @@ public abstract class RowContextCollectorExpression<TRow, TReturnValue> implemen
     }
 
     @Override
+    public TReturnValue sharedValue() {
+        return copyValue();
+    }
+
+    @Override
     public void setNextRow(TRow row) {
         this.row = row;
     }

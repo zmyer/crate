@@ -222,8 +222,13 @@ public abstract class BaseAnalyzerTest extends CrateUnitTest {
     static class ClusterNameExpression extends SimpleObjectExpression<BytesRef> {
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return new BytesRef("testcluster");
+        }
+
+        @Override
+        public BytesRef sharedValue() {
+            return copyValue();
         }
     }
 
@@ -231,10 +236,10 @@ public abstract class BaseAnalyzerTest extends CrateUnitTest {
 
         @Override
         public Long evaluate(Input<Number>... args) {
-            if (args[0].value() == null) {
+            if (args[0].copyValue() == null) {
                 return null;
             }
-            return Math.abs((args[0].value()).longValue());
+            return Math.abs((args[0].copyValue()).longValue());
         }
 
         @Override
@@ -257,10 +262,10 @@ public abstract class BaseAnalyzerTest extends CrateUnitTest {
         @Override
         public Long evaluate(Input<Number>... args) {
             assert args.length == 2;
-            if (args[0].value() == null || args[1].value() == null) {
+            if (args[0].copyValue() == null || args[1].copyValue() == null) {
                 return null;
             }
-            return args[0].value().longValue() + args[1].value().longValue();
+            return args[0].copyValue().longValue() + args[1].copyValue().longValue();
         }
 
         @Override

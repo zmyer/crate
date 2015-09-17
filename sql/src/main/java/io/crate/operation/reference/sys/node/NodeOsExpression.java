@@ -43,19 +43,19 @@ public class NodeOsExpression extends SysNodeObjectReference {
     private void addChildImplementations(final OsStats os) {
         childImplementations.put(UPTIME, new OsExpression() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return os.uptime().millis();
             }
         });
         childImplementations.put(TIMESTAMP, new OsExpression() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return System.currentTimeMillis();
             }
         });
         childImplementations.put(PROBE_TIMESTAMP, new OsExpression() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return os.timestamp();
             }
         });

@@ -73,8 +73,8 @@ public abstract class ConcatFunction extends Scalar<BytesRef, BytesRef> {
 
         @Override
         public BytesRef evaluate(Input[] args) {
-            BytesRef firstArg = (BytesRef) args[0].value();
-            BytesRef secondArg = (BytesRef) args[1].value();
+            BytesRef firstArg = (BytesRef) args[0].copyValue();
+            BytesRef secondArg = (BytesRef) args[1].copyValue();
             if (firstArg == null) {
                 if (secondArg == null) {
                     return EMPTY_STRING;
@@ -103,7 +103,7 @@ public abstract class ConcatFunction extends Scalar<BytesRef, BytesRef> {
             int numBytes = 0;
             for (int i = 0; i < args.length; i++) {
                 Input input = args[i];
-                BytesRef value = DataTypes.STRING.value(input.value());
+                BytesRef value = DataTypes.STRING.value(input.copyValue());
                 if (value == null) {
                     value = EMPTY_STRING;
                 }

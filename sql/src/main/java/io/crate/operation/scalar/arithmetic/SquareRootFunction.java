@@ -76,7 +76,7 @@ public abstract class SquareRootFunction extends Scalar<Number, Number> {
 
         @Override
         public Double evaluate(Input[] args) {
-            Number value = (Number)args[0].value();
+            Number value = (Number)args[0].copyValue();
             if(value==null){
                 return null;
             }

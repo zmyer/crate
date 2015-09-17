@@ -39,11 +39,16 @@ public class ShardNumDocsExpression extends SimpleObjectExpression<Long> impleme
     }
 
     @Override
-    public Long value() {
+    public Long copyValue() {
         try {
             return indexShard.docStats().getCount();
         } catch (IllegalIndexShardStateException e) {
             return null;
         }
+    }
+
+    @Override
+    public Long sharedValue() {
+        return copyValue();
     }
 }

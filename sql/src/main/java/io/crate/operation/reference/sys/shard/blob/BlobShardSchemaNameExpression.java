@@ -32,7 +32,12 @@ public class BlobShardSchemaNameExpression extends SimpleObjectExpression<BytesR
     public static final BytesRef BLOB_SCHEMA_NAME = new BytesRef(BlobSchemaInfo.NAME);
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return BLOB_SCHEMA_NAME;
+    }
+
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
     }
 }

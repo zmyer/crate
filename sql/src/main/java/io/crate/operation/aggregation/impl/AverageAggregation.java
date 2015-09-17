@@ -160,7 +160,7 @@ public class AverageAggregation extends AggregationFunction<AverageAggregation.A
     @Override
     public AverageState iterate(RamAccountingContext ramAccountingContext, AverageState state, Input... args) {
         if (state != null) {
-            Number value = (Number) args[0].value();
+            Number value = (Number) args[0].copyValue();
             if (value != null) {
                 state.count++;
                 state.sum += value.doubleValue();

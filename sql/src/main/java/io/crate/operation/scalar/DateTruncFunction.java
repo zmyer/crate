@@ -103,10 +103,10 @@ public class DateTruncFunction extends Scalar<Long, Object> {
         }
 
         // all validation is already done by {@link #normalizeSymbol()}
-        BytesRef interval = (BytesRef)((Input)arguments.get(0)).value();
+        BytesRef interval = (BytesRef)((Input)arguments.get(0)).copyValue();
         BytesRef timeZone = TimeZoneParser.DEFAULT_TZ_BYTES_REF;
         if (arguments.size() == 3) {
-            timeZone = (BytesRef)((Input)arguments.get(1)).value();
+            timeZone = (BytesRef)((Input)arguments.get(1)).copyValue();
         }
 
         return new DateTruncFunction(this.info, rounding(interval, timeZone));
@@ -148,16 +148,16 @@ public class DateTruncFunction extends Scalar<Long, Object> {
         Object value;
         BytesRef timeZone = TimeZoneParser.DEFAULT_TZ_BYTES_REF;
         if (args.length == 2) {
-            value = args[1].value();
+            value = args[1].copyValue();
         } else {
-            timeZone = (BytesRef)args[1].value();
-            value = args[2].value();
+            timeZone = (BytesRef)args[1].copyValue();
+            value = args[2].copyValue();
         }
         if (value == null) {
             return null;
         }
         if (tzRounding == null) {
-            BytesRef interval = (BytesRef)args[0].value();
+            BytesRef interval = (BytesRef)args[0].copyValue();
             return truncate(rounding(interval, timeZone), TimestampType.INSTANCE.value(value));
         }
         return truncate(tzRounding, TimestampType.INSTANCE.value(value));

@@ -65,10 +65,10 @@ public class InOperator extends Operator<Object> {
         if (!left.symbolType().isValueSymbol()) {
             return function;
         }
-        Object inValue = ((Literal) left).value();
+        Object inValue = ((Literal) left).copyValue();
         Literal inList = (Literal) function.arguments().get(1);
         assert inList.valueType().id() == SetType.ID;
-        Set values = (Set)inList.value();
+        Set values = (Set)inList.copyValue();
 
         if (!values.contains(inValue)) {
             return Literal.newLiteral(false);
@@ -83,8 +83,8 @@ public class InOperator extends Operator<Object> {
         assert (args.length == 2);
         assert (args[0] != null && args[1] != null);
 
-        Object inValue = args[0].value();
-        Set<?> inList = (Set<?>)args[1].value();
+        Object inValue = args[0].copyValue();
+        Set<?> inList = (Set<?>)args[1].copyValue();
 
         if (inValue == null || inList == null || inList.contains(null)) {
             return null;

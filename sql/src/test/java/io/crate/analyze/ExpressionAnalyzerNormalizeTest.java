@@ -99,7 +99,7 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
             if (args == null || args.length == 0) {
                 return 0.0d;
             }
-            return Math.abs((args[0].value()).doubleValue());
+            return Math.abs((args[0].copyValue()).doubleValue());
         }
 
         @Override
@@ -199,8 +199,8 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
         map.put("false", true);
         Literal<Map<String, Object>> normalized = (Literal)expressionAnalyzer.normalizeInputForReference(
                 Literal.newLiteral(map), new Reference(objInfo), context);
-        assertThat((Long) normalized.value().get("time"), is(1392508801000l));
-        assertThat((Boolean)normalized.value().get("false"), is(true));
+        assertThat((Long) normalized.copyValue().get("time"), is(1392508801000l));
+        assertThat((Boolean)normalized.copyValue().get("false"), is(true));
     }
 
     @Test( expected = ColumnValidationException.class)
@@ -220,7 +220,7 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
         Symbol normalized = expressionAnalyzer.normalizeInputForReference(
                 Literal.newLiteral(map), new Reference(objInfo), context);
         assertThat(normalized, instanceOf(Literal.class));
-        assertThat(((Literal<Map<String, Object>>)normalized).value().get("d"), Matchers.<Object>is(2.9d));
+        assertThat(((Literal<Map<String, Object>>)normalized).copyValue().get("d"), Matchers.<Object>is(2.9d));
     }
 
     @Test
@@ -237,8 +237,8 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
         Symbol normalized = expressionAnalyzer.normalizeInputForReference(
                 Literal.newLiteral(map), new Reference(objInfo), context);
         assertThat(normalized, instanceOf(Literal.class));
-        assertThat(((Literal<Map<String, Object>>)normalized).value().get("d"), Matchers.<Object>is(2.9d));
-        assertThat(((Literal<Map<String, Object>>)normalized).value().get("inner_strict"),
+        assertThat(((Literal<Map<String, Object>>)normalized).copyValue().get("d"), Matchers.<Object>is(2.9d));
+        assertThat(((Literal<Map<String, Object>>)normalized).copyValue().get("inner_strict"),
                 Matchers.<Object>is(new HashMap<String, Object>(){{
                     put("double", -88.7d);
                 }}
@@ -254,7 +254,7 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
         Symbol normalized = expressionAnalyzer.normalizeInputForReference(
                 Literal.newLiteral(map), new Reference(objInfo), context);
         assertThat(normalized, instanceOf(Literal.class));
-        assertThat(((Literal)normalized).value(), Matchers.<Object>is(map)); // stays the same
+        assertThat(((Literal)normalized).copyValue(), Matchers.<Object>is(map)); // stays the same
     }
 
 
@@ -305,7 +305,7 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
                 new Reference(objInfo),
                 context
         );
-        assertThat((Long) literal.value().get("time"), is(0l));
+        assertThat((Long) literal.copyValue().get("time"), is(0l));
     }
 
     @Test
@@ -319,7 +319,7 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
                 new Reference(objInfo),
                 context
         );
-        assertThat((String)literal.value().get("time"), is("1970-01-01T00:00:00"));
+        assertThat((String)literal.copyValue().get("time"), is("1970-01-01T00:00:00"));
     }
 
     @Test
@@ -333,7 +333,7 @@ public class ExpressionAnalyzerNormalizeTest extends CrateUnitTest {
                 new Reference(objInfo),
                 context
         );
-        assertThat((String)literal.value().get("no_time"), is("1970"));
+        assertThat((String)literal.copyValue().get("no_time"), is("1970"));
     }
 
     @Test

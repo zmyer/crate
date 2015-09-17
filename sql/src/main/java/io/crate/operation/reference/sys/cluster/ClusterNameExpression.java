@@ -38,8 +38,12 @@ public class ClusterNameExpression extends SimpleObjectExpression<BytesRef> {
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return value;
     }
 
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
+    }
 }

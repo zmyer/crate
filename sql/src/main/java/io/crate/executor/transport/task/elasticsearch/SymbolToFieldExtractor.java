@@ -112,7 +112,7 @@ public class SymbolToFieldExtractor<T> {
 
         @Override
         public FieldExtractor<T> visitLiteral(Literal symbol, Context context) {
-            return new LiteralExtractor<>(symbol.value());
+            return new LiteralExtractor<>(symbol.copyValue());
         }
 
         @Override

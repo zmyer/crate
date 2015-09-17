@@ -23,5 +23,6 @@ package io.crate.operation;
 
 public interface Input<T> {
 
-    T value();
+    T copyValue();
+    T sharedValue();
 }

@@ -30,20 +30,20 @@ public class NegativeLiteralVisitor extends SymbolVisitor<Void, Literal> {
 
     @Override
     public Literal visitLiteral(Literal symbol, Void context) {
-        if (symbol.value() == null) {
+        if (symbol.copyValue() == null) {
             return symbol;
         }
         switch (symbol.valueType().id()) {
             case DoubleType.ID:
-                return Literal.newLiteral(symbol.valueType(), (Double)symbol.value() * -1);
+                return Literal.newLiteral(symbol.valueType(), (Double)symbol.copyValue() * -1);
             case FloatType.ID:
-                return Literal.newLiteral(symbol.valueType(), (Double)symbol.value() * -1);
+                return Literal.newLiteral(symbol.valueType(), (Double)symbol.copyValue() * -1);
             case ShortType.ID:
-                return Literal.newLiteral(symbol.valueType(), (Short)symbol.value() * -1);
+                return Literal.newLiteral(symbol.valueType(), (Short)symbol.copyValue() * -1);
             case IntegerType.ID:
-                return Literal.newLiteral(symbol.valueType(), (Integer)symbol.value() * -1);
+                return Literal.newLiteral(symbol.valueType(), (Integer)symbol.copyValue() * -1);
             case LongType.ID:
-                return Literal.newLiteral(symbol.valueType(), (Long)symbol.value() * -1);
+                return Literal.newLiteral(symbol.valueType(), (Long)symbol.copyValue() * -1);
             default:
                 return symbol;
         }

@@ -102,7 +102,7 @@ public class UpdateProjector extends AbstractProjector {
         synchronized (lock) {
             // resolve the Uid
             collectUidExpression.setNextRow(row);
-            uid = Uid.createUid(((BytesRef)collectUidExpression.value()).utf8ToString());
+            uid = Uid.createUid(((BytesRef)collectUidExpression.copyValue()).utf8ToString());
         }
         // routing is already resolved
         bulkShardProcessor.addForExistingShard(shardId, uid.id(), assignments, null, null, requiredVersion);

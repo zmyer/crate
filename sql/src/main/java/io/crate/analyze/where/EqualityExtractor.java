@@ -255,7 +255,7 @@ public class EqualityExtractor {
                 return "NULL";
             }
             String s = "(" + ((Reference)origin.arguments().get(0)).ident().columnIdent().fqn() + "=" +
-                    ((Literal) origin.arguments().get(1)).value() +  ")";
+                    ((Literal) origin.arguments().get(1)).copyValue() +  ")";
             if (current!=origin){
                 s += " TRUE";
             }

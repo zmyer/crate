@@ -34,10 +34,10 @@ public abstract class AbstractTablesSettingsExpression extends RowCollectNestedO
     }
 
     @Override
-    public Map<String, Object> value() {
+    public Map<String, Object> copyValue() {
         if (this.row.schemaInfo().systemSchema()) {
             return null;
         }
-        return super.value();
+        return super.copyValue();
     }
 }

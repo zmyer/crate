@@ -33,7 +33,7 @@ public class SourceAsMapLineExpression extends LineCollectorExpression<Map<Strin
     private LineContext context;
 
     @Override
-    public Map<String, Object> value() {
+    public Map<String, Object> copyValue() {
         return context.sourceAsMap();
     }
 

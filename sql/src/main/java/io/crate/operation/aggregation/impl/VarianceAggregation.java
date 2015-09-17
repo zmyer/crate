@@ -155,7 +155,7 @@ public class VarianceAggregation extends AggregationFunction<VarianceAggregation
     @Override
     public VarianceAggregation.VarianceState iterate(RamAccountingContext ramAccountingContext, VarianceAggregation.VarianceState state, Input... args) throws CircuitBreakingException {
         if (state != null) {
-            Number value = (Number) args[0].value();
+            Number value = (Number) args[0].copyValue();
             if (value != null) {
                 state.addValue(value.doubleValue());
             }

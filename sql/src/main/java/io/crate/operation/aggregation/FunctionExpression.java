@@ -35,7 +35,12 @@ public class FunctionExpression<ReturnType, InputType> implements Input<ReturnTy
     }
 
     @Override
-    public ReturnType value() {
+    public ReturnType copyValue() {
         return functionImplementation.evaluate(childInputs);
+    }
+
+    @Override
+    public ReturnType sharedValue() {
+        return copyValue();
     }
 }

@@ -36,7 +36,7 @@ public class PartitionExpression extends RowContextCollectorExpression<Partition
     }
 
     @Override
-    public Object value() {
+    public Object copyValue() {
         assert row != null : "row shouldn't be null for PartitionExpression";
         return info.type().value(row.values().get(valuesIndex));
     }

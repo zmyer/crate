@@ -47,7 +47,12 @@ public class ShardSizeExpression extends SimpleObjectExpression<Long> implements
     }
 
     @Override
-    public Long value() {
+    public Long copyValue() {
         return sizeSupplier.get();
+    }
+
+    @Override
+    public Long sharedValue() {
+        return copyValue();
     }
 }

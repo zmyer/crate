@@ -104,13 +104,13 @@ public class NodeFsDataExpression extends SysNodeStaticObjectArrayReference {
         protected NodeFsDataChildExpression(final BytesRef device, final BytesRef dataPath) {
             childImplementations.put(DEV, new ChildExpression<BytesRef>() {
                 @Override
-                public BytesRef value() {
+                public BytesRef copyValue() {
                     return device;
                 }
             });
             childImplementations.put(PATH, new ChildExpression<BytesRef>() {
                 @Override
-                public BytesRef value() {
+                public BytesRef copyValue() {
                     return dataPath;
                 }
             });

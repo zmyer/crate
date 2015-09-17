@@ -70,8 +70,8 @@ public class SubscriptFunction extends Scalar<Object, Object[]> implements Dynam
 
         final Symbol input = symbol.arguments().get(0);
         final Symbol index = symbol.arguments().get(1);
-        final Object inputValue = ((Input) input).value();
-        final Object indexValue = ((Input) index).value();
+        final Object inputValue = ((Input) input).copyValue();
+        final Object indexValue = ((Input) index).copyValue();
         if (inputValue == null || indexValue == null) {
             return Literal.NULL;
         }
@@ -82,7 +82,7 @@ public class SubscriptFunction extends Scalar<Object, Object[]> implements Dynam
     @Override
     public Object evaluate(Input[] args) {
         assert args.length == 2 : "invalid number of arguments";
-        return evaluate(args[0].value(), args[1].value());
+        return evaluate(args[0].copyValue(), args[1].copyValue());
     }
 
     private Object evaluate(Object element, Object index) {

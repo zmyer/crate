@@ -42,10 +42,15 @@ public abstract class NestedObjectExpression implements ReferenceImplementation<
     }
 
     @Override
-    public Map<String,Object> value() {
+    public Map<String, Object> sharedValue() {
+        return copyValue();
+    }
+
+    @Override
+    public Map<String,Object> copyValue() {
         Map<String, Object> map = new HashMap<>();
         for (Map.Entry<String, ReferenceImplementation> e : childImplementations.entrySet()) {
-            Object value = e.getValue().value();
+            Object value = e.getValue().copyValue();
 
             // convert nested columns of type e.getValue().value() to String here
             // as we do not want to convert them when building the response

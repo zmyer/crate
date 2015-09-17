@@ -47,7 +47,7 @@ public class DocIdCollectorExpression extends
     }
 
     @Override
-    public Long value() {
+    public Long copyValue() {
         return docId;
     }
 

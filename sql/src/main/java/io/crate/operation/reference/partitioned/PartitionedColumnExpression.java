@@ -45,9 +45,14 @@ public class PartitionedColumnExpression implements ShardReferenceImplementation
         return null;
     }
 
+    @Override
+    public Object sharedValue() {
+        return copyValue();
+    }
+
 
     @Override
-    public Object value() {
+    public Object copyValue() {
         return value;
     }
 }

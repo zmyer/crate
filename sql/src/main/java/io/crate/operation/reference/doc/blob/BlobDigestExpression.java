@@ -29,7 +29,7 @@ public class BlobDigestExpression extends BlobCollectorExpression<BytesRef> {
     public static final String COLUMN_NAME = "digest";
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return new BytesRef(blob.getName());
     }
 

@@ -51,8 +51,12 @@ public class ShardTableNameExpression extends SimpleObjectExpression<BytesRef> i
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return value;
     }
 
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
+    }
 }

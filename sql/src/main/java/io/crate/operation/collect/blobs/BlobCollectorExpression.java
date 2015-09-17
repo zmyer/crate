@@ -33,4 +33,9 @@ public abstract class BlobCollectorExpression<T> implements CollectExpression<Fi
     public void setNextRow(File file) {
         this.blob = file;
     }
+
+    @Override
+    public T sharedValue() {
+        return copyValue();
+    }
 }

@@ -273,7 +273,7 @@ public class WriterProjector extends AbstractProjector {
             try {
                 builder.startArray();
                 for (Input<?> input : inputs) {
-                    builder.value(input.value());
+                    builder.value(input.copyValue());
                 }
                 builder.endArray();
                 builder.flush();

@@ -38,8 +38,12 @@ public class ShardIdExpression extends SimpleObjectExpression<Integer> implement
     }
 
     @Override
-    public Integer value() {
+    public Integer copyValue() {
         return shardId.getId();
     }
 
+    @Override
+    public Integer sharedValue() {
+        return copyValue();
+    }
 }

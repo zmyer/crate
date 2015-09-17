@@ -34,7 +34,7 @@ public class NodeNetworkExpression extends SysNodeObjectReference {
     public NodeNetworkExpression(final NetworkStats stats) {
         childImplementations.put(PROBE_TIMESTAMP, new SysNodeExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return stats.timestamp();
             }
         });

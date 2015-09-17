@@ -55,7 +55,7 @@ public class SleepScalarFunction extends Scalar<Boolean, Long> {
     @SafeVarargs
     @Override
     public final Boolean evaluate(Input<Long>... args) {
-        long millis = (args.length > 0) ? args[0].value() : 1000L;
+        long millis = (args.length > 0) ? args[0].copyValue() : 1000L;
         try {
             Thread.sleep(millis);
             return true;

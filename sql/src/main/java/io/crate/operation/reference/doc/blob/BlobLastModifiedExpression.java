@@ -28,7 +28,7 @@ public class BlobLastModifiedExpression extends BlobCollectorExpression<Long> {
     public static final String COLUMN_NAME = "last_modified";
 
     @Override
-    public Long value() {
+    public Long copyValue() {
         return blob.lastModified();
     }
 

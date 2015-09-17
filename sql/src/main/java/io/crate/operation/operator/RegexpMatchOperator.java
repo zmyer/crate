@@ -47,11 +47,11 @@ public class RegexpMatchOperator extends Operator<BytesRef> {
     @Override
     public Boolean evaluate(Input<BytesRef>... args) {
         assert args.length == 2 : "invalid number of arguments";
-        BytesRef source = args[0].value();
+        BytesRef source = args[0].copyValue();
         if (source == null) {
             return null;
         }
-        BytesRef pattern = args[1].value();
+        BytesRef pattern = args[1].copyValue();
         if (pattern == null) {
             return null;
         }

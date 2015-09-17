@@ -36,7 +36,7 @@ public class TimeZoneParser {
 
     public static final DateTimeZone DEFAULT_TZ = DateTimeZone.UTC;
     public static final Literal<BytesRef> DEFAULT_TZ_LITERAL = Literal.newLiteral("UTC");
-    public static final BytesRef DEFAULT_TZ_BYTES_REF = DEFAULT_TZ_LITERAL.value();
+    public static final BytesRef DEFAULT_TZ_BYTES_REF = DEFAULT_TZ_LITERAL.copyValue();
 
     private static final ConcurrentMap<BytesRef, DateTimeZone> TIME_ZONE_MAP = new ConcurrentHashMap<>();
 

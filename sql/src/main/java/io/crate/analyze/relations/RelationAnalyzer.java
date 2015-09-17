@@ -31,9 +31,7 @@ import io.crate.analyze.validator.GroupBySymbolValidator;
 import io.crate.analyze.validator.HavingSymbolValidator;
 import io.crate.analyze.validator.SemanticSortValidator;
 import io.crate.exceptions.AmbiguousColumnAliasException;
-import io.crate.exceptions.ColumnUnknownException;
 import io.crate.metadata.FunctionInfo;
-import io.crate.metadata.Path;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
@@ -302,7 +300,7 @@ public class RelationAnalyzer extends DefaultTraversalVisitor<AnalyzedRelation, 
 
     private Symbol ordinalOutputReference(List<Symbol> outputSymbols, Literal longLiteral, String clauseName) {
         assert longLiteral.valueType().equals(DataTypes.LONG) : "longLiteral must have valueType long";
-        int idx = ((Long) longLiteral.value()).intValue() - 1;
+        int idx = ((Long) longLiteral.copyValue()).intValue() - 1;
         if (idx < 0) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
                     "%s position %s is not in select list", clauseName, idx + 1));

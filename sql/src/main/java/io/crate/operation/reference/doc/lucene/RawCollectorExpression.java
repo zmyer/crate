@@ -40,7 +40,7 @@ public class RawCollectorExpression extends
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return visitor.source().toBytesRef();
     }
 }

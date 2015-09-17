@@ -75,7 +75,7 @@ public abstract class AbstractIndexWriterProjector extends AbstractProjector {
         @Nullable
         @Override
         public BytesRef apply(Input<?> input) {
-            return BytesRefs.toBytesRef(input.value());
+            return BytesRefs.toBytesRef(input.copyValue());
         }
     };
     private final RowShardResolver rowShardResolver;

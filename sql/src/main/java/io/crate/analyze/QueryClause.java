@@ -46,7 +46,7 @@ public abstract class QueryClause {
 
     public static boolean canMatch(Symbol query) {
         if (query.symbolType().isValueSymbol()) {
-            Object value = ((Input) query).value();
+            Object value = ((Input) query).copyValue();
             if (value == null) {
                 return false;
             }

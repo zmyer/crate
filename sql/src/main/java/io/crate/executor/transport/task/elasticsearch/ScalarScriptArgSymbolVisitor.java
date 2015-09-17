@@ -76,7 +76,7 @@ public class ScalarScriptArgSymbolVisitor extends SymbolVisitor<XContentBuilder,
 
         try {
             builder.startObject()
-                    .field("value", symbol.value())
+                    .field("value", symbol.copyValue())
                     .field("type");
             SQLResponse.toXContentNestedDataType(builder, symbol.valueType());
             builder.endObject();

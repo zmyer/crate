@@ -39,11 +39,16 @@ public class ShardRelocatingNodeExpression extends SimpleObjectExpression<BytesR
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         String relocatingNodeId = indexShard.routingEntry().relocatingNodeId();
         if (relocatingNodeId != null) {
             return new BytesRef(relocatingNodeId);
         }
         return null;
+    }
+
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
     }
 }

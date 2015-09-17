@@ -38,8 +38,13 @@ public class BlobShardNumDocsExpression extends SimpleObjectExpression<Long> imp
     }
 
     @Override
-    public Long value() {
+    public Long copyValue() {
         // TODO: cache stats result
         return blobShard.blobStats().count();
+    }
+
+    @Override
+    public Long sharedValue() {
+        return copyValue();
     }
 }

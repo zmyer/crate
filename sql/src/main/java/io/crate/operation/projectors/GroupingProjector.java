@@ -182,7 +182,7 @@ public class GroupingProjector extends AbstractProjector {
                 collectExpression.setNextRow(row);
             }
 
-            Object key = keyInput.value();
+            Object key = keyInput.sharedValue();
 
             // HashMap.get requires some objects (iterators) and at least 2 integers
             ramAccountingContext.addBytes(32);
@@ -196,7 +196,7 @@ public class GroupingProjector extends AbstractProjector {
                 }
                 ramAccountingContext.addBytes(
                         RamAccountingContext.roundUp(sizeEstimator.estimateSize(key)) + 24); // 24 bytes overhead per entry
-                result.put(key, states);
+                result.put(keyInput.copyValue(), states);
             } else {
                 for (int i = 0; i < aggregators.length; i++) {
                     states[i] = aggregators[i].processRow(states[i]);
@@ -285,11 +285,11 @@ public class GroupingProjector extends AbstractProjector {
             List<Object> key = new ArrayList<>(keyInputs.size());
             int keyIdx = 0;
             for (Input keyInput : keyInputs) {
-                key.add(keyInput.value());
+                key.add(keyInput.copyValue());
                 // 4 bytes overhead per list entry + 4 bytes overhead for later hashCode
                 // calculation while using list.get()
                 ramAccountingContext.addBytes(RamAccountingContext.roundUp(
-                        sizeEstimators.get(keyIdx).estimateSize(keyInput.value()) + 4) + 4);
+                        sizeEstimators.get(keyIdx).estimateSize(keyInput.copyValue()) + 4) + 4);
                 keyIdx++;
             }
 

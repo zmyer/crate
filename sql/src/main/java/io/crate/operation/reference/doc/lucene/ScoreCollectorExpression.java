@@ -41,7 +41,7 @@ public class ScoreCollectorExpression extends
     }
 
     @Override
-    public Float value() {
+    public Float copyValue() {
         return score;
     }
 

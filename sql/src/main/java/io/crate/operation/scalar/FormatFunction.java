@@ -58,20 +58,20 @@ public class FormatFunction extends Scalar<BytesRef, Object> implements DynamicF
     @Override
     public BytesRef evaluate(Input<Object>... args) {
         assert args.length > 1;
-        assert args[0].value() != null;
+        assert args[0].copyValue() != null;
 
 
 
         Object[] values = new Object[args.length - 1];
         for (int i = 0; i < args.length - 1; i++) {
-            if (args[i + 1].value() instanceof BytesRef) {
-                values[i] = ((BytesRef) args[i + 1].value()).utf8ToString();
+            if (args[i + 1].copyValue() instanceof BytesRef) {
+                values[i] = ((BytesRef) args[i + 1].copyValue()).utf8ToString();
             } else {
-                values[i] = args[i + 1].value();
+                values[i] = args[i + 1].copyValue();
             }
         }
 
-        Object formatString = args[0].value();
+        Object formatString = args[0].copyValue();
         return new BytesRef(String.format(Locale.ENGLISH, ((BytesRef) formatString).utf8ToString(), values));
     }
 
@@ -102,7 +102,7 @@ public class FormatFunction extends Scalar<BytesRef, Object> implements DynamicF
             }
 
             assert argument instanceof Input; // valueSymbol must implement Input
-            Object value = ((Input)argument).value();
+            Object value = ((Input)argument).copyValue();
 
             if (value instanceof BytesRef) {
                 objects.add(((BytesRef)value).utf8ToString());
@@ -113,7 +113,7 @@ public class FormatFunction extends Scalar<BytesRef, Object> implements DynamicF
 
         return Literal.newLiteral(String.format(
                 Locale.ENGLISH,
-                ((BytesRef)((Literal) formatString).value()).utf8ToString(),
+                ((BytesRef)((Literal) formatString).copyValue()).utf8ToString(),
                 objects.toArray(new Object[objects.size()])));
     }
 

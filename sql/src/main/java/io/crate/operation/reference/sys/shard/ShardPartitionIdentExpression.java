@@ -43,7 +43,12 @@ public class ShardPartitionIdentExpression extends SimpleObjectExpression<BytesR
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return value;
+    }
+
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
     }
 }

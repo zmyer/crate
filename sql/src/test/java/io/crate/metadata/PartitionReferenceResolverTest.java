@@ -41,13 +41,18 @@ public class PartitionReferenceResolverTest extends CrateUnitTest {
         ReferenceInfo refInfo = TestingHelpers.refInfo("foo.bar", DataTypes.STRING, RowGranularity.CLUSTER);
         when(fallbackRefResolver.getImplementation(refInfo)).thenReturn(new ReferenceImplementation() {
             @Override
-            public Object value() {
+            public Object copyValue() {
                 return null;
             }
 
             @Override
             public ReferenceImplementation getChildImplementation(String name) {
                 return null;
+            }
+
+            @Override
+            public Object sharedValue() {
+                return copyValue();
             }
         });
         PartitionReferenceResolver referenceResolver = new PartitionReferenceResolver(

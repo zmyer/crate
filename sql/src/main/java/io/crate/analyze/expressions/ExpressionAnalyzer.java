@@ -53,7 +53,6 @@ import io.crate.operation.scalar.timestamp.CurrentTimestampFunction;
 import io.crate.planner.RowGranularity;
 import io.crate.planner.symbol.*;
 import io.crate.planner.symbol.Literal;
-import io.crate.rest.action.RestSQLAction;
 import io.crate.sql.ExpressionFormatter;
 import io.crate.sql.parser.SqlParser;
 import io.crate.sql.tree.*;
@@ -186,7 +185,7 @@ public class ExpressionAnalyzer {
             if (reference instanceof DynamicReference) {
                 if (reference.info().columnPolicy() != ColumnPolicy.IGNORED) {
                     // re-guess without strict to recognize timestamps
-                    DataType<?> dataType = DataTypes.guessType(literal.value(), false);
+                    DataType<?> dataType = DataTypes.guessType(literal.copyValue(), false);
                     validateInputType(dataType, reference.info().ident().columnIdent());
                     ((DynamicReference) reference).valueType(dataType);
                     literal = Literal.convert(literal, dataType); // need to update literal if the type changed
@@ -208,13 +207,13 @@ public class ExpressionAnalyzer {
             // 3. if reference is of type object - do special validation
             if (reference.info().type() == DataTypes.OBJECT) {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> value = (Map<String, Object>) literal.value();
+                Map<String, Object> value = (Map<String, Object>) literal.copyValue();
                 if (value == null) {
                     return Literal.NULL;
                 }
                 literal = Literal.newLiteral(normalizeObjectValue(value, reference.info(), true));
             } else if (isObjectArray(reference.info().type())) {
-                Object[] value = (Object[]) literal.value();
+                Object[] value = (Object[]) literal.copyValue();
                 if (value == null) {
                     return Literal.NULL;
                 }

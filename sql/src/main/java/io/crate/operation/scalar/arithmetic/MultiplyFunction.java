@@ -52,13 +52,13 @@ public abstract class MultiplyFunction extends ArithmeticFunction {
         @Override
         public Number evaluate(Input[] args) {
             assert args.length == 2;
-            if (args[0].value() == null) {
+            if (args[0].copyValue() == null) {
                 return null;
             }
-            if (args[1].value() == null) {
+            if (args[1].copyValue() == null) {
                 return null;
             }
-            return ((Number)args[0].value()).doubleValue() * ((Number)args[1].value()).doubleValue();
+            return ((Number)args[0].copyValue()).doubleValue() * ((Number)args[1].copyValue()).doubleValue();
         }
     }
 
@@ -71,13 +71,13 @@ public abstract class MultiplyFunction extends ArithmeticFunction {
         @Override
         public Number evaluate(Input[] args) {
             assert args.length == 2;
-            if (args[0].value() == null) {
+            if (args[0].copyValue() == null) {
                 return null;
             }
-            if (args[1].value() == null) {
+            if (args[1].copyValue() == null) {
                 return null;
             }
-            return ((Number)args[0].value()).longValue() * ((Number)args[1].value()).longValue();
+            return ((Number)args[0].copyValue()).longValue() * ((Number)args[1].copyValue()).longValue();
         }
     }
 

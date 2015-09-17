@@ -63,11 +63,11 @@ public class WithinFunction extends Scalar<Boolean, Object> {
     }
 
     public Boolean evaluate(Input leftInput, Input rightInput) {
-        Object left = leftInput.value();
+        Object left = leftInput.copyValue();
         if (left == null) {
             return null;
         }
-        Object right = rightInput.value();
+        Object right = rightInput.copyValue();
         if (right == null) {
             return null;
         }

@@ -51,7 +51,7 @@ public class SumAggregation extends AggregationFunction<Double, Double> {
 
     @Override
     public Double iterate(RamAccountingContext ramAccountingContext, Double state, Input... args) throws CircuitBreakingException {
-        return reduce(ramAccountingContext, state, DataTypes.DOUBLE.value(args[0].value()));
+        return reduce(ramAccountingContext, state, DataTypes.DOUBLE.value(args[0].copyValue()));
     }
 
     @Override

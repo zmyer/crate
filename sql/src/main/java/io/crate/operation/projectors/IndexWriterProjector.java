@@ -154,7 +154,7 @@ public class IndexWriterProjector extends AbstractIndexWriterProjector {
 
         @Override
         public BytesRef generateSource() {
-            return input.value();
+            return input.copyValue();
         }
     }
 
@@ -175,7 +175,7 @@ public class IndexWriterProjector extends AbstractIndexWriterProjector {
 
         @Override
         public BytesRef generateSource() {
-            Map<String, Object> value = sourceInput.value();
+            Map<String, Object> value = sourceInput.copyValue();
             if (value == null) {
                 return null;
             }

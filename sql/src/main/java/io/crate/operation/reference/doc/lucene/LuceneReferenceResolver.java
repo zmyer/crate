@@ -100,7 +100,7 @@ public class LuceneReferenceResolver implements ReferenceResolver<LuceneCollecto
     private static class NullValueCollectorExpression extends LuceneCollectorExpression<Void> {
 
         @Override
-        public Void value() {
+        public Void copyValue() {
             return null;
         }
     }

@@ -103,7 +103,7 @@ public abstract class AbstractScalarScriptFactory implements NativeScriptFactory
 
         @Override
         public Object evaluate(DocLookup doc) {
-            return value.value();
+            return value.copyValue();
         }
 
         @Override

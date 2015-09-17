@@ -43,4 +43,9 @@ public abstract class LuceneCollectorExpression<ReturnType> implements Input<Ret
     public void setScorer(Scorer scorer) {
 
     }
+
+    @Override
+    public ReturnType sharedValue() {
+        return copyValue();
+    }
 }

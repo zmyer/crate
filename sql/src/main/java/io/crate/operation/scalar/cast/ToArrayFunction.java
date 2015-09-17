@@ -95,13 +95,13 @@ public class ToArrayFunction extends Scalar<Object[], Object> {
         if (anyNonLiterals(symbol.arguments())) {
             return symbol;
         }
-        final Object inputValue = ((Input) symbol.arguments().get(0)).value();
+        final Object inputValue = ((Input) symbol.arguments().get(0)).copyValue();
         return Literal.newLiteral(returnType, returnType.value(inputValue));
     }
 
     @Override
     public Object[] evaluate(Input[] args) {
         assert args.length == 1 : "Number of arguments must be 1";
-        return (Object[]) returnType.value(args[0].value());
+        return (Object[]) returnType.value(args[0].copyValue());
     }
 }

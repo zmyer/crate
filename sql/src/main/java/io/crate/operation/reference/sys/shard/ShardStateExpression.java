@@ -38,8 +38,12 @@ public class ShardStateExpression extends SimpleObjectExpression<BytesRef> imple
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return new BytesRef(indexShard.state().toString());
     }
 
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
+    }
 }

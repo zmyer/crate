@@ -48,7 +48,12 @@ public class ShardSchemaNameExpression extends SimpleObjectExpression<BytesRef> 
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return schemaName;
+    }
+
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
     }
 }

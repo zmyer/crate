@@ -46,7 +46,7 @@ public class NodeOsCpuExpression extends SysNodeObjectReference {
     private void addChildImplementations(final OsStats.Cpu cpu) {
         childImplementations.put(SYS, new CpuExpression() {
             @Override
-            public Short value() {
+            public Short copyValue() {
                 if (cpu != null) {
                     return cpu.sys();
                 } else {
@@ -56,7 +56,7 @@ public class NodeOsCpuExpression extends SysNodeObjectReference {
         });
         childImplementations.put(USER, new CpuExpression() {
             @Override
-            public Short value() {
+            public Short copyValue() {
                 if (cpu != null) {
                     return cpu.user();
                 } else {
@@ -66,7 +66,7 @@ public class NodeOsCpuExpression extends SysNodeObjectReference {
         });
         childImplementations.put(IDLE, new CpuExpression() {
             @Override
-            public Short value() {
+            public Short copyValue() {
                 if (cpu != null) {
                     return cpu.idle();
                 } else {
@@ -76,7 +76,7 @@ public class NodeOsCpuExpression extends SysNodeObjectReference {
         });
         childImplementations.put(USAGE, new CpuExpression() {
             @Override
-            public Short value() {
+            public Short copyValue() {
                 if (cpu != null) {
                     return (short) (cpu.sys() + cpu.user());
                 } else {
@@ -86,7 +86,7 @@ public class NodeOsCpuExpression extends SysNodeObjectReference {
         });
         childImplementations.put(STOLEN, new CpuExpression() {
             @Override
-            public Short value() {
+            public Short copyValue() {
                 if (cpu != null) {
                     return cpu.stolen();
                 } else {

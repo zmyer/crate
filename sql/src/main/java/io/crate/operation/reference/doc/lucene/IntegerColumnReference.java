@@ -35,7 +35,7 @@ public class IntegerColumnReference extends FieldCacheExpression<IndexNumericFie
     }
 
     @Override
-    public Integer value() {
+    public Integer copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

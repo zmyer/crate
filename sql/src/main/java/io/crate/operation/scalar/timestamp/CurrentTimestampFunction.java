@@ -55,7 +55,7 @@ public class CurrentTimestampFunction extends Scalar<Long, Integer> {
     public Long evaluate(Input<Integer>... args) {
         long millis = DateTimeUtils.currentTimeMillis();
         if (args.length == 1) {
-            Integer precision = args[0].value();
+            Integer precision = args[0].copyValue();
             if (precision == null) {
                 throw new IllegalArgumentException(String.format("NULL precision not supported for %s", NAME));
             }

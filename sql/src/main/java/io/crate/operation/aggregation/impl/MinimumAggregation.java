@@ -137,6 +137,6 @@ public abstract class MinimumAggregation extends AggregationFunction<Comparable,
 
     @Override
     public Comparable iterate(RamAccountingContext ramAccountingContext, Comparable state, Input... args) throws CircuitBreakingException {
-        return reduce(ramAccountingContext, state, (Comparable) args[0].value());
+        return reduce(ramAccountingContext, state, (Comparable) args[0].copyValue());
     }
 }

@@ -43,8 +43,13 @@ public class FunctionExtractor<T> implements FieldExtractor<T> {
         for (final FieldExtractor<T> subExtractor : subExtractors) {
             inputs[idx] = new Input() {
                 @Override
-                public Object value() {
+                public Object copyValue() {
                     return subExtractor.extract(response);
+                }
+
+                @Override
+                public Object sharedValue() {
+                    return copyValue();
                 }
             };
             idx++;

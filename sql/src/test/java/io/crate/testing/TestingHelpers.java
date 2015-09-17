@@ -201,7 +201,7 @@ public class TestingHelpers {
     @SuppressWarnings("unchecked")
     public static void assertLiteralSymbol(Symbol symbol, String expectedValue) {
         assertThat(symbol, instanceOf(Literal.class));
-        Object value = ((Literal) symbol).value();
+        Object value = ((Literal) symbol).copyValue();
 
         if (value instanceof String) {
             assertThat((String) value, is(expectedValue));
@@ -239,17 +239,17 @@ public class TestingHelpers {
     private static <T> void assertLiteral(Symbol symbol, T expectedValue, DataType type) {
         assertThat(symbol, instanceOf(Literal.class));
         assertEquals(type, ((Literal) symbol).valueType());
-        assertThat((T) ((Literal) symbol).value(), is(expectedValue));
+        assertThat((T) ((Literal) symbol).copyValue(), is(expectedValue));
     }
 
     public static <T> void assertNullLiteral(Symbol symbol, T expectedValue) {
-        assertLiteral(symbol, (T) ((Literal) symbol).value(), DataTypes.UNDEFINED);
+        assertLiteral(symbol, (T) ((Literal) symbol).copyValue(), DataTypes.UNDEFINED);
     }
 
     public static void assertLiteralSymbol(Symbol symbol, Object expectedValue, DataType type) {
         assertThat(symbol, instanceOf(Literal.class));
         assertEquals(type, ((Literal) symbol).valueType());
-        assertThat(((Literal) symbol).value(), is(expectedValue));
+        assertThat(((Literal) symbol).copyValue(), is(expectedValue));
     }
 
     public static Matcher<Symbol> isLiteral(Object expectedValue) {
@@ -271,16 +271,16 @@ public class TestingHelpers {
                     mismatchDescription.appendText("wrong type ").appendValue(item.valueType());
                     result = false;
                 }
-                if (((Literal) item).value() == null && expectedValue != null) {
+                if (((Literal) item).copyValue() == null && expectedValue != null) {
                     mismatchDescription.appendText("wrong value ").appendValue(
-                            BytesRefs.toString(((Literal) item).value()));
+                            BytesRefs.toString(((Literal) item).copyValue()));
                     result = false;
-                } else if (((Literal) item).value() == null && expectedValue == null) {
+                } else if (((Literal) item).copyValue() == null && expectedValue == null) {
                     return true;
                 }
-                if (!((Literal) item).value().equals(expectedValue)) {
+                if (!((Literal) item).copyValue().equals(expectedValue)) {
                     mismatchDescription.appendText("wrong value ").appendValue(
-                            bytesRefToString.apply(((Literal) item).value()));
+                            bytesRefToString.apply(((Literal) item).copyValue()));
                     result = false;
                 }
                 return result;

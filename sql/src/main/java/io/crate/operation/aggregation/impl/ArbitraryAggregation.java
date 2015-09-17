@@ -69,7 +69,7 @@ public class ArbitraryAggregation extends AggregationFunction<Object, Object> {
 
     @Override
     public Object iterate(RamAccountingContext ramAccountingContext, Object state, Input... args) {
-        return reduce(ramAccountingContext, state, args[0].value());
+        return reduce(ramAccountingContext, state, args[0].copyValue());
     }
 
     @Override

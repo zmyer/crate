@@ -373,10 +373,10 @@ public class TransportShardUpsertAction
         for (Map.Entry<Reference, Input<?>> entry : implContext.referenceInputMap.entrySet()) {
             ColumnIdent columnIdent = entry.getKey().ident().columnIdent();
             if (columnIdent.equals(DocSysColumns.RAW)) {
-                rawSource = (BytesRef)entry.getValue().value();
+                rawSource = (BytesRef)entry.getValue().copyValue();
                 break;
             }
-            builder.field(columnIdent.fqn(), entry.getValue().value());
+            builder.field(columnIdent.fqn(), entry.getValue().copyValue());
         }
         IndexRequest indexRequest = Requests.indexRequest(request.index()).type(request.type()).id(item.id()).routing(request.routing())
                 .create(!request.overwriteDuplicates()).operationThreaded(false);
@@ -466,7 +466,7 @@ public class TransportShardUpsertAction
 
         @Override
         public Object inputValueFor(InputColumn inputColumn) {
-            return implContext.collectExpressionFor(inputColumn).value();
+            return implContext.collectExpressionFor(inputColumn).copyValue();
         }
 
     }

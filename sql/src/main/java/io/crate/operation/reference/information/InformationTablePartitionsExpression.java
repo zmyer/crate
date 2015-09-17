@@ -32,7 +32,7 @@ public abstract class InformationTablePartitionsExpression<T>
 
     public static class PartitionsTableNameExpression extends InformationTablePartitionsExpression<BytesRef> {
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return new BytesRef(row.name().tableName());
         }
     }
@@ -42,7 +42,7 @@ public abstract class InformationTablePartitionsExpression<T>
         private final BytesRef DOC_SCHEMA_INFO = new BytesRef(Schemas.DEFAULT_SCHEMA_NAME);
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             String schemaName = row.name().schemaOrNull();
             if (schemaName == null) {
                 return DOC_SCHEMA_INFO;
@@ -53,27 +53,27 @@ public abstract class InformationTablePartitionsExpression<T>
 
     public static class PartitionsPartitionIdentExpression extends InformationTablePartitionsExpression<BytesRef> {
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return new BytesRef(row.name().ident());
         }
     }
     public static class PartitionsValuesExpression extends InformationTablePartitionsExpression<Map<String, Object>> {
         @Override
-        public Map<String, Object> value() {
+        public Map<String, Object> copyValue() {
             return row.values();
         }
     }
     public static class PartitionsNumberOfShardsExpression extends InformationTablePartitionsExpression<Integer> {
 
         @Override
-        public Integer value() {
+        public Integer copyValue() {
             return row.numberOfShards();
         }
     }
 
     public static class PartitionsNumberOfReplicasExpression extends InformationTablePartitionsExpression<BytesRef> {
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return row.numberOfReplicas();
         }
     }

@@ -33,7 +33,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(this.row.schemaName());
                             }
                         };
@@ -44,7 +44,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(this.row.tableName());
                             }
                         };
@@ -55,7 +55,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(this.row.partitionIdent());
                             }
                         };
@@ -66,7 +66,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, Integer>() {
                             @Override
-                            public Integer value() {
+                            public Integer copyValue() {
                                 return this.row.id();
                             }
                         };
@@ -77,7 +77,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return 0L;
                             }
                         };
@@ -88,7 +88,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, Boolean>() {
                             @Override
-                            public Boolean value() {
+                            public Boolean copyValue() {
                                 return row.primary();
                             }
                         };
@@ -99,7 +99,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return null;
                             }
                         };
@@ -110,7 +110,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return 0L;
                             }
                         };
@@ -121,7 +121,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return row.state();
                             }
                         };
@@ -132,7 +132,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression<UnassignedShard, Boolean>() {
                             @Override
-                            public Boolean value() {
+                            public Boolean copyValue() {
                                 return this.row.orphanedPartition();
                             }
                         };
@@ -143,7 +143,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
                     public RowContextCollectorExpression create() {
                         return new RowContextCollectorExpression() {
                             @Override
-                            public Object value() {
+                            public Object copyValue() {
                                 return null;
                             }
                         };
@@ -160,7 +160,7 @@ public class UnassignedShardsReferenceResolver implements ReferenceResolver<RowC
         if (expression == null && refInfo.ident().columnIdent().name().equals(SysNodesTableInfo.SYS_COL_NAME)) {
             return new RowContextCollectorExpression<UnassignedShard, Object>() {
                 @Override
-                public Object value() {
+                public Object copyValue() {
                     return null;
                 }
             };

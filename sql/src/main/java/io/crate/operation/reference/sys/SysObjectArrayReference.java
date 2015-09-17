@@ -45,7 +45,7 @@ public abstract class SysObjectArrayReference extends SimpleObjectExpression<Obj
         for (NestedObjectExpression sysObjectReference : childImplementations) {
             ReferenceImplementation<?> child = sysObjectReference.getChildImplementation(name);
             if (child != null) {
-                Object value = child.value();
+                Object value = child.copyValue();
                 values[i++] = value;
             } else {
                 values[i++] = null;
@@ -53,17 +53,26 @@ public abstract class SysObjectArrayReference extends SimpleObjectExpression<Obj
         }
         return new SimpleObjectExpression<Object[]>() {
             @Override
-            public Object[] value() {
+            public Object[] copyValue() {
                 return values;
             }
 
+            @Override
+            public Object[] sharedValue() {
+                return copyValue();
+            }
         };
 
 
     }
 
     @Override
-    public Object[] value() {
+    public Object[] sharedValue() {
+        return copyValue();
+    }
+
+    @Override
+    public Object[] copyValue() {
         List<NestedObjectExpression> childImplementations = getChildImplementations();
         Object[] values = new Object[childImplementations.size()];
         int i = 0;
@@ -72,7 +81,7 @@ public abstract class SysObjectArrayReference extends SimpleObjectExpression<Obj
                 @Nullable
                 @Override
                 public Object apply(@Nullable ReferenceImplementation input) {
-                    Object value = input.value();
+                    Object value = input.copyValue();
                     if (value != null && value instanceof BytesRef) {
                         return ((BytesRef) value).utf8ToString();
                     } else {

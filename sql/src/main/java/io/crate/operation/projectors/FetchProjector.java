@@ -161,7 +161,7 @@ public class FetchProjector extends AbstractProjector {
         consumedRows = true;
         collectDocIdExpression.setNextRow(row);
 
-        long docId = (Long)collectDocIdExpression.value();
+        long docId = (Long)collectDocIdExpression.copyValue();
         int jobSearchContextId = (int)(docId >> 32);
 
         String nodeId = jobSearchContextIdToNode.get(jobSearchContextId);

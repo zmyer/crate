@@ -35,7 +35,7 @@ public class ColumnExtractingLineExpression extends LineCollectorExpression<Obje
     }
 
     @Override
-    public Object value() {
+    public Object copyValue() {
         return context.get(columnIdent);
     }
 

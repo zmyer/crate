@@ -319,7 +319,7 @@ public class UpdateAnalyzerTest extends BaseAnalyzerTest {
                 new Reference(userTableInfo.getReferenceInfo(new ColumnIdent("friends"))));
         assertThat(friendsLiteral.valueType().id(), is(ArrayType.ID));
         assertEquals(DataTypes.OBJECT, ((ArrayType)friendsLiteral.valueType()).innerType());
-        assertThat(((Object[]) friendsLiteral.value()).length, is(0));
+        assertThat(((Object[]) friendsLiteral.copyValue()).length, is(0));
     }
 
     @Test( expected = IllegalArgumentException.class )

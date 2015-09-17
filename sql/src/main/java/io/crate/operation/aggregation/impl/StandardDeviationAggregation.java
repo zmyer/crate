@@ -153,7 +153,7 @@ public class StandardDeviationAggregation extends AggregationFunction<StandardDe
     @Override
     public StdDevState iterate(RamAccountingContext ramAccountingContext, StdDevState state, Input... args) throws CircuitBreakingException {
         if (state != null) {
-            Number value = (Number) args[0].value();
+            Number value = (Number) args[0].copyValue();
             if (value != null) {
                 state.addValue(value.doubleValue());
             }

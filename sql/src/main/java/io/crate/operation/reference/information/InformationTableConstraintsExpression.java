@@ -36,7 +36,7 @@ public abstract class InformationTableConstraintsExpression<T> extends RowContex
             extends InformationTableConstraintsExpression<BytesRef> {
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return new BytesRef(row.schemaInfo().name());
         }
     }
@@ -45,7 +45,7 @@ public abstract class InformationTableConstraintsExpression<T> extends RowContex
             extends InformationTableConstraintsExpression<BytesRef> {
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             assert row.ident().name() != null : "table name must not be null";
             return new BytesRef(row.ident().name());
         }
@@ -55,7 +55,7 @@ public abstract class InformationTableConstraintsExpression<T> extends RowContex
             extends InformationTableConstraintsExpression<BytesRef[]> {
 
         @Override
-        public BytesRef[] value() {
+        public BytesRef[] copyValue() {
             BytesRef[] values = new BytesRef[row.primaryKey().size()];
             List<ColumnIdent> primaryKey = row.primaryKey();
             for (int i = 0, primaryKeySize = primaryKey.size(); i < primaryKeySize; i++) {
@@ -69,7 +69,7 @@ public abstract class InformationTableConstraintsExpression<T> extends RowContex
             extends InformationTableConstraintsExpression<BytesRef> {
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return PRIMARY_KEY;
         }
     }

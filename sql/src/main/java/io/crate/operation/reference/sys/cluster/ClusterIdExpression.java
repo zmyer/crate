@@ -40,7 +40,7 @@ public class ClusterIdExpression extends SimpleObjectExpression<BytesRef> {
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         // value could not be ready on node start-up, but is static once set
         try {
             if (value == null && clusterIdService.clusterId().get() != null) {
@@ -52,4 +52,8 @@ public class ClusterIdExpression extends SimpleObjectExpression<BytesRef> {
         return value;
     }
 
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
+    }
 }

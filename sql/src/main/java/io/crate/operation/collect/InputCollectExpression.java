@@ -38,7 +38,7 @@ public class InputCollectExpression implements CollectExpression<Row, Object> {
     }
 
     @Override
-    public Object value() {
+    public Object copyValue() {
         return value;
     }
 
@@ -60,5 +60,10 @@ public class InputCollectExpression implements CollectExpression<Row, Object> {
         int result = position;
         result = 31 * result + (value != null ? value.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public Object sharedValue() {
+        return copyValue();
     }
 }

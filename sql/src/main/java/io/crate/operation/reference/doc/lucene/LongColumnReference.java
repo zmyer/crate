@@ -35,7 +35,7 @@ public class LongColumnReference extends FieldCacheExpression<IndexNumericFieldD
     }
 
     @Override
-    public Long value() {
+    public Long copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

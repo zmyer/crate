@@ -67,7 +67,7 @@ public class MinMasterNodesSysCheck extends AbstractSysCheck {
     @Override
     public boolean validate() {
         return validate(clusterService.state().nodes().getSize(),
-                (Integer) nestedReferenceResolver.getImplementation(MIN_MASTER_NODES_REFERENCE_INFO).value());
+                (Integer) nestedReferenceResolver.getImplementation(MIN_MASTER_NODES_REFERENCE_INFO).copyValue());
     }
 
     protected boolean validate( int clusterSize, int minMasterNodes) {

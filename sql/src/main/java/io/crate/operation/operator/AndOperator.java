@@ -60,7 +60,7 @@ public class AndOperator extends Operator<Boolean> {
          * null  and x  -> false or null -> function as is
          */
         if (left instanceof Input) {
-            Object value = ((Input) left).value();
+            Object value = ((Input) left).copyValue();
             if (value == null) {
                 return function;
             }
@@ -71,7 +71,7 @@ public class AndOperator extends Operator<Boolean> {
             }
         }
         if (right instanceof Input) {
-            Object value = ((Input) right).value();
+            Object value = ((Input) right).copyValue();
             if (value == null) {
                 return function;
             }
@@ -93,8 +93,8 @@ public class AndOperator extends Operator<Boolean> {
         // implement three valued logic.
         // don't touch anything unless you have a good reason for it! :)
         // http://en.wikipedia.org/wiki/Three-valued_logic
-        Boolean left = args[0].value();
-        Boolean right = args[1].value();
+        Boolean left = args[0].copyValue();
+        Boolean right = args[1].copyValue();
 
         if (left == null && right == null) {
             return null;

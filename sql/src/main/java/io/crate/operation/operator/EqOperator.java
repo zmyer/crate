@@ -58,11 +58,11 @@ public class EqOperator extends CmpOperator {
     @Override
     public Boolean evaluate(Input[] args) {
         assert args.length == 2;
-        Object left = args[0].value();
+        Object left = args[0].copyValue();
         if (left == null){
             return null;
         }
-        Object right = args[1].value();
+        Object right = args[1].copyValue();
         if (right == null){
             return null;
         }
@@ -82,11 +82,11 @@ public class EqOperator extends CmpOperator {
 
         @Override
         public Boolean evaluate(Input[] args) {
-            Object[] left = (Object[]) args[0].value();
+            Object[] left = (Object[]) args[0].copyValue();
             if (left == null){
                 return null;
             }
-            Object[] right = (Object[]) args[1].value();
+            Object[] right = (Object[]) args[1].copyValue();
             if (right == null){
                 return null;
             }

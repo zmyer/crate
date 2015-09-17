@@ -41,7 +41,7 @@ public class NodeProcessExpression extends SysNodeObjectReference {
     private void addChildImplementations(final ProcessInfo processInfo, final ProcessStats processStats) {
         childImplementations.put(OPEN_FILE_DESCRIPTORS, new SysNodeExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 if (processStats != null) {
                     return processStats.getOpenFileDescriptors();
                 } else {
@@ -51,7 +51,7 @@ public class NodeProcessExpression extends SysNodeObjectReference {
         });
         childImplementations.put(MAX_OPEN_FILE_DESCRIPTORS, new SysNodeExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 if (processInfo != null) {
                     return processInfo.getMaxFileDescriptors();
                 } else {
@@ -61,7 +61,7 @@ public class NodeProcessExpression extends SysNodeObjectReference {
         });
         childImplementations.put(PROBE_TIMESTAMP, new SysNodeExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 if (processStats != null) {
                     return processStats.timestamp();
                 } else { return -1L; }

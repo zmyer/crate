@@ -72,11 +72,11 @@ public class DistanceFunction extends Scalar<Double, Object> {
     }
 
     public Double evaluate(Input arg1, Input arg2) {
-        Object value1 = arg1.value();
+        Object value1 = arg1.copyValue();
         if (value1 == null) {
             return null;
         }
-        Object value2 = arg2.value();
+        Object value2 = arg2.copyValue();
         if (value2 == null) {
             return null;
         }

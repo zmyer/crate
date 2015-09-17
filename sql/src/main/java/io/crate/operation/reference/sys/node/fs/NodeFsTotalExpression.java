@@ -152,7 +152,7 @@ public class NodeFsTotalExpression extends SysNodeObjectReference {
         }
 
         @Override
-        public Long value() {
+        public Long copyValue() {
             try {
                 return totals.getAll(ALL_TOTALS).get(name);
             } catch (ExecutionException e) {

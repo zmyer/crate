@@ -46,7 +46,7 @@ public class RowShardResolver {
             if (input == null) {
                 return null;
             }
-            return BytesRefs.toBytesRef(input.value());
+            return BytesRefs.toBytesRef(input.copyValue());
         }
     };
 
@@ -84,7 +84,7 @@ public class RowShardResolver {
         if (routingInput == null) {
             routing = null;
         } else {
-            routing = BytesRefs.toString(routingInput.value());
+            routing = BytesRefs.toString(routingInput.copyValue());
         }
         return true;
     }

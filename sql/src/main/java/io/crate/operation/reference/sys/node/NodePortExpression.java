@@ -47,7 +47,7 @@ public class NodePortExpression extends SysNodeObjectReference {
     private void addChildImplementations() {
         childImplementations.put(HTTP, new PortExpression() {
             @Override
-            public Integer value() {
+            public Integer copyValue() {
                 if (nodeService.info().getHttp() == null) {
                     return null;
                 }
@@ -56,7 +56,7 @@ public class NodePortExpression extends SysNodeObjectReference {
         });
         childImplementations.put(TRANSPORT, new PortExpression() {
             @Override
-            public Integer value() {
+            public Integer copyValue() {
                 return portFromAddress(nodeService.stats().getNode().address());
             }
         });

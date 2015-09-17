@@ -65,7 +65,7 @@ public class IsNullPredicate<T> extends Scalar<Boolean, T> {
         if (arg.equals(Literal.NULL) || arg.valueType().equals(DataTypes.UNDEFINED)) {
             return Literal.newLiteral(true);
         } else if (arg.symbolType().isValueSymbol()) {
-            return Literal.newLiteral(((Input) arg).value() == null);
+            return Literal.newLiteral(((Input) arg).copyValue() == null);
         }
         return symbol;
     }
@@ -73,7 +73,7 @@ public class IsNullPredicate<T> extends Scalar<Boolean, T> {
     @Override
     public Boolean evaluate(Input[] args) {
         assert args.length == 1;
-        return args[0] == null || args[0].value() == null;
+        return args[0] == null || args[0].copyValue() == null;
     }
 
     private static class Resolver implements DynamicFunctionResolver {

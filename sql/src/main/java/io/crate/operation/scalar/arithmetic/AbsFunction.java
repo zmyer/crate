@@ -74,7 +74,7 @@ public class AbsFunction extends Scalar<Number, Number> {
     @Override
     public Number evaluate(Input<Number>... args) {
         assert args.length == 1;
-        Number value = args[0].value();
+        Number value = args[0].copyValue();
         if (value != null) {
             return (Number)info.returnType().value(Math.abs(value.doubleValue()));
         }

@@ -35,7 +35,7 @@ public class ByteColumnReference extends FieldCacheExpression<IndexNumericFieldD
     }
 
     @Override
-    public Byte value() {
+    public Byte copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

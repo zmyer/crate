@@ -38,7 +38,7 @@ public class NodeIdExpression extends SysNodeExpression<BytesRef> {
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         DiscoveryNode localNode = clusterService.localNode();
         // value could not be ready on node start-up, but is static once set
         if (value == null && localNode != null) {

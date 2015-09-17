@@ -58,7 +58,7 @@ public abstract class Scalar<ReturnType, InputType> implements FunctionImplement
 
     protected static boolean hasNullInputs(Input[] args) {
         for (Input arg : args) {
-            if (arg.value() == null) {
+            if (arg.copyValue() == null) {
                 return true;
             }
         }
@@ -69,7 +69,7 @@ public abstract class Scalar<ReturnType, InputType> implements FunctionImplement
         return Iterables.any(symbols, new Predicate<Symbol>() {
             @Override
             public boolean apply(Symbol input) {
-                return input.isLiteral() && ((Input<?>)input).value() == null;
+                return input.isLiteral() && ((Input<?>)input).copyValue() == null;
             }
         });
     }
@@ -85,7 +85,7 @@ public abstract class Scalar<ReturnType, InputType> implements FunctionImplement
         for (Symbol arg : function.arguments()) {
             if (arg instanceof Input) {
                 Input inputArg =  (Input) arg;
-                if (inputArg.value() == null) {
+                if (inputArg.copyValue() == null) {
                     return Literal.newLiteral(arg.valueType(), null);
                 } else {
                     inputs[idx] = inputArg;

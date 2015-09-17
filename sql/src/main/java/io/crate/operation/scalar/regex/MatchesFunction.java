@@ -81,8 +81,8 @@ public class MatchesFunction extends Scalar<BytesRef[], Object> implements Dynam
 
         final Symbol input = symbol.arguments().get(0);
         final Symbol pattern = symbol.arguments().get(1);
-        final Object inputValue = ((Input) input).value();
-        final Object patternValue = ((Input) pattern).value();
+        final Object inputValue = ((Input) input).copyValue();
+        final Object patternValue = ((Input) pattern).copyValue();
         if (inputValue == null || patternValue == null) {
             return Literal.NULL;
         }
@@ -103,7 +103,7 @@ public class MatchesFunction extends Scalar<BytesRef[], Object> implements Dynam
         String pattern = null;
         if (arguments.get(1).symbolType() == SymbolType.LITERAL) {
             Literal literal = (Literal) arguments.get(1);
-            Object patternVal = literal.value();
+            Object patternVal = literal.copyValue();
             if (patternVal == null) {
                 return this;
             }
@@ -112,7 +112,7 @@ public class MatchesFunction extends Scalar<BytesRef[], Object> implements Dynam
         BytesRef flags = null;
         if (arguments.size() == 3) {
             assert arguments.get(2).symbolType() == SymbolType.LITERAL;
-            flags = (BytesRef) ((Literal) arguments.get(2)).value();
+            flags = (BytesRef) ((Literal) arguments.get(2)).copyValue();
         }
 
         if (pattern != null) {
@@ -126,8 +126,8 @@ public class MatchesFunction extends Scalar<BytesRef[], Object> implements Dynam
     @Override
     public BytesRef[] evaluate(Input[] args) {
         assert (args.length > 1 && args.length < 4);
-        Object val = args[0].value();
-        final Object patternValue = args[1].value();
+        Object val = args[0].copyValue();
+        final Object patternValue = args[1].copyValue();
         if (val == null || patternValue == null) {
             return null;
         }
@@ -142,7 +142,7 @@ public class MatchesFunction extends Scalar<BytesRef[], Object> implements Dynam
             String pattern = ((BytesRef) patternValue).utf8ToString();
             BytesRef flags = null;
             if (args.length == 3) {
-                flags = (BytesRef) args[2].value();
+                flags = (BytesRef) args[2].copyValue();
             }
             matcher = new RegexMatcher(pattern, flags);
         } else {

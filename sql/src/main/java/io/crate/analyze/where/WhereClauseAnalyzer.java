@@ -244,7 +244,7 @@ public class WhereClauseAnalyzer {
             assert normalized instanceof Literal && normalized.valueType().equals(DataTypes.BOOLEAN) :
                     "after normalization and replacing all reference occurrences with true there must only be a boolean left";
 
-            Object value = ((Literal) normalized).value();
+            Object value = ((Literal) normalized).copyValue();
             if (value != null && (Boolean) value) {
                 canMatch.add(new Tuple<>(query, partitions));
             }

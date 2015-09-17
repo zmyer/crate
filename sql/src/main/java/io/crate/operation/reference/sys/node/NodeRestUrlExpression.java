@@ -35,7 +35,7 @@ public class NodeRestUrlExpression extends SysNodeExpression<BytesRef> {
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         String val = clusterService.localNode() != null ? clusterService.localNode().attributes().get("http_address") : null;
         if (val != null) {
             return new BytesRef(val);

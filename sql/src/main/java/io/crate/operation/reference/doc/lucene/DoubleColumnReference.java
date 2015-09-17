@@ -35,7 +35,7 @@ public class DoubleColumnReference extends FieldCacheExpression<IndexNumericFiel
     }
 
     @Override
-    public Double value() {
+    public Double copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

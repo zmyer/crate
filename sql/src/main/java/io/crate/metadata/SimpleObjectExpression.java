@@ -21,9 +21,6 @@
 
 package io.crate.metadata;
 
-import io.crate.metadata.ReferenceImplementation;
-import io.crate.operation.Input;
-
 /**
  * Base class for expressions. Implementations of expressions should inherit from it.
  * @param <T> The returnType of the expression
@@ -35,4 +32,8 @@ public abstract class SimpleObjectExpression<T> implements ReferenceImplementati
         return null;
     }
 
+    @Override
+    public T sharedValue() {
+        return copyValue();
+    }
 }

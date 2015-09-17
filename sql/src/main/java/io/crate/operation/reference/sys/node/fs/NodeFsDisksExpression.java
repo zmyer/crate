@@ -104,49 +104,49 @@ public class NodeFsDisksExpression extends SysNodeObjectArrayReference {
         private void addChildImplementations() {
             childImplementations.put(DEV, new ChildExpression<BytesRef>() {
                 @Override
-                public BytesRef value() {
+                public BytesRef copyValue() {
                     return dev;
                 }
             });
             childImplementations.put(SIZE, new ChildExpression<Long>() {
                 @Override
-                public Long value() {
+                public Long copyValue() {
                     return usage.getTotal()*1024;
                 }
             });
             childImplementations.put(USED, new ChildExpression<Long>() {
                 @Override
-                public Long value() {
+                public Long copyValue() {
                     return usage.getUsed()*1024;
                 }
             });
             childImplementations.put(AVAILABLE, new ChildExpression<Long>() {
                 @Override
-                public Long value() {
+                public Long copyValue() {
                     return usage.getAvail()*1024;
                 }
             });
             childImplementations.put(READS, new ChildExpression<Long>() {
                 @Override
-                public Long value() {
+                public Long copyValue() {
                     return usage.getDiskReads();
                 }
             });
             childImplementations.put(BYTES_READ, new ChildExpression<Long>() {
                 @Override
-                public Long value() {
+                public Long copyValue() {
                     return usage.getDiskReadBytes();
                 }
             });
             childImplementations.put(WRITES, new ChildExpression<Long>() {
                 @Override
-                public Long value() {
+                public Long copyValue() {
                     return usage.getDiskWrites();
                 }
             });
             childImplementations.put(BYTES_WRITTEN, new ChildExpression<Long>() {
                 @Override
-                public Long value() {
+                public Long copyValue() {
                     return usage.getDiskWriteBytes();
                 }
             });

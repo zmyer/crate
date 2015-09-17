@@ -53,7 +53,7 @@ public class OrderByCollectorExpression extends LuceneCollectorExpression<Object
     }
 
     @Override
-    public Object value() {
+    public Object copyValue() {
         return value;
     }
 

@@ -35,7 +35,7 @@ public class FloatColumnReference extends FieldCacheExpression<IndexNumericField
     }
 
     @Override
-    public Float value() {
+    public Float copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

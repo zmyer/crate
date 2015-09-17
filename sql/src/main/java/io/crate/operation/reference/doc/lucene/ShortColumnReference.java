@@ -35,7 +35,7 @@ public class ShortColumnReference extends FieldCacheExpression<IndexNumericField
     }
 
     @Override
-    public Short value() {
+    public Short copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

@@ -65,8 +65,8 @@ public class LikeOperator extends Operator<BytesRef> {
         assert (args != null);
         assert (args.length == 2);
 
-        BytesRef expression = args[0].value();
-        BytesRef pattern = args[1].value();
+        BytesRef expression = args[0].copyValue();
+        BytesRef pattern = args[1].copyValue();
         if (expression == null || pattern == null) {
             return null;
         }

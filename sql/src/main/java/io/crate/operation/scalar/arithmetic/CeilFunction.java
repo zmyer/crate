@@ -63,7 +63,7 @@ public abstract class CeilFunction extends Scalar<Number, Number> {
 
         @Override
         public Long evaluate(Input[] args) {
-            Object value = args[0].value();
+            Object value = args[0].copyValue();
             if (value == null) {
                 return null;
             }
@@ -83,7 +83,7 @@ public abstract class CeilFunction extends Scalar<Number, Number> {
 
         @Override
         public Integer evaluate(Input[] args) {
-            Object value = args[0].value();
+            Object value = args[0].copyValue();
             if (value == null) {
                 return null;
             }
@@ -106,7 +106,7 @@ public abstract class CeilFunction extends Scalar<Number, Number> {
 
         @Override
         public Number evaluate(Input<Number>[] args) {
-            return args[0].value();
+            return args[0].copyValue();
         }
 
         @Override

@@ -57,7 +57,7 @@ public class PartitionsSettingsExpression extends AbstractPartitionsSettingsExpr
         }
 
         @Override
-        public Object value() {
+        public Object copyValue() {
             return row.tableParameters().get(paramName);
         }
     }
@@ -71,7 +71,7 @@ public class PartitionsSettingsExpression extends AbstractPartitionsSettingsExpr
         }
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return BytesRefs.toBytesRef(row.tableParameters().get(paramName));
         }
     }

@@ -32,7 +32,7 @@ public class SourceLineExpression extends LineCollectorExpression<BytesRef> {
     private LineContext context;
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return context.sourceAsBytesRef();
     }
 

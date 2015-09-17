@@ -38,12 +38,24 @@ public class BytesRefColumnReference extends FieldCacheExpression<IndexOrdinalsF
 
 
     @Override
-    public BytesRef value() throws ValidationException {
+    public BytesRef copyValue() throws ValidationException {
         switch (values.cardinality()) {
             case 0:
                 return null;
             case 1:
                 return BytesRef.deepCopyOf(values.lookupOrd(values.ordAt(0)));
+            default:
+                throw new GroupByOnArrayUnsupportedException(columnName());
+        }
+    }
+
+    @Override
+    public BytesRef sharedValue() throws ValidationException {
+        switch (values.cardinality()) {
+            case 0:
+                return null;
+            case 1:
+                return values.lookupOrd(values.ordAt(0));
             default:
                 throw new GroupByOnArrayUnsupportedException(columnName());
         }

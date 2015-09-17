@@ -154,7 +154,7 @@ public class EvaluatingNormalizer {
 
             Input input = referenceResolver.getImplementation(symbol.info());
             if (input != null) {
-                return Literal.newLiteral(symbol.info().type(), input.value());
+                return Literal.newLiteral(symbol.info().type(), input.copyValue());
             }
 
             if (logger.isTraceEnabled()) {

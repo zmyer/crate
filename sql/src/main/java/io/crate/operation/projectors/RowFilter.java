@@ -43,7 +43,7 @@ public class RowFilter<TRow> {
             for (CollectExpression<TRow, ?> expression : expressions) {
                 expression.setNextRow(row);
             }
-            match = condition.value();
+            match = condition.copyValue();
         }
         return !(match == null) && match;
     }

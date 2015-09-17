@@ -34,7 +34,7 @@ public abstract class InformationColumnsExpression<T>
         static final BytesRef DOC_SCHEMA_INFO = new BytesRef(Schemas.DEFAULT_SCHEMA_NAME);
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             String schema = row.info.ident().tableIdent().schema();
             if (schema == null) {
                 return DOC_SCHEMA_INFO;
@@ -46,7 +46,7 @@ public abstract class InformationColumnsExpression<T>
     public static class ColumnsTableNameExpression extends InformationColumnsExpression<BytesRef> {
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             assert row.info.ident().tableIdent().name() != null : "table name can't be null";
             return new BytesRef(row.info.ident().tableIdent().name());
         }
@@ -55,7 +55,7 @@ public abstract class InformationColumnsExpression<T>
     public static class ColumnsColumnNameExpression extends InformationColumnsExpression<BytesRef> {
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             assert row.info.ident().tableIdent().name() != null : "column name name can't be null";
             return new BytesRef(row.info.ident().columnIdent().sqlFqn());
         }
@@ -64,7 +64,7 @@ public abstract class InformationColumnsExpression<T>
     public static class ColumnsOrdinalExpression extends InformationColumnsExpression<Short> {
 
         @Override
-        public Short value() {
+        public Short copyValue() {
             return row.ordinal;
         }
     }
@@ -72,7 +72,7 @@ public abstract class InformationColumnsExpression<T>
     public static class ColumnsDataTypeExpression extends InformationColumnsExpression<BytesRef> {
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             assert row.info.type() != null && row.info.type().getName() != null : "columns must always have a type and the type must have a name";
             return new BytesRef(row.info.type().getName());
         }

@@ -29,14 +29,14 @@ public abstract class InformationRoutinesExpression<T>
 
     public static class RoutineNameExpression extends InformationRoutinesExpression<BytesRef> {
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return new BytesRef(row.name());
         }
     }
 
     public static class RoutineTypeExpression extends InformationRoutinesExpression<BytesRef> {
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return new BytesRef(row.type());
         }
     }

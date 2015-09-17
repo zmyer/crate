@@ -65,8 +65,8 @@ public abstract class CmpOperator extends Operator<Object> {
         assert (args.length == 2);
         assert (args[0] != null && args[1] != null);
 
-        Object left = args[0].value();
-        Object right = args[1].value();
+        Object left = args[0].copyValue();
+        Object right = args[1].copyValue();
         if (left == null || right == null) {
             return null;
         }

@@ -80,7 +80,7 @@ public class TryCastScalarFunction extends Scalar<Object, Object> {
         assert symbol.arguments().size() == 1;
         Symbol argument = symbol.arguments().get(0);
         if (argument.symbolType().isValueSymbol()) {
-            Object value = ((Input) argument).value();
+            Object value = ((Input) argument).copyValue();
             try {
                 return Literal.newLiteral(returnType, returnType.value(value));
             } catch (ClassCastException | IllegalArgumentException | ConversionException e) {
@@ -94,7 +94,7 @@ public class TryCastScalarFunction extends Scalar<Object, Object> {
     public Object evaluate(Input[] args) {
         assert args.length == 1;
         try {
-            return returnType.value(args[0].value());
+            return returnType.value(args[0].copyValue());
         } catch (ClassCastException | IllegalArgumentException | ConversionException e) {
             return null;
         }

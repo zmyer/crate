@@ -52,7 +52,7 @@ public abstract class ValueSymbolVisitor<T> extends SymbolVisitor<Void, T> {
     public static final ValueSymbolVisitor<Object> VALUE = new ValueSymbolVisitor<Object>(){
         @Override
         public Object visitLiteral(Literal symbol, Void context) {
-            return symbol.value();
+            return symbol.copyValue();
         }
     };
 
@@ -66,14 +66,14 @@ public abstract class ValueSymbolVisitor<T> extends SymbolVisitor<Void, T> {
     public static final ValueSymbolVisitor<String> STRING = new ValueSymbolVisitor<String>(){
         @Override
         public String visitLiteral(Literal symbol, Void context) {
-            return BytesRefs.toString(symbol.value());
+            return BytesRefs.toString(symbol.copyValue());
         }
     };
 
     public static final ValueSymbolVisitor<Long> LONG = new ValueSymbolVisitor<Long>(){
         @Override
         public Long visitLiteral(Literal symbol, Void context) {
-            return DataTypes.LONG.value(symbol.value());
+            return DataTypes.LONG.value(symbol.copyValue());
         }
     };
 

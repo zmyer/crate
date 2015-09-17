@@ -43,25 +43,25 @@ public class NodeHeapExpression extends SysNodeObjectReference {
     private void addChildImplementations(final JvmStats stats) {
         childImplementations.put(FREE, new HeapExpression() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return stats.mem().getHeapMax().bytes() - stats.mem().getHeapUsed().bytes();
             }
         });
         childImplementations.put(USED, new HeapExpression() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return stats.mem().getHeapUsed().bytes();
             }
         });
         childImplementations.put(MAX, new HeapExpression() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return stats.mem().getHeapMax().bytes();
             }
         });
         childImplementations.put(PROBE_TIMESTAMP, new SysNodeExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return stats.timestamp();
             }
         });

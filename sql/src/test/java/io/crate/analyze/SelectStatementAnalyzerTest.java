@@ -216,7 +216,7 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         SelectAnalyzedStatement analyze = analyze("select * from sys.nodes where port['http'] = -400");
         Function whereClause = (Function) analyze.relation().querySpec().where().query();
         Symbol symbol = whereClause.arguments().get(1);
-        assertThat((Integer) ((Literal) symbol).value(), is(-400));
+        assertThat((Integer) ((Literal) symbol).copyValue(), is(-400));
     }
 
     @Test
@@ -478,7 +478,7 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         List<Symbol> outputSymbols = analysis.relation().querySpec().outputs();
         assertThat(outputSymbols.size(), is(1));
         assertThat(outputSymbols.get(0), instanceOf(Literal.class));
-        assertThat((Long) ((Literal) outputSymbols.get(0)).value(), is(0L));
+        assertThat((Long) ((Literal) outputSymbols.get(0)).copyValue(), is(0L));
     }
 
     @Test
@@ -603,7 +603,7 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
                 new Object[]{map});
         Function whereClause = (Function) analysis.relation().querySpec().where().query();
         assertThat(whereClause.arguments().get(1), instanceOf(Literal.class));
-        assertTrue(((Literal) whereClause.arguments().get(1)).value().equals(map));
+        assertTrue(((Literal) whereClause.arguments().get(1)).copyValue().equals(map));
     }
 
     @Test
@@ -636,7 +636,7 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         assertEquals(argumentTypes, whereClause.info().ident().argumentTypes());
         assertThat(whereClause.arguments().get(1), IsInstanceOf.instanceOf(Literal.class));
         Literal stringLiteral = (Literal) whereClause.arguments().get(1);
-        assertThat((BytesRef) stringLiteral.value(), is(new BytesRef("1")));
+        assertThat((BytesRef) stringLiteral.copyValue(), is(new BytesRef("1")));
     }
 
 
@@ -1004,16 +1004,16 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         assertThat(query.arguments().get(0), Matchers.instanceOf(Literal.class));
         Literal<Map<String, Object>> idents = (Literal<Map<String, Object>>) query.arguments().get(0);
 
-        assertThat(idents.value().size(), is(1));
-        assertThat(idents.value().get("name"), is(nullValue()));
+        assertThat(idents.copyValue().size(), is(1));
+        assertThat(idents.copyValue().get("name"), is(nullValue()));
 
         assertThat(query.arguments().get(1), Matchers.instanceOf(Literal.class));
         assertThat(query.arguments().get(1), isLiteral("Arthur Dent", DataTypes.STRING));
         assertThat(query.arguments().get(2), isLiteral("best_fields", DataTypes.STRING));
 
         Literal<Map<String, Object>> options = (Literal<Map<String, Object>>) query.arguments().get(3);
-        assertThat(options.value(), Matchers.instanceOf(Map.class));
-        assertThat(options.value().size(), is(0));
+        assertThat(options.copyValue(), Matchers.instanceOf(Map.class));
+        assertThat(options.copyValue().size(), is(0));
     }
 
     @Test
@@ -1025,16 +1025,16 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         assertThat(query.arguments().get(0), Matchers.instanceOf(Literal.class));
         Literal<Map<String, Object>> idents = (Literal<Map<String, Object>>) query.arguments().get(0);
 
-        assertThat(idents.value().size(), is(1));
-        assertThat(idents.value().get("name_text_ft"), is(nullValue()));
+        assertThat(idents.copyValue().size(), is(1));
+        assertThat(idents.copyValue().get("name_text_ft"), is(nullValue()));
 
         assertThat(query.arguments().get(1), Matchers.instanceOf(Literal.class));
         assertThat(query.arguments().get(1), isLiteral("Arthur Dent", DataTypes.STRING));
         assertThat(query.arguments().get(2), isLiteral("best_fields", DataTypes.STRING));
 
         Literal<Map<String, Object>> options = (Literal<Map<String, Object>>) query.arguments().get(3);
-        assertThat(options.value(), Matchers.instanceOf(Map.class));
-        assertThat(options.value().size(), is(0));
+        assertThat(options.copyValue(), Matchers.instanceOf(Map.class));
+        assertThat(options.copyValue().size(), is(0));
     }
 
     @Test
@@ -1076,8 +1076,8 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         assertThat(query.arguments().get(0), Matchers.instanceOf(Literal.class));
         Literal<Map<String, Object>> idents = (Literal<Map<String, Object>>) query.arguments().get(0);
 
-        assertThat(idents.value().keySet(), hasItem("text"));
-        assertThat(idents.value().get("text"), is(nullValue()));
+        assertThat(idents.copyValue().keySet(), hasItem("text"));
+        assertThat(idents.copyValue().get("text"), is(nullValue()));
         assertThat(query.arguments().get(1), instanceOf(Literal.class));
         assertThat(query.arguments().get(1), isLiteral("awesome", DataTypes.STRING));
     }
@@ -1093,16 +1093,16 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         assertThat(query.arguments().get(0), Matchers.instanceOf(Literal.class));
         Literal<Map<String, Object>> idents = (Literal<Map<String, Object>>) query.arguments().get(0);
 
-        assertThat(idents.value().size(), is(2));
-        assertThat((Double) idents.value().get("name"), is(1.2d));
-        assertThat(idents.value().get("text"), is(Matchers.nullValue()));
+        assertThat(idents.copyValue().size(), is(2));
+        assertThat((Double) idents.copyValue().get("name"), is(1.2d));
+        assertThat(idents.copyValue().get("text"), is(Matchers.nullValue()));
 
         assertThat(query.arguments().get(1), isLiteral("awesome", DataTypes.STRING));
         assertThat(query.arguments().get(2), isLiteral("best_fields", DataTypes.STRING));
 
         Literal<Map<String, Object>> options = (Literal<Map<String, Object>>) query.arguments().get(3);
-        assertThat(options.value().size(), is(1));
-        assertThat((String) options.value().get("analyzer"), is("german"));
+        assertThat(options.copyValue().size(), is(1));
+        assertThat((String) options.copyValue().get("analyzer"), is("german"));
     }
 
     @Test
@@ -1153,7 +1153,7 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
     }
 
     private String getMatchType(Function matchFunction) {
-        return ((BytesRef) ((Literal) matchFunction.arguments().get(2)).value()).utf8ToString();
+        return ((BytesRef) ((Literal) matchFunction.arguments().get(2)).copyValue()).utf8ToString();
     }
 
     @Test
@@ -1196,7 +1196,7 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
                 "  slop=3" +
                 ")");
         Function match = (Function) analysis.relation().querySpec().where().query();
-        Map<String, Object> options = ((Literal<Map<String, Object>>) match.arguments().get(3)).value();
+        Map<String, Object> options = ((Literal<Map<String, Object>>) match.arguments().get(3)).copyValue();
         assertThat(mapToSortedString(options),
                 is("analyzer=german, boost=4.6, cutoff_frequency=5, " +
                         "fuzziness=12, fuzzy_rewrite=top_terms_20, max_expansions=3, minimum_should_match=4, " +

@@ -57,11 +57,16 @@ public class ShardPartitionOrphanedExpression extends SimpleObjectExpression<Boo
     }
 
     @Override
-    public Boolean value() {
+    public Boolean copyValue() {
         if (!isPartition) {
             return false;
         }
         final MetaData metaData = clusterService.state().metaData();
         return !(metaData.templates().containsKey(templateName) && metaData.hasConcreteIndex(aliasName));
+    }
+
+    @Override
+    public Boolean sharedValue() {
+        return copyValue();
     }
 }

@@ -125,7 +125,7 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
         String path = "/some/distant/file.ext";
         CopyAnalyzedStatement analysis = (CopyAnalyzedStatement)analyze("copy users from ?", new Object[]{path});
         assertThat(analysis.table().ident(), is(TEST_DOC_TABLE_IDENT));
-        Object value = ((Literal) analysis.uri()).value();
+        Object value = ((Literal) analysis.uri()).copyValue();
         assertThat(BytesRefs.toString(value), is(path));
     }
 

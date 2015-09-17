@@ -52,7 +52,7 @@ public class ObjectColumnReference extends ColumnReferenceCollectorExpression<Ma
 
 
     @Override
-    public Map<String, Object> value() {
+    public Map<String, Object> copyValue() {
         return (Map<String, Object>)sourceLookup.extractValue(columnName);
     }
 }

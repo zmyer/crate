@@ -77,9 +77,9 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
         final Symbol input = symbol.arguments().get(0);
         final Symbol pattern = symbol.arguments().get(1);
         final Symbol replacement = symbol.arguments().get(2);
-        final Object inputValue = ((Input) input).value();
-        final Object patternValue = ((Input) pattern).value();
-        final Object replacementValue = ((Input) replacement).value();
+        final Object inputValue = ((Input) input).copyValue();
+        final Object patternValue = ((Input) pattern).copyValue();
+        final Object replacementValue = ((Input) replacement).copyValue();
         if (inputValue == null || patternValue == null || replacementValue == null) {
             return Literal.NULL;
         }
@@ -101,7 +101,7 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
         String pattern = null;
         if (arguments.get(1).symbolType() == SymbolType.LITERAL) {
             Literal literal = (Literal) arguments.get(1);
-            Object patternVal = literal.value();
+            Object patternVal = literal.copyValue();
             if (patternVal == null) {
                 return this;
             }
@@ -110,7 +110,7 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
         BytesRef flags = null;
         if (arguments.size() == 4) {
             assert arguments.get(3).symbolType() == SymbolType.LITERAL;
-            flags = (BytesRef) ((Literal) arguments.get(2)).value();
+            flags = (BytesRef) ((Literal) arguments.get(2)).copyValue();
         }
 
         if (pattern != null) {
@@ -124,9 +124,9 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
     @Override
     public BytesRef evaluate(Input[] args) {
         assert (args.length >= 3 && args.length <= 4);
-        Object val = args[0].value();
-        Object patternValue = args[1].value();
-        Object replacementValue = args[2].value();
+        Object val = args[0].copyValue();
+        Object patternValue = args[1].copyValue();
+        Object replacementValue = args[2].copyValue();
         if (val == null || patternValue == null || replacementValue == null) {
             return null;
         }
@@ -145,7 +145,7 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
         if (regexMatcher == null) {
             BytesRef flags = null;
             if (args.length == 4) {
-                flags = (BytesRef) args[3].value();
+                flags = (BytesRef) args[3].copyValue();
             }
             matcher = new RegexMatcher((String) patternValue, flags);
         } else {

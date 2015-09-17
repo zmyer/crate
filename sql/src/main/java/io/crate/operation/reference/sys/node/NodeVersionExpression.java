@@ -48,7 +48,7 @@ public class NodeVersionExpression extends SysNodeObjectReference {
         }
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return versionNumber;
         }
     }
@@ -62,7 +62,7 @@ public class NodeVersionExpression extends SysNodeObjectReference {
         }
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return buildHash;
         }
     }
@@ -70,7 +70,7 @@ public class NodeVersionExpression extends SysNodeObjectReference {
     static class VersionBuildSnapshotExpression extends SysNodeExpression<Boolean> {
 
         @Override
-        public Boolean value() {
+        public Boolean copyValue() {
             return Version.CURRENT.snapshot;
         }
     }

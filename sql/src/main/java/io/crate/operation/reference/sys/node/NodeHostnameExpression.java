@@ -36,7 +36,7 @@ public class NodeHostnameExpression extends SysNodeExpression<BytesRef> {
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         DiscoveryNode localNode = clusterService.localNode();
         if (localNode != null) {
             return new BytesRef(localNode.getHostName());

@@ -38,8 +38,12 @@ public class ShardPrimaryExpression extends SimpleObjectExpression<Boolean> impl
     }
 
     @Override
-    public Boolean value() {
+    public Boolean copyValue() {
         return indexShard.routingEntry().primary();
     }
 
+    @Override
+    public Boolean sharedValue() {
+        return copyValue();
+    }
 }

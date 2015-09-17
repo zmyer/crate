@@ -43,10 +43,14 @@ public class EvaluatingNormalizerTest extends CrateUnitTest {
 
         referenceImplementationMap.put(dummyLoadIdent, new SimpleObjectExpression<Double>() {
             @Override
-            public Double value() {
+            public Double copyValue() {
                 return 0.08;
             }
 
+            @Override
+            public Double sharedValue() {
+                return copyValue();
+            }
         });
 
         functions = new ModulesBuilder()

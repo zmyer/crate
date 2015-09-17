@@ -126,7 +126,7 @@ public class Aggregator {
         @Override
         @SuppressWarnings("unchecked")
         public Object processRow(Object value) {
-            return aggregationFunction.reduce(ramAccountingContext, value, inputs[0].value());
+            return aggregationFunction.reduce(ramAccountingContext, value, inputs[0].copyValue());
         }
     }
 

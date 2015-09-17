@@ -79,7 +79,7 @@ public class CountAggregation extends AggregationFunction<Long, Long> {
 
     @Override
     public Long iterate(RamAccountingContext ramAccountingContext, Long state, Input... args) {
-        if (!hasArgs || args[0].value() != null){
+        if (!hasArgs || args[0].copyValue() != null){
             return state + 1;
         }
         return state;

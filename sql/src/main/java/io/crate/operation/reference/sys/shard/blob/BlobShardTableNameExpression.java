@@ -41,7 +41,12 @@ public class BlobShardTableNameExpression extends SimpleObjectExpression<BytesRe
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return tableName;
+    }
+
+    @Override
+    public BytesRef sharedValue() {
+        return copyValue();
     }
 }

@@ -59,7 +59,7 @@ public class TablesSettingsExpression extends AbstractTablesSettingsExpression {
         }
 
         @Override
-        public Object value() {
+        public Object copyValue() {
             return row.tableParameters().get(paramName);
         }
     }
@@ -73,7 +73,7 @@ public class TablesSettingsExpression extends AbstractTablesSettingsExpression {
         }
 
         @Override
-        public BytesRef value() {
+        public BytesRef copyValue() {
             return BytesRefs.toBytesRef(row.tableParameters().get(paramName));
         }
     }

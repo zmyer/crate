@@ -82,17 +82,17 @@ public class DateFormatFunction extends Scalar<BytesRef, Object> {
         if (args.length == 1) {
             format = DEFAULT_FORMAT;
         } else {
-            format = (BytesRef)args[0].value();
+            format = (BytesRef)args[0].copyValue();
             if (args.length == 3) {
                 timezoneLiteral = args[1];
             }
         }
-        Object tsValue = args[args.length-1].value();
+        Object tsValue = args[args.length-1].copyValue();
         Long timestamp = TimestampType.INSTANCE.value(tsValue);
         DateTimeZone timezone = DateTimeZone.UTC;
         if (timezoneLiteral != null) {
             timezone = TimeZoneParser.parseTimeZone(
-                    BytesRefs.toBytesRef(timezoneLiteral.value()));
+                    BytesRefs.toBytesRef(timezoneLiteral.copyValue()));
         }
         DateTime dateTime = new DateTime(timestamp, timezone);
         return TimestampFormatter.format(format, dateTime);

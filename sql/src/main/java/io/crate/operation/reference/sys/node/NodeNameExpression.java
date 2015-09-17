@@ -35,7 +35,7 @@ public class NodeNameExpression extends SysNodeExpression<BytesRef> {
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         // value could not be ready on node start-up, but is static once set
         if (value == null && discovery.localNode() != null) {
             value = new BytesRef(discovery.localNode().getName());

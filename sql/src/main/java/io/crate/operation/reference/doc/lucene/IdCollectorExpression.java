@@ -41,7 +41,7 @@ public class IdCollectorExpression extends
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         return new BytesRef(visitor.uid().id());
     }
 }

@@ -49,7 +49,7 @@ public class BooleanColumnReference extends FieldCacheExpression<IndexFieldData,
     }
 
     @Override
-    public Boolean value() {
+    public Boolean copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

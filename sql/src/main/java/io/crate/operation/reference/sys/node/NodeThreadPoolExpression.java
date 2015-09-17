@@ -54,19 +54,19 @@ public class NodeThreadPoolExpression extends SysNodeObjectReference {
     private void addChildImplementations() {
         childImplementations.put(POOL_NAME, new ThreadPoolExpression<BytesRef>() {
             @Override
-            public BytesRef value() {
+            public BytesRef copyValue() {
                 return name;
             }
         });
         childImplementations.put(ACTIVE, new ThreadPoolExpression<Integer>() {
             @Override
-            public Integer value() {
+            public Integer copyValue() {
                 return threadPoolExecutor.getActiveCount();
             }
         });
         childImplementations.put(REJECTED, new ThreadPoolExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 long rejected = -1;
                 RejectedExecutionHandler rejectedExecutionHandler = threadPoolExecutor.getRejectedExecutionHandler();
                 if (rejectedExecutionHandler instanceof XRejectedExecutionHandler) {
@@ -77,25 +77,25 @@ public class NodeThreadPoolExpression extends SysNodeObjectReference {
         });
         childImplementations.put(LARGEST, new ThreadPoolExpression<Integer>() {
             @Override
-            public Integer value() {
+            public Integer copyValue() {
                 return threadPoolExecutor.getLargestPoolSize();
             }
         });
         childImplementations.put(COMPLETED, new ThreadPoolExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 return threadPoolExecutor.getCompletedTaskCount();
             }
         });
         childImplementations.put(THREADS, new ThreadPoolExpression<Integer>() {
             @Override
-            public Integer value() {
+            public Integer copyValue() {
                 return threadPoolExecutor.getPoolSize();
             }
         });
         childImplementations.put(QUEUE, new ThreadPoolExpression<Integer>() {
             @Override
-            public Integer value() {
+            public Integer copyValue() {
                 return threadPoolExecutor.getQueue().size();
             }
         });

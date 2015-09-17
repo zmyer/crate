@@ -219,7 +219,7 @@ public class ProjectionToProjectorVisitor
             assert symbol != null;
             objectMap.put(
                     entry.getKey(),
-                    symbolVisitor.process(normalizer.normalize(symbol), symbolContext).value()
+                    symbolVisitor.process(normalizer.normalize(symbol), symbolContext).copyValue()
             );
         }
         return objectMap;

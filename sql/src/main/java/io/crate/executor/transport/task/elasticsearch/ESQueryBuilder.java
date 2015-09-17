@@ -232,13 +232,13 @@ public class ESQueryBuilder {
                 Object value;
                 if (Symbol.isLiteral(valueSymbol, DataTypes.STRING)) {
                     Literal l = (Literal)valueSymbol;
-                    value = l.value();
+                    value = l.copyValue();
                     if (value instanceof BytesRef) {
                         value = ((BytesRef)value).utf8ToString();
                     }
                 } else {
                     assert valueSymbol.symbolType().isValueSymbol();
-                    value = ((Literal) valueSymbol).value();
+                    value = ((Literal) valueSymbol).copyValue();
                 }
                 return new Tuple<>(((Reference) ref).info().ident().columnIdent().fqn(), value);
             }
@@ -341,7 +341,7 @@ public class ESQueryBuilder {
                         }
                     }
                     withinFunction = (Function) functionSymbol;
-                    negate = !((Boolean) ((Input) valueSymbol).value());
+                    negate = !((Boolean) ((Input) valueSymbol).copyValue());
                 }
                 if (negate) {
                     context.builder.startObject("bool").startObject("must_not");
@@ -363,7 +363,7 @@ public class ESQueryBuilder {
             }
 
             private void writeFilterToContext(Context context, Reference reference, Input rightSymbol) throws IOException {
-                Shape shape = (Shape) rightSymbol.value();
+                Shape shape = (Shape) rightSymbol.copyValue();
                 Geometry geometry = JtsSpatialContext.GEO.getGeometryFrom(shape);
 
                 context.builder.startObject(Fields.FILTERED)
@@ -465,7 +465,7 @@ public class ESQueryBuilder {
                     if (distanceArgument instanceof Reference) {
                         fieldName = ((Reference)distanceArgument).info().ident().columnIdent().fqn();
                     } else if (distanceArgument.symbolType().isValueSymbol()) {
-                        point = ((Input) distanceArgument).value();
+                        point = ((Input) distanceArgument).copyValue();
                     }
                 }
                 assert fieldName != null;
@@ -479,12 +479,12 @@ public class ESQueryBuilder {
                                            Symbol valueSymbol) throws IOException {
                 Literal literal = Literal.convert(valueSymbol, DataTypes.DOUBLE);
                 if (functionName.equals(EqOperator.NAME)) {
-                    context.builder.field("from", literal.value());
-                    context.builder.field("to", literal.value());
+                    context.builder.field("from", literal.copyValue());
+                    context.builder.field("to", literal.copyValue());
                     context.builder.field("include_upper", true);
                     context.builder.field("include_lower", true);
                 } else {
-                    context.builder.field(valueFieldName, literal.value());
+                    context.builder.field(valueFieldName, literal.copyValue());
                 }
             }
         }
@@ -625,7 +625,7 @@ public class ESQueryBuilder {
                         .endObject();
                 context.builder.startObject(Fields.FILTER).startObject("terms").field(columnName);
                 context.builder.startArray();
-                for (Object value: toIterable(arrayLiteral.value())){
+                for (Object value: toIterable(arrayLiteral.copyValue())){
                     context.builder.value(value);
                 }
                 context.builder.endArray().endObject().endObject().endObject();
@@ -676,7 +676,7 @@ public class ESQueryBuilder {
                             .startObject("bool").startObject("must_not")
                                 .startObject("bool")
                                     .startArray("must");
-                for (Object value: toIterable(arrayLiteral.value())) {
+                for (Object value: toIterable(arrayLiteral.copyValue())) {
                     context.builder.startObject()
                             .startObject("term").field(columnName, value).endObject()
                             .endObject();
@@ -711,7 +711,7 @@ public class ESQueryBuilder {
                     return false;
                 }
                 likeConverter.buildESQuery(arrayReference.ident().columnIdent().fqn(),
-                        BytesRefs.toString(literal.value()), context);
+                        BytesRefs.toString(literal.copyValue()), context);
                 return true;
             }
 
@@ -721,7 +721,7 @@ public class ESQueryBuilder {
                 context.builder.startObject("bool").field("minimum_should_match", 1).startArray("should");
                 String columnName = reference.ident().columnIdent().fqn();
 
-                for (Object value : toIterable(arrayLiteral.value())) {
+                for (Object value : toIterable(arrayLiteral.copyValue())) {
                     context.builder.startObject();
                     likeConverter.buildESQuery(columnName, value, context);
                     context.builder.endObject();
@@ -741,7 +741,7 @@ public class ESQueryBuilder {
 
             @Override
             public boolean convertArrayReference(Reference arrayReference, Literal literal, Context context) throws IOException {
-                String notLike = BytesRefs.toString(literal.value());
+                String notLike = BytesRefs.toString(literal.copyValue());
                 notLike = negateWildcard(convertWildcardToRegex(notLike));
                 context.builder.startObject("regexp")
                         .startObject(arrayReference.ident().columnIdent().fqn())
@@ -758,7 +758,7 @@ public class ESQueryBuilder {
                 context.builder.startObject("bool").startObject("must_not")
                         .startObject("bool").startArray("must");
                 String columnName = reference.ident().columnIdent().fqn();
-                for (Object value : toIterable(arrayLiteral.value())) {
+                for (Object value : toIterable(arrayLiteral.copyValue())) {
                     context.builder.startObject();
                     likeConverter.buildESQuery(columnName, value, context);
                     context.builder.endObject();
@@ -848,7 +848,7 @@ public class ESQueryBuilder {
                 // col < ANY ([1,2,3]) --> or (<(col, 1), <(col, 2), <(col,3))
                 context.builder.startObject("bool").field("minimum_should_match", 1).startArray("should");
                 String columnName = reference.ident().columnIdent().fqn();
-                for (Object value : toIterable(arrayLiteral.value())) {
+                for (Object value : toIterable(arrayLiteral.copyValue())) {
                     context.builder.startObject();
                     inverseRangeConverter.buildESQuery(columnName, value, context);
                     context.builder.endObject();
@@ -891,11 +891,11 @@ public class ESQueryBuilder {
                 assert Symbol.isLiteral(arguments.get(3), DataTypes.OBJECT);
 
                 @SuppressWarnings("unchecked")
-                Map<String, Object> idents = ((Literal<Map<String, Object>>)arguments.get(0)).value();
-                BytesRef queryString = (BytesRef) ((Literal)arguments.get(1)).value();
-                BytesRef matchType = (BytesRef) ((Literal)arguments.get(2)).value();
+                Map<String, Object> idents = ((Literal<Map<String, Object>>)arguments.get(0)).copyValue();
+                BytesRef queryString = (BytesRef) ((Literal)arguments.get(1)).copyValue();
+                BytesRef matchType = (BytesRef) ((Literal)arguments.get(2)).copyValue();
                 @SuppressWarnings("unchecked")
-                Map<String, Object> options = ((Literal<Map<String, Object>>)arguments.get(3)).value();
+                Map<String, Object> options = ((Literal<Map<String, Object>>)arguments.get(3)).copyValue();
 
                 // validate
                 Preconditions.checkArgument(queryString != null, "cannot use NULL as query term in match predicate");
@@ -952,7 +952,7 @@ public class ESQueryBuilder {
                 }
                 context.builder.startObject("terms").field(refName);
                 context.builder.startArray();
-                for (Object o : (Set)setLiteral.value()) {
+                for (Object o : (Set)setLiteral.copyValue()) {
                     if (convertBytesRef) {
                         context.builder.value(((BytesRef) o).utf8ToString());
                     } else {
@@ -1052,7 +1052,7 @@ public class ESQueryBuilder {
                 if (left.symbolType() == SymbolType.REFERENCE && right.symbolType().isValueSymbol()) {
                     String columnName = ((Reference) left).info().ident().columnIdent().name();
                     if (context.filteredFields.contains(columnName)) {
-                        context.ignoredFields.put(columnName, ((Literal) right).value());
+                        context.ignoredFields.put(columnName, ((Literal) right).copyValue());
                         return true;
                     }
 

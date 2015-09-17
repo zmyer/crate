@@ -1046,7 +1046,7 @@ public class PlannerTest extends CrateUnitTest {
         assertThat(plan.collectPhase(), instanceOf(FileUriCollectPhase.class));
 
         FileUriCollectPhase collectPhase = (FileUriCollectPhase)plan.collectPhase();
-        assertThat((BytesRef) ((Literal) collectPhase.targetUri()).value(),
+        assertThat((BytesRef) ((Literal) collectPhase.targetUri()).copyValue(),
                 is(new BytesRef("/path/to/file.extension")));
     }
 

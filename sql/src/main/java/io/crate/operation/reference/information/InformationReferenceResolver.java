@@ -233,7 +233,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                 return new RowContextCollectorExpression<TableInfo, BytesRef>() {
 
                                     @Override
-                                    public BytesRef value() {
+                                    public BytesRef copyValue() {
                                         String schema = row.ident().schema();
                                         if (schema == null) {
                                             return DOC_SCHEMA_INFO;
@@ -249,7 +249,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                 return new RowContextCollectorExpression<TableInfo, BytesRef>() {
 
                                     @Override
-                                    public BytesRef value() {
+                                    public BytesRef copyValue() {
                                         return new BytesRef(row.ident().name());
                                     }
                                 };
@@ -261,7 +261,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                 return new RowContextCollectorExpression<TableInfo, Integer>() {
 
                                     @Override
-                                    public Integer value() {
+                                    public Integer copyValue() {
                                         if (row instanceof ShardedTable) {
                                             return ((ShardedTable) row).numberOfShards();
                                         }
@@ -277,7 +277,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                     private final BytesRef ZERO_REPLICAS = new BytesRef("0");
 
                                     @Override
-                                    public BytesRef value() {
+                                    public BytesRef copyValue() {
                                         if (row instanceof ShardedTable) {
                                             return ((ShardedTable) row).numberOfReplicas();
                                         }
@@ -292,7 +292,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                         return new RowContextCollectorExpression<TableInfo, BytesRef>() {
 
                                             @Override
-                                            public BytesRef value() {
+                                            public BytesRef copyValue() {
                                                 if (row instanceof ShardedTable) {
                                                     ColumnIdent clusteredBy = ((ShardedTable) row).clusteredBy();
                                                     if (clusteredBy == null) {
@@ -312,7 +312,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                         return new RowContextCollectorExpression<TableInfo, BytesRef[]>() {
 
                                             @Override
-                                            public BytesRef[] value() {
+                                            public BytesRef[] copyValue() {
                                                 if (row instanceof DocTableInfo) {
                                                     List<ColumnIdent> partitionedBy = ((DocTableInfo) row).partitionedBy();
                                                     if (partitionedBy == null || partitionedBy.isEmpty()) {
@@ -337,7 +337,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                 return new RowContextCollectorExpression<TableInfo, BytesRef>() {
 
                                     @Override
-                                    public BytesRef value() {
+                                    public BytesRef copyValue() {
                                         if (row instanceof DocTableInfo){
                                             return new BytesRef(((DocTableInfo)row).columnPolicy().value());
                                         }
@@ -352,7 +352,7 @@ public class InformationReferenceResolver implements ReferenceResolver<RowCollec
                                         return new RowContextCollectorExpression<TableInfo, BytesRef>() {
 
                                             @Override
-                                            public BytesRef value() {
+                                            public BytesRef copyValue() {
                                                 if (row instanceof BlobTableInfo) {
                                                     return ((BlobTableInfo) row).blobsPath();
                                                 }

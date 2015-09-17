@@ -85,7 +85,7 @@ class InputFieldComparator extends FieldComparator {
             LuceneCollectorExpression collectorExpression = collectorExpressions.get(i);
             collectorExpression.setNextDocId(doc);
         }
-        return valueType.compareValueTo(bottom, MoreObjects.firstNonNull(input.value(), missingValue));
+        return valueType.compareValueTo(bottom, MoreObjects.firstNonNull(input.copyValue(), missingValue));
     }
 
     @SuppressWarnings("unchecked")
@@ -95,7 +95,7 @@ class InputFieldComparator extends FieldComparator {
             LuceneCollectorExpression collectorExpression = collectorExpressions.get(i);
             collectorExpression.setNextDocId(doc);
         }
-        return valueType.compareValueTo(top, MoreObjects.firstNonNull(input.value(), missingValue));
+        return valueType.compareValueTo(top, MoreObjects.firstNonNull(input.copyValue(), missingValue));
     }
 
     @Override
@@ -104,7 +104,7 @@ class InputFieldComparator extends FieldComparator {
             LuceneCollectorExpression collectorExpression = collectorExpressions.get(i);
             collectorExpression.setNextDocId(doc);
         }
-        Object value = input.value();
+        Object value = input.copyValue();
         if (value == null) {
             values[slot] = missingValue;
         } else {

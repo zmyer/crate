@@ -55,8 +55,13 @@ public class ClusterSettingsExpression extends NestedObjectExpression {
         }
 
         @Override
-        public Object value() {
+        public Object copyValue() {
             return dataType.value(this.values.get(name));
+        }
+
+        @Override
+        public Object sharedValue() {
+            return copyValue();
         }
     }
 

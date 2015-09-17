@@ -51,7 +51,7 @@ public class LiteralTest extends CrateUnitTest {
             };
             Literal nestedLiteral = Literal.newLiteral(nestedType, nestedValue);
             assertThat(nestedLiteral.valueType(), is(nestedType));
-            assertThat(nestedLiteral.value(), is(nestedValue));
+            assertThat(nestedLiteral.copyValue(), is(nestedValue));
         }
     }
 }

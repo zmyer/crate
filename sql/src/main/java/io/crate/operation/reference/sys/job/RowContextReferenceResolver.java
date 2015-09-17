@@ -61,7 +61,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContextLog, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return BytesRefs.toBytesRef(row.id());
                             }
                         };
@@ -72,7 +72,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContextLog, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return BytesRefs.toBytesRef(row.jobId());
                             }
                         };
@@ -83,7 +83,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContextLog, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(row.name());
                             }
                         };
@@ -94,7 +94,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContextLog, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return row.started();
                             }
                         };
@@ -105,7 +105,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContextLog, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 long usedBytes = row.usedBytes();
                                 if (usedBytes == 0) {
                                     return null;
@@ -120,7 +120,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContextLog, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return BytesRefs.toBytesRef(row.errorMessage());
                             }
                         };
@@ -131,7 +131,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContextLog, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return row.ended();
                             }
                         };
@@ -147,7 +147,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContext, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return BytesRefs.toBytesRef(row.id);
                             }
                         };
@@ -158,7 +158,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContext, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return BytesRefs.toBytesRef(row.jobId);
                             }
                         };
@@ -169,7 +169,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContext, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(row.name);
                             }
                         };
@@ -180,7 +180,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContext, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return row.started;
                             }
                         };
@@ -191,7 +191,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<OperationContext, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 if (row.usedBytes == 0) {
                                     return null;
                                 }
@@ -210,7 +210,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContextLog, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(row.id().toString());
                             }
                         };
@@ -221,7 +221,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContextLog, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(row.statement());
                             }
                         };
@@ -232,7 +232,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContextLog, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return row.started();
                             }
                         };
@@ -243,7 +243,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContextLog, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return row.ended();
                             }
                         };
@@ -254,7 +254,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContextLog, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 String err = row.errorMessage();
                                 if (err == null) {
                                     return null;
@@ -274,7 +274,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContext, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return BytesRefs.toBytesRef(row.id);
                             }
                         };
@@ -285,7 +285,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContext, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return new BytesRef(row.stmt);
                             }
                         };
@@ -296,7 +296,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<JobContext, Long>() {
                             @Override
-                            public Long value() {
+                            public Long copyValue() {
                                 return row.started;
                             }
                         };
@@ -312,7 +312,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<SysCheck, Integer>() {
                             @Override
-                            public Integer value() {
+                            public Integer copyValue() {
                                 return row.id();
                             }
                         };
@@ -323,7 +323,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<SysCheck, BytesRef>() {
                             @Override
-                            public BytesRef value() {
+                            public BytesRef copyValue() {
                                 return row.description();
                             }
                         };
@@ -334,7 +334,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<SysCheck, Integer>() {
                             @Override
-                            public Integer value() {
+                            public Integer copyValue() {
                                 return row.severity().value();
                             }
                         };
@@ -345,7 +345,7 @@ public class RowContextReferenceResolver implements ReferenceResolver<RowCollect
                     public RowCollectExpression create() {
                         return new RowContextCollectorExpression<SysCheck, Boolean>() {
                             @Override
-                            public Boolean value() {
+                            public Boolean copyValue() {
                                 return row.validate();
                             }
                         };

@@ -26,4 +26,8 @@ import io.crate.metadata.SimpleObjectExpression;
 
 public abstract class SysNodeExpression<T> extends SimpleObjectExpression<T> {
 
+    @Override
+    public T sharedValue() {
+        return copyValue();
+    }
 }

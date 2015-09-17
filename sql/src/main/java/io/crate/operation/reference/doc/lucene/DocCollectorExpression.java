@@ -46,7 +46,7 @@ public class DocCollectorExpression extends
     }
 
     @Override
-    public Map<String, Object> value() {
+    public Map<String, Object> copyValue() {
         return XContentHelper.convertToMap(visitor.source(), false).v2();
     }
 
@@ -66,7 +66,7 @@ public class DocCollectorExpression extends
             }
 
             @Override
-            public Object value() {
+            public Object copyValue() {
                 // need to make sure it has the correct type;
                 // for example:
                 //      sourceExtractor might read byte as int and

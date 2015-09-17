@@ -81,7 +81,7 @@ public class SortingTopNProjector extends AbstractProjector {
         }
         int i = 0;
         for (Input<?> input : inputs) {
-            spare[i++] = input.value();
+            spare[i++] = input.copyValue();
         }
         spare = pq.insertWithOverflow(spare);
         return true;

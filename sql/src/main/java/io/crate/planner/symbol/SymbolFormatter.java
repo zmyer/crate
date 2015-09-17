@@ -111,7 +111,7 @@ public class SymbolFormatter extends SymbolVisitor<Void, String> {
 
     @Override
     public String visitLiteral(Literal symbol, Void context) {
-        return formatValue(symbol.value());
+        return formatValue(symbol.copyValue());
     }
 
     private String formatValue(Object value) {

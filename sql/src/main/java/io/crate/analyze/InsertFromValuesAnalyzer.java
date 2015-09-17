@@ -204,7 +204,7 @@ public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
             Object value;
             try {
                 valuesSymbol = expressionAnalyzer.normalizeInputForReference(valuesSymbol, column, expressionAnalysisContext);
-                value = ((Input) valuesSymbol).value();
+                value = ((Input) valuesSymbol).copyValue();
             } catch (IllegalArgumentException | UnsupportedOperationException e) {
                 throw new ColumnValidationException(columnIdent.sqlFqn(), e);
             } catch (ClassCastException e) {

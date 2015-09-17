@@ -38,7 +38,7 @@ public class NodeProcessCpuExpression extends SysNodeObjectReference {
     private void addChildImplementations(final ProcessStats.Cpu cpu) {
         childImplementations.put(PERCENT, new SysNodeExpression<Short>() {
             @Override
-            public Short value() {
+            public Short copyValue() {
                 if (cpu != null) {
                     return cpu.getPercent();
                 } else {
@@ -48,7 +48,7 @@ public class NodeProcessCpuExpression extends SysNodeObjectReference {
         });
         childImplementations.put(USER, new SysNodeExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 if (cpu != null) {
                     return cpu.getUser().millis();
                 } else {
@@ -58,7 +58,7 @@ public class NodeProcessCpuExpression extends SysNodeObjectReference {
         });
         childImplementations.put(SYSTEM, new SysNodeExpression<Long>() {
             @Override
-            public Long value() {
+            public Long copyValue() {
                 if (cpu != null) {
                     return cpu.getSys().millis();
                 } else {

@@ -37,7 +37,7 @@ public class IpColumnReference extends FieldCacheExpression<IndexNumericFieldDat
     }
 
     @Override
-    public BytesRef value() {
+    public BytesRef copyValue() {
         switch (values.count()) {
             case 0:
                 return null;

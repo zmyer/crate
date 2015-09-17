@@ -77,11 +77,11 @@ public abstract class AnyOperator<Op extends AnyOperator<?>> extends Operator<Ob
         }
 
         Literal collLiteral = (Literal) symbol.arguments().get(1);
-        Object leftValue = ((Literal) symbol.arguments().get(0)).value();
+        Object leftValue = ((Literal) symbol.arguments().get(0)).copyValue();
         if (!DataTypes.isCollectionType(collLiteral.valueType())) {
             throw new IllegalArgumentException("invalid array expression");
         }
-        Iterable<?> collectionIterable = collectionValueToIterable(collLiteral.value());
+        Iterable<?> collectionIterable = collectionValueToIterable(collLiteral.copyValue());
         Boolean result = doEvaluate(leftValue, collectionIterable);
         if (result == null) {
             return Literal.NULL;
@@ -122,8 +122,8 @@ public abstract class AnyOperator<Op extends AnyOperator<?>> extends Operator<Ob
         assert (args.length == 2);
         assert args[0] != null;
 
-        Object value = args[0].value();
-        Object collectionReference = args[1].value();
+        Object value = args[0].copyValue();
+        Object collectionReference = args[1].copyValue();
 
         if (collectionReference == null || value == null) {
             return null;
