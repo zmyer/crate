@@ -407,8 +407,13 @@ public class FetchProjector extends AbstractProjector {
         }
 
         @Override
-        public Object get(int index) {
-            return delegate.get(index);
+        public Object getCopy(int index) {
+            return delegate.getCopy(index);
+        }
+
+        @Override
+        public Object getShared(int index) {
+            return getCopy(index);
         }
 
         @Override

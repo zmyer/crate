@@ -23,7 +23,6 @@ package io.crate.operation;
 
 import io.crate.core.collections.ImmutableRow;
 import io.crate.core.collections.Row;
-import io.crate.core.collections.RowN;
 
 import java.util.List;
 
@@ -41,16 +40,17 @@ public class InputRow implements Row {
     }
 
     @Override
-    public Object get(int index) {
+    public Object getCopy(int index) {
         return inputs.get(index).copyValue();
     }
 
     @Override
+    public Object getShared(int index) {
+        return inputs.get(index).sharedValue();
+    }
+
+    @Override
     public Row immutableCopy() {
-        Object[] copy = new Object[size()];
-        for (int i = 0; i < copy.length; i++) {
-            copy[i] = inputs.get(i).copyValue();
-        }
-        return ImmutableRow.copyOf(new RowN(copy));
+        return ImmutableRow.copyOf(this);
     }
 }

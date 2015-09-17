@@ -63,6 +63,6 @@ public class RowCountResult implements TaskResult {
     }
 
     public long rowCount(){
-        return (long) row.get(0);
+        return (long) row.getCopy(0);
     }
 }

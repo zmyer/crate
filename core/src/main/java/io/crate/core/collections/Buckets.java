@@ -52,7 +52,7 @@ public class Buckets {
     public static Object[] materialize(Row row) {
         Object[] res = new Object[row.size()];
         for (int i = 0; i < row.size(); i++) {
-            res[i] = row.get(i);
+            res[i] = row.getCopy(i);
         }
         return res;
     }
@@ -81,8 +81,13 @@ public class Buckets {
         }
 
         @Override
-        public Object get(int index) {
+        public Object getCopy(int index) {
             return cells[index];
+        }
+
+        @Override
+        public Object getShared(int index) {
+            return getCopy(index);
         }
 
         @Override

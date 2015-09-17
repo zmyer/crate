@@ -190,7 +190,7 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
         int seenJobSearchContextId = -1;
         for (Bucket rows : results) {
             assertThat(rows.size(), is(1));
-            Object docIdCol = rows.iterator().next().get(0);
+            Object docIdCol = rows.iterator().next().getCopy(0);
             assertNotNull(docIdCol);
             assertThat(docIdCol, instanceOf(Long.class));
             long docId = (long)docIdCol;
@@ -226,7 +226,7 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
         // extract docIds by nodeId and jobSearchContextId
         Map<String, LongArrayList> jobSearchContextDocIds = new HashMap<>();
         for (Bucket rows : results) {
-            long docId = (long)rows.iterator().next().get(0);
+            long docId = (long)rows.iterator().next().getCopy(0);
             // unpack jobSearchContextId and reader doc id from docId
             int jobSearchContextId = (int)(docId >> 32);
             String nodeId = plannerContext.nodeId(jobSearchContextId);
@@ -272,8 +272,8 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
 
         assertThat(rows.size(), is(2));
         for (Row row : rows) {
-            assertThat((Integer) row.get(0), anyOf(is(1), is(2)));
-            assertThat((BytesRef) row.get(1), anyOf(is(new BytesRef("Arthur")), is(new BytesRef("Ford"))));
+            assertThat((Integer) row.getCopy(0), anyOf(is(1), is(2)));
+            assertThat((BytesRef) row.getCopy(1), anyOf(is(new BytesRef("Arthur")), is(new BytesRef("Ford"))));
         }
     }
 
@@ -314,12 +314,12 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
         latch.await();
         assertThat(resultingRows.size(), is(2));
         assertThat(resultingRows.get(0).size(), is(3));
-        assertThat((Integer) resultingRows.get(0).get(0), is(1));
-        assertThat((BytesRef) resultingRows.get(0).get(1), is(new BytesRef("Arthur")));
-        assertThat((BytesRef) resultingRows.get(0).get(2), is(new BytesRef("rthur")));
-        assertThat((Integer) resultingRows.get(1).get(0), is(2));
-        assertThat((BytesRef) resultingRows.get(1).get(1), is(new BytesRef("Ford")));
-        assertThat((BytesRef) resultingRows.get(1).get(2), is(new BytesRef("ord")));
+        assertThat((Integer) resultingRows.get(0).getCopy(0), is(1));
+        assertThat((BytesRef) resultingRows.get(0).getCopy(1), is(new BytesRef("Arthur")));
+        assertThat((BytesRef) resultingRows.get(0).getCopy(2), is(new BytesRef("rthur")));
+        assertThat((Integer) resultingRows.get(1).getCopy(0), is(2));
+        assertThat((BytesRef) resultingRows.get(1).getCopy(1), is(new BytesRef("Ford")));
+        assertThat((BytesRef) resultingRows.get(1).getCopy(2), is(new BytesRef("ord")));
     }
 
     protected Planner.Context newPlannerContext() {

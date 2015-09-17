@@ -66,7 +66,7 @@ public class StreamBucket implements Bucket, Streamable {
 
             size++;
             for (int i = 0; i < row.size(); i++) {
-                streamers[i].writeValueTo(out, row.get(i));
+                streamers[i].writeValueTo(out, row.getShared(i));
             }
         }
 
@@ -143,8 +143,13 @@ public class StreamBucket implements Bucket, Streamable {
             }
 
             @Override
-            public Object get(int index) {
+            public Object getCopy(int index) {
                 return current[index];
+            }
+
+            @Override
+            public Object getShared(int index) {
+                return getCopy(index);
             }
 
             @Override

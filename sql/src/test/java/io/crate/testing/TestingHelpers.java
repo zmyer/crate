@@ -88,7 +88,7 @@ public class TestingHelpers {
         for (Row row : rows) {
             boolean first = true;
             for (int i = 0; i < row.size(); i++) {
-                Object o = row.get(i);
+                Object o = row.getCopy(i);
                 if (!first) {
                     out.print("| ");
                 } else {
@@ -340,7 +340,7 @@ public class TestingHelpers {
                     return false;
                 }
                 for (int i = 0; i < item.size(); i++) {
-                    Object actual = bytesRefToString.apply(item.get(i));
+                    Object actual = bytesRefToString.apply(item.getCopy(i));
                     if (!Objects.equals(expected.get(i), actual)) {
                         mismatchDescription.appendText("value at pos ")
                                 .appendValue(i)
@@ -634,7 +634,7 @@ public class TestingHelpers {
                 Object previous = null;
                 int i = 0;
                 for (Row row : item) {
-                    Object current = row.get(sortingPos);
+                    Object current = row.getCopy(sortingPos);
                     if (previous != null) {
                         if (ord.compare(previous, current) > 0) {
                             mismatchDescription

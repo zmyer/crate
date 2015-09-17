@@ -208,7 +208,7 @@ public class WriterProjector extends AbstractProjector {
             for (CollectExpression<Row, ?> collectExpression : collectExpressions) {
                 collectExpression.setNextRow(row);
             }
-            Map doc = (Map) row.get(0);
+            Map doc = (Map) row.getCopy(0);
             XContentHelper.update(doc, overwrites, false);
             try {
                 builder.map(doc);
@@ -235,7 +235,7 @@ public class WriterProjector extends AbstractProjector {
 
         @Override
         public void write(Row row) {
-            BytesRef value = (BytesRef) row.get(0);
+            BytesRef value = (BytesRef) row.getCopy(0);
             try {
                 outputStream.write(value.bytes, value.offset, value.length);
                 outputStream.write(NEW_LINE);

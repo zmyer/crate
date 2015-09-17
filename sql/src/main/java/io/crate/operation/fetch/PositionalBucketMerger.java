@@ -62,7 +62,7 @@ public class PositionalBucketMerger implements RowUpstream {
         Iterator<Row> bucketIt = bucket.iterator();
         while (bucketIt.hasNext()) {
             Row firstRow = bucketIt.next();
-            if ((int)firstRow.get(orderingColumnIndex) == outputCursor) {
+            if ((int)firstRow.getCopy(orderingColumnIndex) == outputCursor) {
                 bucketIt.remove();
                 if (!emitRow(firstRow)) {
                     return false;
@@ -87,7 +87,7 @@ public class PositionalBucketMerger implements RowUpstream {
             int idx = 0;
             while(bucketIt.hasNext()) {
                 Row row = bucketIt.next();
-                int compare = Integer.compare((int) row.get(orderingColumnIndex), (int) newFirstRow.get(orderingColumnIndex));
+                int compare = Integer.compare((int) row.getCopy(orderingColumnIndex), (int) newFirstRow.getCopy(orderingColumnIndex));
                 if (compare == 1) {
                     remainingBucket.addAll(idx, newBucket);
                     return;
@@ -126,7 +126,7 @@ public class PositionalBucketMerger implements RowUpstream {
             }
             try {
                 Row row = bucketIt.getFirst();
-                int orderingValue = (int)row.get(orderingColumnIndex);
+                int orderingValue = (int)row.getCopy(orderingColumnIndex);
                 if (orderingValue == outputCursor) {
                     leastBucketCursor = orderingValue;
                     leastBucketId = i;

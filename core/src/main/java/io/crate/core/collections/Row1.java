@@ -35,10 +35,15 @@ public class Row1 implements Row {
     }
 
     @Override
-    public Object get(int index) {
+    public Object getCopy(int index) {
         if (index != 0)
             throw new IndexOutOfBoundsException("Index: "+index+", Size: 1");
         return value;
+    }
+
+    @Override
+    public Object getShared(int index) {
+        return getCopy(index);
     }
 
     @Override

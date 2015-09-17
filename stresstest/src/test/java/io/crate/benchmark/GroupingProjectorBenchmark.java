@@ -77,8 +77,13 @@ public class GroupingProjectorBenchmark {
         }
 
         @Override
-        public Object get(int index) {
+        public Object getCopy(int index) {
             return value;
+        }
+
+        @Override
+        public Object getShared(int index) {
+            return getCopy(index);
         }
 
         @Override

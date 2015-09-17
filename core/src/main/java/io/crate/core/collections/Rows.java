@@ -128,12 +128,17 @@ public class Rows implements Iterable<Row>, Streamable {
         }
 
         @Override
-        public Object get(int index) {
+        public Object getCopy(int index) {
             if (streamed) {
                 assert columnIndicesMap.get(index) <= row.length;
                 return row[columnIndicesMap.get(index)];
             }
             return row[index];
+        }
+
+        @Override
+        public Object getShared(int index) {
+            return getCopy(index);
         }
 
         @Override

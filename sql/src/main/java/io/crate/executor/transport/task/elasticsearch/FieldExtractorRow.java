@@ -41,8 +41,13 @@ public class FieldExtractorRow<T> implements Row {
     }
 
     @Override
-    public Object get(int index) {
+    public Object getCopy(int index) {
         return fieldExtractors.get(index).extract(current);
+    }
+
+    @Override
+    public Object getShared(int index) {
+        return getCopy(index);
     }
 
     @Override

@@ -96,7 +96,7 @@ public class RowInputSymbolVisitor extends AbstractImplementationSymbolVisitor<R
 
         @Override
         public Object copyValue() {
-            return row.get(index);
+            return row.getCopy(index);
         }
 
         @Override

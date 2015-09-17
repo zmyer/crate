@@ -143,7 +143,7 @@ public class PartitionedTableIntegrationTest extends SQLTransportIntegrationTest
     @Test
     public void testTableUnknownExceptionNotRaisedIfPartitionsDeletedAfterCountPlan() throws Exception {
         TaskResult taskResult = deletePartitionsAndExecutePlan("select count(*) from t");
-        assertThat((Long)taskResult.rows().iterator().next().get(0), is(0L));
+        assertThat((Long)taskResult.rows().iterator().next().getCopy(0), is(0L));
     }
 
     @Test

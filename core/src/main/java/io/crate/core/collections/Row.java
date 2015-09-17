@@ -33,7 +33,9 @@ public interface Row {
      * @throws IndexOutOfBoundsException if the index is out of range
      *         (<tt>index &lt; 0 || index &gt;= size()</tt>)
      */
-    Object get(int index);
+    Object getCopy(int index);
+
+    Object getShared(int index);
 
     /**
      * Returns a materialized view of this row.

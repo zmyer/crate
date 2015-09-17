@@ -102,8 +102,8 @@ public class ShardUpsertRequestTest extends CrateUnitTest {
             ShardUpsertRequest.Item item = it.next();
             assertThat(item.id(), is("99"));
             assertThat(item.row().size(), is(2));
-            assertThat((Integer)item.row().get(0), is(99));
-            assertThat((BytesRef)item.row().get(1), is(new BytesRef("Marvin")));
+            assertThat((Integer)item.row().getCopy(0), is(99));
+            assertThat((BytesRef)item.row().getCopy(1), is(new BytesRef("Marvin")));
             assertThat(item.version(), is(Versions.MATCH_ANY));
             assertThat(item.retryOnConflict(), is(Constants.UPDATE_RETRY_ON_CONFLICT));
         }
@@ -153,7 +153,7 @@ public class ShardUpsertRequestTest extends CrateUnitTest {
             ShardUpsertRequest.Item item = it.next();
             assertThat(item.id(), is("99"));
             assertThat(item.row().size(), is(1));
-            assertThat((BytesRef)item.row().get(0), is(new BytesRef("Marvin")));
+            assertThat((BytesRef)item.row().getCopy(0), is(new BytesRef("Marvin")));
             assertThat(item.version(), is(2L));
             assertThat(item.retryOnConflict(), is(0));
         }
@@ -210,8 +210,8 @@ public class ShardUpsertRequestTest extends CrateUnitTest {
             ShardUpsertRequest.Item item = it.next();
             assertThat(item.id(), is("99"));
             assertThat(item.row().size(), is(2));
-            assertThat((Integer)item.row().get(0), is(99));
-            assertThat((BytesRef)item.row().get(1), is(new BytesRef("Marvin")));
+            assertThat((Integer)item.row().getCopy(0), is(99));
+            assertThat((BytesRef)item.row().getCopy(1), is(new BytesRef("Marvin")));
             assertThat(item.version(), is(2L));
             assertThat(item.retryOnConflict(), is(0));
         }

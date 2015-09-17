@@ -53,8 +53,8 @@ public abstract class OrderingByPosition<T> extends Ordering<T> {
 
         @Override
         public int compare(@Nullable Row left, @Nullable Row right) {
-            Comparable l = left != null ? (Comparable) left.get(position) : null;
-            Comparable r = right != null ? (Comparable) right.get(position) : null;
+            Comparable l = left != null ? (Comparable) left.getCopy(position) : null;
+            Comparable r = right != null ? (Comparable) right.getCopy(position) : null;
             return ordering.compare(l, r);
         }
     }

@@ -71,7 +71,7 @@ public class KillTaskTest extends CrateUnitTest {
         Bucket rows = killTask.result().get(0).get().rows();
         assertThat(rows.size(), is(1));
         Row next = rows.iterator().next();
-        assertThat((Long) next.get(0), is(9L));
+        assertThat((Long) next.getCopy(0), is(9L));
     }
 
     private TransportKillAllNodeAction startKillTaskAndGetTransportKillAllNodeAction() {
@@ -110,7 +110,7 @@ public class KillTaskTest extends CrateUnitTest {
         Bucket rows = killJobsTask.result().get(0).get().rows();
         assertThat(rows.size(), is(1));
         Row next = rows.iterator().next();
-        assertThat((Long) next.get(0), is(3L));
+        assertThat((Long) next.getCopy(0), is(3L));
     }
 
     private TransportKillJobsNodeAction startKillTaskAndGetTransportKillJobsNodeAction() {

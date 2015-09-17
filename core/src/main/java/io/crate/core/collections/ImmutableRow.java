@@ -32,7 +32,7 @@ public class ImmutableRow implements Row {
         }
         Object[] copy = new Object[row.size()];
         for (int i = 0; i < copy.length; i++) {
-            copy[i] = row.get(i);
+            copy[i] = row.getCopy(i);
         }
         return new ImmutableRow(copy);
     }
@@ -47,8 +47,13 @@ public class ImmutableRow implements Row {
     }
 
     @Override
-    public Object get(int index) {
+    public Object getCopy(int index) {
         return values[index];
+    }
+
+    @Override
+    public Object getShared(int index) {
+        return getCopy(index);
     }
 
     @Override

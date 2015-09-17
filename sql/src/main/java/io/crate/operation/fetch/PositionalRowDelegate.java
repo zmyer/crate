@@ -38,13 +38,18 @@ public class PositionalRowDelegate implements Row {
     }
 
     @Override
-    public Object get(int index) {
+    public Object getCopy(int index) {
         if (index == size()) {
             return position;
         } else if (index < size()) {
-            return row.get(index);
+            return row.getCopy(index);
         }
         throw new ArrayIndexOutOfBoundsException(index);
+    }
+
+    @Override
+    public Object getShared(int index) {
+        return getCopy(index);
     }
 
     @Override

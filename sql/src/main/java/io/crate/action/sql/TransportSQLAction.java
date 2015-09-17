@@ -105,7 +105,7 @@ public class TransportSQLAction extends TransportBaseSQLAction<SQLRequest, SQLRe
             if (rows.size() >= 1){
                 Row first = rows.iterator().next();
                 if (first.size()>=1){
-                    rowCount = ((Number) first.get(0)).longValue();
+                    rowCount = ((Number) first.getCopy(0)).longValue();
                 }
             }
             objs = TaskResult.EMPTY_OBJS;

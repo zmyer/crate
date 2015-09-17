@@ -141,7 +141,7 @@ public class DDLStatementDispatcher extends AnalyzedStatementVisitor<UUID, Liste
                     assert resultList != null && resultList.size() == 1;
                     Bucket rows = resultList.get(0).rows();
                     Row row = Iterables.getOnlyElement(rows);
-                    if ((Long) row.get(0) == 0L) {
+                    if ((Long) row.getCopy(0) == 0L) {
                         addColumnToTable(analysis, result);
                     } else {
                         result.setException(new UnsupportedOperationException(

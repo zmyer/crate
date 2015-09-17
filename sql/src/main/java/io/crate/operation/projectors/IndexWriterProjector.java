@@ -73,11 +73,16 @@ public class IndexWriterProjector extends AbstractIndexWriterProjector {
         }
 
         @Override
-        public Object get(int index) {
+        public Object getCopy(int index) {
             if (index == idx){
                 return generator.generateSource();
             }
-            return delegate.get(index);
+            return delegate.getCopy(index);
+        }
+
+        @Override
+        public Object getShared(int index) {
+            return getCopy(index);
         }
 
         @Override

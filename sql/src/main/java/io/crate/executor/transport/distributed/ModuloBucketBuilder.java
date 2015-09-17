@@ -89,7 +89,7 @@ public class ModuloBucketBuilder implements MultiBucketBuilder {
      * get bucket number by doing modulo hashcode of first row-element
      */
     private int getBucket(Row row) {
-        int hash = hashCode(row.get(0));
+        int hash = hashCode(row.getCopy(0));
         if (hash == Integer.MIN_VALUE) {
             hash = 0; // Math.abs(Integer.MIN_VALUE) == Integer.MIN_VALUE
         }

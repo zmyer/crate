@@ -82,7 +82,7 @@ public class PositionalRowMerger implements RowDownstream, RowUpstream {
             }
             try {
                 Row row = upstreamBuffer.first();
-                int orderingValue = (int)row.get(orderingColumnIndex);
+                int orderingValue = (int)row.getCopy(orderingColumnIndex);
                 if (orderingValue == outputCursor) {
                     leastUpstreamBufferCursor = orderingValue;
                     leastUpstreamBufferId = i;
@@ -147,7 +147,7 @@ public class PositionalRowMerger implements RowDownstream, RowUpstream {
             if (!merger.consumeRows.get()) {
                 return false;
             }
-            if ((int)row.get(merger.orderingColumnIndex) == merger.outputCursor) {
+            if ((int)row.getCopy(merger.orderingColumnIndex) == merger.outputCursor) {
                 if (!merger.emitRow(row)) {
                     return false;
                 }

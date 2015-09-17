@@ -46,9 +46,14 @@ public class RowN implements Row {
     }
 
     @Override
-    public Object get(int index) {
+    public Object getCopy(int index) {
         assert cells != null;
         return cells[index];
+    }
+
+    @Override
+    public Object getShared(int index) {
+        return getCopy(index);
     }
 
     @Override

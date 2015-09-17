@@ -53,7 +53,7 @@ public class RowCountResultRowDownstream implements RowReceiver {
 
     @Override
     public void finish() {
-        result.set(new RowCountResult(((Number) Iterables.getOnlyElement(rows).get(0)).longValue()));
+        result.set(new RowCountResult(((Number) Iterables.getOnlyElement(rows).getCopy(0)).longValue()));
     }
 
     @Override
