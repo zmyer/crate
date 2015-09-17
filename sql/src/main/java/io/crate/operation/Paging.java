@@ -28,19 +28,15 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 public class Paging {
 
     // this must not be final so tests could adjust it
-    public static int PAGE_SIZE = 500_000;
+    public static int PAGE_SIZE = 1_000_000;
     private final static double OVERHEAD_FACTOR = 1.5;
 
     public static int getWeightedPageSize(@Nullable Integer limit, double weight) {
-        return getWeightedPageSize(limit, weight, OVERHEAD_FACTOR);
+        return firstNonNull(limit, PAGE_SIZE);
     }
 
     public static int getShardPageSize(@Nullable Integer limit, int numTotalShards) {
-        return getWeightedPageSize(
-                limit,
-                1.0d/ Math.max(1, numTotalShards),
-                Math.pow(OVERHEAD_FACTOR, 2)
-        );
+        return firstNonNull(limit, PAGE_SIZE);
     }
 
     private static int getWeightedPageSize(@Nullable Integer limit, double weight, double overheadFactor) {
