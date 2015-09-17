@@ -38,5 +38,5 @@ public interface Row {
     /**
      * Returns a materialized view of this row.
      */
-    Object[] materialize();
+    Row immutableCopy();
 }

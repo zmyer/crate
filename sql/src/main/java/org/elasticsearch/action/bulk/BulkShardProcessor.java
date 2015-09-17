@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.Constants;
 import io.crate.core.collections.Row;
-import io.crate.core.collections.RowN;
 import io.crate.exceptions.Exceptions;
 import io.crate.metadata.settings.CrateSettings;
 import io.crate.operation.collect.RowShardResolver;
@@ -346,7 +345,7 @@ public class BulkShardProcessor<Request extends BulkProcessorRequest, Response e
             final FutureCallback<Void> indicesCreatedCallback = new FutureCallback<Void>() {
                 @Override
                 public void onSuccess(@Nullable Void result) {
-                    RowN row = null;
+                    Row row;
                     if (failure.get() != null) {
                         return;
                     }
@@ -354,11 +353,7 @@ public class BulkShardProcessor<Request extends BulkProcessorRequest, Response e
                         // add pending requests for created indices
                         ShardId shardId = shardId(pendingRequest.indexName,
                                 pendingRequest.id, pendingRequest.routing);
-                        if (row == null) {
-                            row = new RowN(pendingRequest.row);
-                        } else {
-                            row.cells(pendingRequest.row);
-                        }
+                        row = pendingRequest.row;
                         partitionRequestByShard(shardId, pendingRequest.id, row,
                                 pendingRequest.routing, pendingRequest.version);
                     }
@@ -458,7 +453,7 @@ public class BulkShardProcessor<Request extends BulkProcessorRequest, Response e
     private static class PendingRequest {
         private final String indexName;
         private final String id;
-        private final Object[] row;
+        private final Row row;
         private final String routing;
 
         @Nullable
@@ -467,7 +462,7 @@ public class BulkShardProcessor<Request extends BulkProcessorRequest, Response e
         PendingRequest(String indexName, String id, Row row, String routing, @Nullable Long version) {
             this.indexName = indexName;
             this.id = id;
-            this.row = row.materialize();
+            this.row = row.immutableCopy();
             this.routing = routing;
             this.version = version;
         }

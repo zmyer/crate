@@ -27,7 +27,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import io.crate.Streamer;
 import io.crate.core.collections.Bucket;
-import io.crate.core.collections.Buckets;
+import io.crate.core.collections.ImmutableRow;
 import io.crate.core.collections.Row;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
@@ -148,8 +148,8 @@ public class StreamBucket implements Bucket, Streamable {
             }
 
             @Override
-            public Object[] materialize() {
-                return Buckets.materialize(this);
+            public Row immutableCopy() {
+                return ImmutableRow.copyOf(this);
             }
 
             @Override

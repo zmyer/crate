@@ -82,7 +82,7 @@ public class GroupingProjectorBenchmark {
         }
 
         @Override
-        public Object[] materialize() {
+        public Object[] immutableCopy() {
             return new Object[]{value};
         }
     }

@@ -21,7 +21,7 @@
 
 package io.crate.operation;
 
-import io.crate.core.collections.Buckets;
+import io.crate.core.collections.ImmutableRow;
 import io.crate.core.collections.Row;
 
 import java.util.List;
@@ -45,7 +45,7 @@ public class InputRow implements Row {
     }
 
     @Override
-    public Object[] materialize() {
-        return Buckets.materialize(this);
+    public Row immutableCopy() {
+        return ImmutableRow.copyOf(this);
     }
 }

@@ -40,7 +40,7 @@ import java.util.concurrent.TimeoutException;
 
 public class CollectingRowReceiver implements RowReceiver {
 
-    public final List<Object[]> rows = new ArrayList<>();
+    public final List<Row> rows = new ArrayList<>();
     private final SettableFuture<Bucket> resultFuture = SettableFuture.create();
     protected RowUpstream upstream;
 
@@ -62,7 +62,7 @@ public class CollectingRowReceiver implements RowReceiver {
 
     @Override
     public boolean setNextRow(Row row) {
-        rows.add(row.materialize());
+        rows.add(row.immutableCopy());
         return true;
     }
 

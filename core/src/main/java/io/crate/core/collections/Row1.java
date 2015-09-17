@@ -42,8 +42,8 @@ public class Row1 implements Row {
     }
 
     @Override
-    public Object[] materialize() {
-        return new Object[]{value};
+    public Row immutableCopy() {
+        return this;
     }
 
     @Override

@@ -369,7 +369,7 @@ public class FetchProjector extends AbstractProjector {
             cursors.add(cursor);
             docIds.add(docId);
             partitionRows.add(partitionRow);
-            inputRows.add(new RowN(row.materialize()));
+            inputRows.add(row.immutableCopy());
         }
 
         public int size() {
@@ -412,8 +412,8 @@ public class FetchProjector extends AbstractProjector {
         }
 
         @Override
-        public Object[] materialize() {
-            return delegate.materialize();
+        public Row immutableCopy() {
+            return delegate.immutableCopy();
         }
     }
 

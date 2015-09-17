@@ -21,7 +21,7 @@
 
 package io.crate.executor.transport.task.elasticsearch;
 
-import io.crate.core.collections.Buckets;
+import io.crate.core.collections.ImmutableRow;
 import io.crate.core.collections.Row;
 
 import java.util.List;
@@ -46,8 +46,8 @@ public class FieldExtractorRow<T> implements Row {
     }
 
     @Override
-    public Object[] materialize() {
-        return Buckets.materialize(this);
+    public Row immutableCopy() {
+        return ImmutableRow.copyOf(this);
     }
 
     public void setCurrent(T current) {

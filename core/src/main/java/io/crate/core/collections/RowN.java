@@ -52,9 +52,7 @@ public class RowN implements Row {
     }
 
     @Override
-    public Object[] materialize() {
-        Object[] result = new Object[size];
-        System.arraycopy(cells, 0, result, 0, size);
-        return result;
+    public Row immutableCopy() {
+        return ImmutableRow.copyOf(this);
     }
 }

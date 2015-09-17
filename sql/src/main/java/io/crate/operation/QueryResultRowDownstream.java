@@ -39,7 +39,7 @@ import java.util.List;
 public class QueryResultRowDownstream implements RowReceiver {
 
     private final SettableFuture<TaskResult> result;
-    private final List<Object[]> rows = new ArrayList<>();
+    private final List<Row> rows = new ArrayList<>();
 
     public QueryResultRowDownstream(SettableFuture<TaskResult> result) {
         this.result = result;
@@ -47,7 +47,7 @@ public class QueryResultRowDownstream implements RowReceiver {
 
     @Override
     public boolean setNextRow(Row row) {
-        rows.add(row.materialize());
+        rows.add(row.immutableCopy());
         return true;
     }
 

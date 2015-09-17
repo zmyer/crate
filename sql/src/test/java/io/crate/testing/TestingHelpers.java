@@ -25,11 +25,11 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.analyze.WhereClause;
 import io.crate.analyze.where.DocKeys;
-import io.crate.core.collections.*;
+import io.crate.core.collections.Bucket;
+import io.crate.core.collections.Buckets;
+import io.crate.core.collections.Row;
 import io.crate.metadata.*;
 import io.crate.planner.RowGranularity;
 import io.crate.planner.symbol.*;
@@ -75,19 +75,20 @@ public class TestingHelpers {
      * @return a string representing a table
      */
     public static String printedTable(Object[][] result) {
-        return printRows(Arrays.asList(result));
+        return printRows(com.google.common.collect.Iterables.transform(Arrays.asList(result), Buckets.arrayToRowFunction()));
     }
 
     public static String printedTable(Bucket result) {
-        return printRows(Arrays.asList(Buckets.materialize(result)));
+        return printRows(result);
     }
 
-    public static String printRows(Iterable<Object[]> rows) {
+    public static String printRows(Iterable<Row> rows) {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         PrintStream out = new PrintStream(os);
-        for (Object[] row : rows) {
+        for (Row row : rows) {
             boolean first = true;
-            for (Object o : row) {
+            for (int i = 0; i < row.size(); i++) {
+                Object o = row.get(i);
                 if (!first) {
                     out.print("| ");
                 } else {
@@ -613,27 +614,6 @@ public class TestingHelpers {
         return new CauseMatcher(type, expectedMessage);
     }
 
-    public static BucketPage createPage(List<Object[]> ... buckets) {
-        List<ListenableFuture<Bucket>> futures = new ArrayList<>();
-        for (List<Object[]> bucket : buckets) {
-            Bucket realBucket = new CollectionBucket(bucket);
-            futures.add(Futures.immediateFuture(realBucket));
-        }
-        return new BucketPage(futures);
-    }
-
-    public static Object[][] range(int from, int to) {
-        int size = to-from;
-        Object[][] result = new Object[to-from][];
-        for (int i = 0; i < size; i++) {
-            result[i] = new Object[] { i + from };
-        }
-        return result;
-    }
-
-    public static Matcher<Bucket> isSorted(int sortingPos) {
-        return isSorted(sortingPos, false, null);
-    }
 
     public static Matcher<Bucket> isSorted(final int sortingPos, final boolean reverse, @Nullable final Boolean nullsFirst) {
         Ordering ordering = Ordering.natural();

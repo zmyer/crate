@@ -293,13 +293,13 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
         Job job = executor.newJob(plan);
         ListenableFuture<List<TaskResult>> results = Futures.allAsList(executor.execute(job));
 
-        final List<Object[]> resultingRows = new ArrayList<>();
+        final List<Row> resultingRows = new ArrayList<>();
         final CountDownLatch latch = new CountDownLatch(1);
         Futures.addCallback(results, new FutureCallback<List<TaskResult>>() {
             @Override
             public void onSuccess(List<TaskResult> resultList) {
                 for (Row row : resultList.get(0).rows()) {
-                    resultingRows.add(row.materialize());
+                    resultingRows.add(row.immutableCopy());
                 }
                 latch.countDown();
             }
@@ -313,13 +313,13 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
 
         latch.await();
         assertThat(resultingRows.size(), is(2));
-        assertThat(resultingRows.get(0).length, is(3));
-        assertThat((Integer) resultingRows.get(0)[0], is(1));
-        assertThat((BytesRef) resultingRows.get(0)[1], is(new BytesRef("Arthur")));
-        assertThat((BytesRef) resultingRows.get(0)[2], is(new BytesRef("rthur")));
-        assertThat((Integer) resultingRows.get(1)[0], is(2));
-        assertThat((BytesRef) resultingRows.get(1)[1], is(new BytesRef("Ford")));
-        assertThat((BytesRef) resultingRows.get(1)[2], is(new BytesRef("ord")));
+        assertThat(resultingRows.get(0).size(), is(3));
+        assertThat((Integer) resultingRows.get(0).get(0), is(1));
+        assertThat((BytesRef) resultingRows.get(0).get(1), is(new BytesRef("Arthur")));
+        assertThat((BytesRef) resultingRows.get(0).get(2), is(new BytesRef("rthur")));
+        assertThat((Integer) resultingRows.get(1).get(0), is(2));
+        assertThat((BytesRef) resultingRows.get(1).get(1), is(new BytesRef("Ford")));
+        assertThat((BytesRef) resultingRows.get(1).get(2), is(new BytesRef("ord")));
     }
 
     protected Planner.Context newPlannerContext() {

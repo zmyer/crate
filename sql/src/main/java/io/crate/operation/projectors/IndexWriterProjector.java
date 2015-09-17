@@ -21,7 +21,7 @@
 
 package io.crate.operation.projectors;
 
-import io.crate.core.collections.Buckets;
+import io.crate.core.collections.ImmutableRow;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.TransportActionProvider;
 import io.crate.metadata.ColumnIdent;
@@ -81,8 +81,8 @@ public class IndexWriterProjector extends AbstractIndexWriterProjector {
         }
 
         @Override
-        public Object[] materialize() {
-            return Buckets.materialize(this);
+        public Row immutableCopy() {
+            return ImmutableRow.copyOf(this);
         }
     }
 

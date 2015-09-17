@@ -44,7 +44,7 @@ public class Buckets {
         Object[][] res = new Object[bucket.size()][];
         int i = 0;
         for (Row row : bucket) {
-            res[i++] = row.materialize();
+            res[i++] = materialize(row);
         }
         return res;
     }
@@ -86,10 +86,8 @@ public class Buckets {
         }
 
         @Override
-        public Object[] materialize() {
-            Object[] copy = new Object[cells.length];
-            System.arraycopy(cells, 0, copy, 0, cells.length);
-            return copy;
+        public Row immutableCopy() {
+            return ImmutableRow.copyOf(this);
         }
     }
 }

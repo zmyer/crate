@@ -212,7 +212,7 @@ public class DocLevelCollectTest extends SQLTransportIntegrationTest {
 
         Bucket result = collect(collectNode);
         for (Row row : result) {
-            System.out.println("Row:" + Arrays.toString(row.materialize()));
+            System.out.println("Row:" + row.toString());
         }
 
         assertThat(result, containsInAnyOrder(

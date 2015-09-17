@@ -25,30 +25,30 @@ import io.crate.core.collections.Row;
 
 public class PositionalRowDelegate implements Row {
     private final int position;
-    private final Object[] cells;
+    private final Row row;
 
     public PositionalRowDelegate(Row delegate, int position) {
-        this.cells = delegate.materialize();
+        this.row = delegate.immutableCopy();
         this.position = position;
     }
 
     @Override
     public int size() {
-        return cells.length;
+        return row.size();
     }
 
     @Override
     public Object get(int index) {
-        if (index == cells.length) {
+        if (index == size()) {
             return position;
-        } else if (index < cells.length) {
-            return cells[index];
+        } else if (index < size()) {
+            return row.get(index);
         }
         throw new ArrayIndexOutOfBoundsException(index);
     }
 
     @Override
-    public Object[] materialize() {
-        return cells;
+    public Row immutableCopy() {
+        return row;
     }
 }

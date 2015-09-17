@@ -39,7 +39,7 @@ import java.util.List;
 public class RowCountResultRowDownstream implements RowReceiver {
 
     private final SettableFuture<TaskResult> result;
-    private final List<Object[]> rows = new ArrayList<>();
+    private final List<Row> rows = new ArrayList<>();
 
     public RowCountResultRowDownstream(SettableFuture<TaskResult> result) {
         this.result = result;
@@ -47,13 +47,13 @@ public class RowCountResultRowDownstream implements RowReceiver {
 
     @Override
     public boolean setNextRow(Row row) {
-        rows.add(row.materialize());
+        rows.add(row.immutableCopy());
         return true;
     }
 
     @Override
     public void finish() {
-        result.set(new RowCountResult(((Number) Iterables.getOnlyElement(rows)[0]).longValue()));
+        result.set(new RowCountResult(((Number) Iterables.getOnlyElement(rows).get(0)).longValue()));
     }
 
     @Override

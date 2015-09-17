@@ -23,7 +23,6 @@ package io.crate.operation.projectors;
 
 import com.google.common.collect.Ordering;
 import io.crate.core.collections.Row;
-import io.crate.core.collections.RowN;
 import io.crate.jobs.ExecutionState;
 import io.crate.operation.RowUpstream;
 import io.crate.operation.projectors.sorting.OrderingByPosition;
@@ -201,7 +200,7 @@ public class SortingRowMerger implements RowMerger {
             if (projector.downstreamAborted.get()) {
                 return false;
             }
-            row = new RowN(row.materialize());
+            row = row.immutableCopy();
             int size;
             synchronized (lock) {
                 rows.add(row);

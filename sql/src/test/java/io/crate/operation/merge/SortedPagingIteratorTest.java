@@ -57,7 +57,7 @@ public class SortedPagingIteratorTest extends CrateUnitTest {
                 })
         ));
 
-        List<Object[]> rows = new ArrayList<>();
+        List<Row> rows = new ArrayList<>();
 
         consumeRows(pagingIterator, rows);
 
@@ -85,9 +85,9 @@ public class SortedPagingIteratorTest extends CrateUnitTest {
         assertThat(TestingHelpers.printRows(rows), is("a\nb\nc\nd\ne\nx\ny\ny\nz\n"));
     }
 
-    private void consumeRows(Iterator<Row> pagingIterator, List<Object[]> rows) {
+    private void consumeRows(Iterator<Row> pagingIterator, List<Row> rows) {
         while (pagingIterator.hasNext()) {
-            rows.add(pagingIterator.next().materialize());
+            rows.add(pagingIterator.next().immutableCopy());
         }
     }
 }

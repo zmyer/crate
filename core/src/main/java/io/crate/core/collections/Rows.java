@@ -56,7 +56,7 @@ public class Rows implements Iterable<Row>, Streamable {
 
     public boolean addSafe(Row row) {
         // TODO: make entries a Bucket, so we do not need to copy here
-        return entries.add(new Entry(row.materialize()));
+        return entries.add(new Entry(Buckets.materialize(row)));
     }
 
     public boolean add(Object[] row) {
@@ -137,8 +137,8 @@ public class Rows implements Iterable<Row>, Streamable {
         }
 
         @Override
-        public Object[] materialize() {
-            return row;
+        public Row immutableCopy() {
+            return ImmutableRow.copyOf(new RowN(row));
         }
 
         @Override
