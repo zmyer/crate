@@ -53,7 +53,7 @@ public class JobIntegrationTest extends SQLTransportIntegrationTest {
                 new SQLTransportExecutor.ClientProvider() {
                     @Override
                     public Client client() {
-                        return internalCluster().client("node_s1");
+                        return internalCluster().clientNodeClient();
                     }
                 }
         ));
