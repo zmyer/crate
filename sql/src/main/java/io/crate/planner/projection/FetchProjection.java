@@ -125,12 +125,14 @@ public class FetchProjection extends Projection {
         FetchProjection that = (FetchProjection) o;
 
         if (executionPhaseId != that.executionPhaseId) return false;
-        if (executionNodes != that.executionNodes) return false;
         if (!docIdSymbol.equals(that.docIdSymbol)) return false;
         if (!inputSymbols.equals(that.inputSymbols)) return false;
         if (!outputSymbols.equals(that.outputSymbols)) return false;
-        if (!outputSymbols.equals(that.outputSymbols)) return false;
-        return partitionBy.equals(that.partitionBy);
+        if (!partitionBy.equals(that.partitionBy)) return false;
+        if (!executionNodes.equals(that.executionNodes)) return false;
+        if (!readerNodes.equals(that.readerNodes)) return false;
+        return readerIndices.equals(that.readerIndices);
+
     }
 
     @Override
