@@ -71,10 +71,15 @@ public class SnapshotIntegrationTest extends SQLTransportIntegrationTest {
         assertThat(response.rowCount(), is(1L));
 
         execute("reset GLOBAL cluster.routing.allocation.enable");
+        waitNoPendingTasksOnAll();
     }
 
     private void createTableAndSnapshot(String tableName, String snapshotName) {
-        createTable(tableName, false);
+        createTableAndSnapshot(tableName, snapshotName, false);
+    }
+
+    private void createTableAndSnapshot(String tableName, String snapshotName, boolean partitioned) {
+        createTable(tableName, partitioned);
         createSnapshot(snapshotName, tableName);
     }
 
@@ -211,6 +216,17 @@ public class SnapshotIntegrationTest extends SQLTransportIntegrationTest {
 
         execute("select name, \"repository\", concrete_indices, state from sys.snapshots");
         assertThat(TestingHelpers.printedTable(response.rows()), is("my_snapshot| my_repo| [backmeup]| PARTIAL\n"));
+
+        execute("DROP TABLE backmeup");
+        execute("select * from information_schema.tables where table_name='backmeup'");
+        assertThat(response.rowCount(), is(0L));
+
+        execute("RESTORE SNAPSHOT " + snapshotName() + " TABLE backmeup WITH (wait_for_completion=true, partial=true)");
+        assertThat(response.rowCount(), is(1L));
+        waitNoPendingTasksOnAll();
+
+        execute("select * from information_schema.tables where table_name='backmeup'");
+        assertThat(response.rowCount(), is(1L));
     }
 
     @Test
@@ -254,5 +270,48 @@ public class SnapshotIntegrationTest extends SQLTransportIntegrationTest {
                 "bar| 1.4\n" +
                 "baz| 1.2\n" +
                 "foo| 1.2\n"));
+    }
+
+    @Test
+    public void testRestoreSnapshotAll() throws Exception {
+        createTableAndSnapshot("my_table", SNAPSHOT_NAME);
+
+        execute("drop table my_table");
+
+        execute("RESTORE SNAPSHOT " + snapshotName() + " ALL with (" +
+                "ignore_unavailable=false, " +
+                "partial=false, " +
+                "wait_for_completion=true)");
+        ensureGreen();
+        execute("select * from my_table order by id");
+        assertThat(response.rowCount(), is(3L));
+    }
+
+    @Test
+    public void testRestoreSnapshotSinglePartition() throws Exception {
+        createTableAndSnapshot("my_parted_table", SNAPSHOT_NAME, true);
+
+        execute("delete from my_parted_table");
+        waitNoPendingTasksOnAll();
+        execute("RESTORE SNAPSHOT " + snapshotName() + " TABLE my_parted_table PARTITION (date='1970-01-01') with (" +
+                "ignore_unavailable=false, " +
+                "partial=false, " +
+                "wait_for_completion=true)");
+
+        execute("select date from my_parted_table");
+        assertThat(TestingHelpers.printedTable(response.rows()), is("0\n"));
+    }
+
+    @Test
+    public void testRestoreSnapshotIgnoreUnavailable() throws Exception {
+        createTableAndSnapshot("my_table", SNAPSHOT_NAME);
+
+        execute("drop table my_table");
+
+        execute("RESTORE SNAPSHOT " + snapshotName() + " TABLE my_table, not_my_table with (" +
+                "ignore_unavailable=true, " +
+                "wait_for_completion=true)");
+        execute("select schema_name || '.' || table_name from information_schema.tables where schema_name='doc'");
+        assertThat(TestingHelpers.printedTable(response.rows()), is("doc.my_table\n"));
     }
 }

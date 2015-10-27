@@ -21,16 +21,16 @@
 
 package io.crate.analyze;
 
-import io.crate.exceptions.PartitionUnknownException;
-import io.crate.exceptions.RepositoryUnknownException;
-import io.crate.exceptions.SchemaUnknownException;
-import io.crate.exceptions.TableUnknownException;
+import com.google.common.collect.ImmutableList;
+import io.crate.exceptions.*;
 import io.crate.metadata.MetaDataModule;
+import io.crate.metadata.PartitionName;
 import io.crate.metadata.Schemas;
 import io.crate.metadata.sys.MetaDataSysModule;
 import io.crate.metadata.table.SchemaInfo;
 import io.crate.operation.operator.OperatorModule;
 import io.crate.testing.MockedClusterServiceModule;
+import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.cluster.metadata.MetaData;
 import org.elasticsearch.cluster.metadata.RepositoriesMetaData;
 import org.elasticsearch.cluster.metadata.RepositoryMetaData;
@@ -148,14 +148,14 @@ public class SnapshotAnalyzerTest extends BaseAnalyzerTest {
     public void testCreateSnapshotUnknownTableIgnore() throws Exception {
         CreateSnapshotAnalyzedStatement statement = (CreateSnapshotAnalyzedStatement)analyze("CREATE SNAPSHOT my_repo.my_snapshot TABLE users, t2 WITH (ignore_unavailable=true)");
         assertThat(statement.indices(), contains("users"));
-        assertThat(statement.snapshotSettings().getAsBoolean(CreateSnapshotStatementAnalyzer.IGNORE_UNAVAILABLE.name(), false), is(true));
+        assertThat(statement.snapshotSettings().getAsBoolean(SnapshotSettings.IGNORE_UNAVAILABLE.name(), false), is(true));
     }
 
     @Test
     public void testCreateSnapshotUnknownSchemaIgnore() throws Exception {
         CreateSnapshotAnalyzedStatement statement = (CreateSnapshotAnalyzedStatement)analyze("CREATE SNAPSHOT my_repo.my_snapshot TABLE users, my_schema.t2 WITH (ignore_unavailable=true)");
         assertThat(statement.indices(), contains("users"));
-        assertThat(statement.snapshotSettings().getAsBoolean(CreateSnapshotStatementAnalyzer.IGNORE_UNAVAILABLE.name(), false), is(true));
+        assertThat(statement.snapshotSettings().getAsBoolean(SnapshotSettings.IGNORE_UNAVAILABLE.name(), false), is(true));
     }
 
     @Test
@@ -163,7 +163,7 @@ public class SnapshotAnalyzerTest extends BaseAnalyzerTest {
         CreateSnapshotAnalyzedStatement statement = (CreateSnapshotAnalyzedStatement)analyze("CREATE SNAPSHOT my_repo.my_snapshot TABLE parted PARTITION (date='1970-01-01') WITH (ignore_unavailable=true)");
         assertThat(statement.indices(), empty());
         assertThat(statement.isNoOp(), is(true));
-        assertThat(statement.snapshotSettings().getAsBoolean(CreateSnapshotStatementAnalyzer.IGNORE_UNAVAILABLE.name(), false), is(true));
+        assertThat(statement.snapshotSettings().getAsBoolean(SnapshotSettings.IGNORE_UNAVAILABLE.name(), false), is(true));
     }
 
     @Test
@@ -250,10 +250,73 @@ public class SnapshotAnalyzerTest extends BaseAnalyzerTest {
         analyze("drop snapshot unknown_repo.my_snap_1");
     }
 
+
     @Test
-    public void testSimpleRestoreSnapshot() throws Exception {
-        expectedException.expect(UnsupportedOperationException.class);
-        expectedException.expectMessage("cannot analyze statement: 'RestoreSnapshot{name=my_repo.my_snapshot, properties=Optional.absent(), tableList=Optional.absent()}'");
-        analyze("RESTORE SNAPSHOT my_repo.my_snapshot ALL");
+    public void testRestoreSnapshotAll() throws Exception {
+        RestoreSnapshotAnalyzedStatement statement = (RestoreSnapshotAnalyzedStatement)analyze("RESTORE SNAPSHOT my_repo.my_snapshot ALL");
+        assertThat(statement.snapshotName(), is("my_snapshot"));
+        assertThat(statement.repositoryName(), is("my_repo"));
+        assertThat(statement.includeMetadata(), is(true));
+        assertThat(statement.indices(), contains("_all"));
+        assertThat(statement.restoreAll(), is(true));
+        assertThat(statement.settings().getAsMap(), // default settings
+                allOf(
+                        hasEntry("wait_for_completion", "false"),
+                        hasEntry("partial", "false"),
+                        hasEntry("ignore_unavailable", "false")
+                ));
+    }
+
+    @Test
+    public void testRestoreSnapshotSingleTable() throws Exception {
+        RestoreSnapshotAnalyzedStatement statement = (RestoreSnapshotAnalyzedStatement)analyze(
+                "RESTORE SNAPSHOT my_repo.my_snapshot TABLE custom.restoreme WITH (partial=true)");
+        assertThat(statement.includeMetadata(), is(true));
+        assertThat(statement.indices(), containsInAnyOrder("custom.restoreme", "custom..partitioned.restoreme.*"));
+        assertThat(statement.partitions(), empty());
+        assertThat(statement.settings().getAsMap(),
+                allOf(
+                        hasEntry("wait_for_completion", "false"),
+                        hasEntry("partial", "true"),
+                        hasEntry("ignore_unavailable", "false")
+                ));
+    }
+
+    @Test
+    public void testRestoreExistingTable() throws Exception {
+        expectedException.expect(TableAlreadyExistsException.class);
+        expectedException.expectMessage("The table 'doc.users' already exists.");
+        analyze("RESTORE SNAPSHOT my_repo.my_snapshot TABLE users WITH (partial=true)");
+    }
+
+    @Test
+    public void testRestoreSinglePartition() throws Exception {
+        RestoreSnapshotAnalyzedStatement statement = (RestoreSnapshotAnalyzedStatement)analyze(
+                "RESTORE SNAPSHOT my_repo.my_snapshot TABLE parted PARTITION (date=123)");
+        assertThat(statement.includeMetadata(), is(false));
+        assertThat(statement.indices(), empty());
+        String partition = new PartitionName("parted", ImmutableList.of(new BytesRef("123"))).asIndexName();
+        assertThat(statement.partitions(), contains(partition));
+    }
+
+    @Test
+    public void testRestoreSinglePartitionToUnknownTable() throws Exception {
+        expectedException.expect(TableUnknownException.class);
+        expectedException.expectMessage("Table 'doc.unknown_parted' unknown");
+        analyze("RESTORE SNAPSHOT my_repo.my_snapshot TABLE unknown_parted PARTITION (date=123)");
+    }
+
+    @Test
+    public void testRestoreSingleExistingPartition() throws Exception {
+        expectedException.expect(PartitionAlreadyExistsException.class);
+        expectedException.expectMessage("Partition '.partitioned.parted.04732cpp6ksjcc9i60o30c1g' already exists");
+        analyze("RESTORE SNAPSHOT my_repo.my_snapshot TABLE parted PARTITION (date=1395961200000)");
+    }
+
+    @Test
+    public void testRestoreUnknownRepo() throws Exception {
+        expectedException.expect(RepositoryUnknownException.class);
+        expectedException.expectMessage("Repository 'unknown_repo' unknown");
+        analyze("RESTORE SNAPSHOT unknown_repo.my_snapshot ALL");
     }
 }

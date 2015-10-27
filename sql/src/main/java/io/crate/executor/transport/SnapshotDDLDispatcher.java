@@ -26,12 +26,15 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.analyze.CreateSnapshotAnalyzedStatement;
 import io.crate.analyze.DropSnapshotAnalyzedStatement;
+import io.crate.analyze.RestoreSnapshotAnalyzedStatement;
 import io.crate.exceptions.CreateSnapshotException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotRequest;
 import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotResponse;
 import org.elasticsearch.action.admin.cluster.snapshots.delete.DeleteSnapshotRequest;
 import org.elasticsearch.action.admin.cluster.snapshots.delete.DeleteSnapshotResponse;
+import org.elasticsearch.action.admin.cluster.snapshots.restore.RestoreSnapshotRequest;
+import org.elasticsearch.action.admin.cluster.snapshots.restore.RestoreSnapshotResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
@@ -39,7 +42,7 @@ import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.snapshots.SnapshotState;
 
-import static io.crate.analyze.CreateSnapshotStatementAnalyzer.*;
+import static io.crate.analyze.SnapshotSettings.*;
 
 
 
@@ -121,5 +124,84 @@ public class SnapshotDDLDispatcher {
             }
         });
         return resultFuture;
+    }
+
+    private class RestoreDispatcher {
+        private final boolean waitForCompletion;
+        private final boolean partial;
+        private final IndicesOptions indicesOptions;
+
+        private final RestoreSnapshotAnalyzedStatement analysis;
+
+        private final SettableFuture<Long> resultFuture = SettableFuture.create();
+
+        private RestoreDispatcher(RestoreSnapshotAnalyzedStatement analysis) {
+            this.analysis = analysis;
+            waitForCompletion = analysis.settings().getAsBoolean(WAIT_FOR_COMPLETION.settingName(), WAIT_FOR_COMPLETION.defaultValue());
+            partial = analysis.settings().getAsBoolean(PARTIAL.settingName(), PARTIAL.defaultValue());
+            boolean ignoreUnavailable = analysis.settings().getAsBoolean(IGNORE_UNAVAILABLE.settingName(), IGNORE_UNAVAILABLE.defaultValue());
+            indicesOptions = IndicesOptions.fromOptions(ignoreUnavailable, true, true, false, IndicesOptions.lenientExpandOpen());
+        }
+
+        ListenableFuture<Long> dispatch() {
+            if (analysis.restoreAll() || !analysis.indices().isEmpty()) {
+                restoreTables();
+            } else {
+                restorePartitions();
+            }
+            return resultFuture;
+        }
+
+        void restorePartitions() {
+            // second pass for partitions incl. creating aliases but without global state
+            RestoreSnapshotRequest partitionsRequest = new RestoreSnapshotRequest(analysis.repositoryName(), analysis.snapshotName())
+                    .indices(analysis.partitions())
+                    .includeGlobalState(false)
+                    .includeAliases(true)
+                    .settings(analysis.settings())
+                    .waitForCompletion(waitForCompletion)
+                    .partial(partial);
+            transportActionProvider.transportRestoreSnapshotAction().execute(partitionsRequest, new ActionListener<RestoreSnapshotResponse>() {
+                @Override
+                public void onResponse(RestoreSnapshotResponse restoreSnapshotResponse) {
+                    resultFuture.set(1L);
+                }
+
+                @Override
+                public void onFailure(Throwable e) {
+                    resultFuture.setException(e);
+                }
+            });
+        }
+
+        void restoreTables() {
+            RestoreSnapshotRequest request = new RestoreSnapshotRequest(analysis.repositoryName(), analysis.snapshotName())
+                    .indices(analysis.indices())
+                    .indicesOptions(indicesOptions)
+                    .settings(analysis.settings())
+                    .waitForCompletion(waitForCompletion)
+                    .includeGlobalState(analysis.includeMetadata())
+                    .includeAliases(analysis.includeMetadata())
+                    .partial(partial);
+            transportActionProvider.transportRestoreSnapshotAction().execute(request, new ActionListener<RestoreSnapshotResponse>() {
+                @Override
+                public void onResponse(RestoreSnapshotResponse restoreSnapshotResponse) {
+                    if (!analysis.partitions().isEmpty()) {
+                        restorePartitions();
+                    } else {
+                        resultFuture.set(1L);
+                    }
+                }
+
+                @Override
+                public void onFailure(Throwable e) {
+                    resultFuture.setException(e);
+                }
+            });
+        }
+    }
+
+    public ListenableFuture<Long> dispatch(final RestoreSnapshotAnalyzedStatement analysis) {
+        return new RestoreDispatcher(analysis).dispatch();
     }
 }
