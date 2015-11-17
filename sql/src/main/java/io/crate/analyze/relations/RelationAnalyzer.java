@@ -21,7 +21,6 @@
 
 package io.crate.analyze.relations;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.crate.analyze.*;
@@ -37,16 +36,13 @@ import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
-import io.crate.sql.tree.*;
+import io.crate.sql.treev4.*;
 import io.crate.types.DataTypes;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 @Singleton
 public class RelationAnalyzer extends DefaultTraversalVisitor<AnalyzedRelation, RelationAnalysisContext> {
@@ -89,12 +85,10 @@ public class RelationAnalyzer extends DefaultTraversalVisitor<AnalyzedRelation, 
 
     @Override
     protected AnalyzedRelation visitQuerySpecification(QuerySpecification node, RelationAnalysisContext context) {
-        if (node.getFrom() == null) {
+        if (!node.getFrom().isPresent()) {
             throw new IllegalArgumentException("FROM clause is missing.");
         }
-        for (Relation relation : node.getFrom()) {
-            process(relation, context);
-        }
+        process(node.getFrom().get(), context);
         ExpressionAnalysisContext expressionAnalysisContext = context.expressionAnalysisContext();
 
         WhereClause whereClause = analyzeWhere(node.getWhere(), context);

@@ -1,26 +1,4 @@
 /*
- * Licensed to Crate under one or more contributor license agreements.
- * See the NOTICE file distributed with this work for additional
- * information regarding copyright ownership.  Crate licenses this file
- * to you under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied.  See the License for the specific language governing
- * permissions and limitations under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial
- * agreement.
- */
-
-/*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -35,12 +13,12 @@
  */
 package io.crate.sql.v4;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.sun.rowset.internal.Row;
-import io.crate.sql.tree.*;
+import io.crate.sql.treev4.*;
+import io.crate.sql.v4.SqlBaseParser.TablePropertiesContext;
+import io.crate.sql.v4.SqlBaseParser.TablePropertyContext;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -49,6 +27,8 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -69,12 +49,19 @@ class AstBuilder
 
     // ******************* statements **********************
 
+    @Override
+    public Node visitUse(SqlBaseParser.UseContext context)
+    {
+        return new Use(getLocation(context), getTextIfPresent(context.catalog), context.schema.getText());
+    }
 
+    /*
     @Override
     public Node visitCreateTableAsSelect(SqlBaseParser.CreateTableAsSelectContext context)
     {
         return new CreateTableAsSelect(getLocation(context), getQualifiedName(context.qualifiedName()), (Query) visit(context.query()), processTableProperties(context.tableProperties()), context.NO() == null);
     }
+    */
 
     @Override
     public Node visitCreateTable(SqlBaseParser.CreateTableContext context)
@@ -105,6 +92,8 @@ class AstBuilder
         return new DropView(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
+    /*
+    TODO
     @Override
     public Node visitInsertInto(SqlBaseParser.InsertIntoContext context)
     {
@@ -113,6 +102,7 @@ class AstBuilder
                 Optional.ofNullable(getColumnAliases(context.columnAliases())),
                 (Query) visit(context.query()));
     }
+    */
 
     @Override
     public Node visitDelete(SqlBaseParser.DeleteContext context)
@@ -135,11 +125,13 @@ class AstBuilder
         return new RenameColumn(getLocation(context), getQualifiedName(context.tableName), context.from.getText(), context.to.getText());
     }
 
+    /*
     @Override
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context)
     {
         return new AddColumn(getLocation(context), getQualifiedName(context.qualifiedName()), (TableElement) visit(context.tableElement()));
     }
+    */
 
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
@@ -786,11 +778,13 @@ class AstBuilder
         return new SubqueryExpression(getLocation(context), (Query) visit(context.query()));
     }
 
+    /*
     @Override
     public Node visitDereference(SqlBaseParser.DereferenceContext context)
     {
         return new DereferenceExpression(getLocation(context), (Expression) visit(context.base), context.fieldName.getText());
     }
+    */
 
     @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context)
@@ -873,6 +867,7 @@ class AstBuilder
                 visit(context.expression(), Expression.class));
     }
 
+    /*
     @Override
     public Node visitLambda(SqlBaseParser.LambdaContext context)
     {
@@ -884,6 +879,7 @@ class AstBuilder
 
         return new LambdaExpression(arguments, body);
     }
+    */
 
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
@@ -991,6 +987,22 @@ class AstBuilder
         return new BooleanLiteral(getLocation(context), context.getText());
     }
 
+    @Override
+    public Node visitInterval(SqlBaseParser.IntervalContext context)
+    {
+        return new IntervalLiteral(
+                getLocation(context),
+                unquote(context.STRING().getText()),
+                Optional.ofNullable(context.sign)
+                        .map(AstBuilder::getIntervalSign)
+                        .orElse(IntervalLiteral.Sign.POSITIVE),
+                getIntervalFieldType((Token) context.from.getChild(0).getPayload()),
+                Optional.ofNullable(context.to)
+                        .map((x) -> x.getChild(0).getPayload())
+                        .map(Token.class::cast)
+                        .map(AstBuilder::getIntervalFieldType));
+    }
+
     // ***************** helpers *****************
 
     @Override
@@ -1015,7 +1027,7 @@ class AstBuilder
 
     private <T> Optional<T> visitIfPresent(ParserRuleContext context, Class<T> clazz)
     {
-        return Optional.fromNullable(context)
+        return Optional.ofNullable(context)
                 .map(this::visit)
                 .map(clazz::cast);
     }

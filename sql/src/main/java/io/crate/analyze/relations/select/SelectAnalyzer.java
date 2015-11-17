@@ -32,7 +32,7 @@ import io.crate.analyze.symbol.Field;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.validator.SelectSymbolValidator;
 import io.crate.metadata.OutputName;
-import io.crate.sql.tree.*;
+import io.crate.sql.treev4.*;
 
 import java.util.ArrayList;
 import java.util.List;

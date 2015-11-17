@@ -74,6 +74,7 @@ public class InsertFromSubQueryAnalyzer extends AbstractInsertAnalyzer {
         this.relationAnalyzer = relationAnalyzer;
     }
 
+    /*
     @Override
     public AbstractInsertAnalyzedStatement visitInsertFromSubquery(InsertFromSubquery node, Analysis analysis) {
         DocTableInfo tableInfo = analysisMetaData.referenceInfos().getWritableTable(
@@ -110,6 +111,7 @@ public class InsertFromSubQueryAnalyzer extends AbstractInsertAnalyzer {
 
         return insertStatement;
     }
+    */
 
     /**
      * validate that result columns from subquery match explicit insert columns

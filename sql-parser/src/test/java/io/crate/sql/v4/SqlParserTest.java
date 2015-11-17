@@ -22,12 +22,16 @@
 
 package io.crate.sql.v4;
 
+import io.crate.sql.treev4.Statement;
 import org.junit.Test;
 
 public class SqlParserTest {
 
     @Test
     public void testCreateStatement() throws Exception {
-        SqlParser.createStatement("SELECT * FROM foo");
+        SqlParser parser = new SqlParser();
+        Statement statement = parser.createStatement("SELECT * FROM foo");
+
+
     }
 }

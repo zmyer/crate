@@ -23,8 +23,8 @@ package io.crate.analyze;
 
 import io.crate.analyze.relations.QueriedRelation;
 import io.crate.analyze.relations.RelationAnalyzer;
-import io.crate.sql.tree.DefaultTraversalVisitor;
-import io.crate.sql.tree.Query;
+import io.crate.sql.treev4.DefaultTraversalVisitor;
+import io.crate.sql.treev4.Query;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 

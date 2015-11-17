@@ -44,10 +44,8 @@ import io.crate.planner.Plan;
 import io.crate.planner.PlanPrinter;
 import io.crate.planner.Planner;
 import io.crate.sql.parser.ParsingException;
-import io.crate.sql.parser.SqlParser;
-import io.crate.sql.tree.Statement;
+import io.crate.sql.treev4.Statement;
 import io.crate.types.DataType;
-import org.antlr.v4.runtime.ParserRuleContext;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.TransportAction;
@@ -85,6 +83,7 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
     private static final String[] EMPTY_NAMES = new String[0];
     private static final int MAX_SHARD_MISSING_RETRIES = 3;
 
+    private final static io.crate.sql.v4.SqlParser PARSER = new io.crate.sql.v4.SqlParser();
 
     private final LoadingCache<String, Statement> statementCache = CacheBuilder.newBuilder()
             .maximumSize(100)
@@ -92,7 +91,7 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
                     new CacheLoader<String, Statement>() {
                         @Override
                         public Statement load(@Nonnull String statement) throws Exception {
-                            return SqlParser.createStatement(statement);
+                            return PARSER.createStatement(statement);
                         }
                     }
             );
@@ -125,7 +124,7 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
     }
 
     public abstract Analysis getAnalysis(Statement statement, TRequest request);
-    public abstract Analysis getAnalysis(ParserRuleContext parserRuleContext, TRequest request);
+
 
     /**
      * create an empty SQLBaseResponse instance with no rows
@@ -198,12 +197,8 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
             return;
         }
         try {
-            ParserRuleContext statement = io.crate.sql.v4.SqlParser.createStatement(request.stmt);
-            Analysis analysis = getAnalysis(statement, request);
-            /*
             Statement statement = statementCache.get(request.stmt());
             Analysis analysis = getAnalysis(statement, request);
-            */
             processAnalysis(analysis, request, listener, attempt, jobId);
         } catch (Throwable e) {
             logger.debug("Error executing SQLRequest", e);

@@ -21,6 +21,14 @@
 package io.crate.analyze;
 
 import io.crate.sql.tree.*;
+import io.crate.sql.treev4.*;
+import io.crate.sql.treev4.AstVisitor;
+import io.crate.sql.treev4.CreateTable;
+import io.crate.sql.treev4.Delete;
+import io.crate.sql.treev4.DropTable;
+import io.crate.sql.treev4.Node;
+import io.crate.sql.treev4.Query;
+import io.crate.sql.treev4.Statement;
 import org.elasticsearch.common.inject.Inject;
 
 public class Analyzer {
@@ -121,11 +129,14 @@ public class Analyzer {
             return selectStatementAnalyzer.process(node, analysis);
         }
 
+        /*
         @Override
         public AnalyzedStatement visitDelete(Delete node, Analysis context) {
             return deleteStatementAnalyzer.analyze(node, context);
         }
+        */
 
+        /*
         @Override
         public AnalyzedStatement visitInsertFromValues(InsertFromValues node, Analysis context) {
             return insertFromValuesAnalyzer.analyze(node, context);
@@ -239,6 +250,7 @@ public class Analyzer {
         public AnalyzedStatement visitRestoreSnapshot(RestoreSnapshot node, Analysis context) {
             return restoreSnapshotStatementAnalyzer.analyze(node, context);
         }
+        */
 
         @Override
         protected AnalyzedStatement visitNode(Node node, Analysis context) {
