@@ -1,4 +1,4 @@
-// Generated from /home/jordi/workspace/code/ct/crate/sql-parser/src/main/antlr/SqlBase.g4 by ANTLR 4.5
+// Generated from SqlBase.g4 by ANTLR 4.5
 package io.crate.sql.v4;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -275,29 +275,67 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class ExplainContext extends StatementContext {
-		public TerminalNode EXPLAIN() { return getToken(SqlBaseParser.EXPLAIN, 0); }
-		public StatementContext statement() {
-			return getRuleContext(StatementContext.class,0);
+	public static class DropViewContext extends StatementContext {
+		public TerminalNode DROP() { return getToken(SqlBaseParser.DROP, 0); }
+		public TerminalNode VIEW() { return getToken(SqlBaseParser.VIEW, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
 		}
-		public List<ExplainOptionContext> explainOption() {
-			return getRuleContexts(ExplainOptionContext.class);
-		}
-		public ExplainOptionContext explainOption(int i) {
-			return getRuleContext(ExplainOptionContext.class,i);
-		}
-		public ExplainContext(StatementContext ctx) { copyFrom(ctx); }
+		public TerminalNode IF() { return getToken(SqlBaseParser.IF, 0); }
+		public TerminalNode EXISTS() { return getToken(SqlBaseParser.EXISTS, 0); }
+		public DropViewContext(StatementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterExplain(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDropView(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitExplain(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDropView(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitExplain(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDropView(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class ShowCatalogsContext extends StatementContext {
+		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
+		public TerminalNode CATALOGS() { return getToken(SqlBaseParser.CATALOGS, 0); }
+		public ShowCatalogsContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowCatalogs(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowCatalogs(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowCatalogs(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class ShowSchemasContext extends StatementContext {
+		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
+		public TerminalNode SCHEMAS() { return getToken(SqlBaseParser.SCHEMAS, 0); }
+		public IdentifierContext identifier() {
+			return getRuleContext(IdentifierContext.class,0);
+		}
+		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
+		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
+		public ShowSchemasContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowSchemas(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowSchemas(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowSchemas(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -335,30 +373,9 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class ResetSessionContext extends StatementContext {
-		public TerminalNode RESET() { return getToken(SqlBaseParser.RESET, 0); }
-		public TerminalNode SESSION() { return getToken(SqlBaseParser.SESSION, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public ResetSessionContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterResetSession(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitResetSession(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitResetSession(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class CreateTableAsSelectContext extends StatementContext {
+	public static class CreateViewContext extends StatementContext {
 		public TerminalNode CREATE() { return getToken(SqlBaseParser.CREATE, 0); }
-		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
+		public TerminalNode VIEW() { return getToken(SqlBaseParser.VIEW, 0); }
 		public QualifiedNameContext qualifiedName() {
 			return getRuleContext(QualifiedNameContext.class,0);
 		}
@@ -366,117 +383,20 @@ public class SqlBaseParser extends Parser {
 		public QueryContext query() {
 			return getRuleContext(QueryContext.class,0);
 		}
-		public TerminalNode WITH() { return getToken(SqlBaseParser.WITH, 0); }
-		public TablePropertiesContext tableProperties() {
-			return getRuleContext(TablePropertiesContext.class,0);
-		}
-		public CreateTableAsSelectContext(StatementContext ctx) { copyFrom(ctx); }
+		public TerminalNode OR() { return getToken(SqlBaseParser.OR, 0); }
+		public TerminalNode REPLACE() { return getToken(SqlBaseParser.REPLACE, 0); }
+		public CreateViewContext(StatementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCreateTableAsSelect(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCreateView(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCreateTableAsSelect(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCreateView(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCreateTableAsSelect(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class UseContext extends StatementContext {
-		public IdentifierContext schema;
-		public IdentifierContext catalog;
-		public TerminalNode USE() { return getToken(SqlBaseParser.USE, 0); }
-		public List<IdentifierContext> identifier() {
-			return getRuleContexts(IdentifierContext.class);
-		}
-		public IdentifierContext identifier(int i) {
-			return getRuleContext(IdentifierContext.class,i);
-		}
-		public UseContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterUse(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitUse(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitUse(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class InsertIntoContext extends StatementContext {
-		public TerminalNode INSERT() { return getToken(SqlBaseParser.INSERT, 0); }
-		public TerminalNode INTO() { return getToken(SqlBaseParser.INTO, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public QueryContext query() {
-			return getRuleContext(QueryContext.class,0);
-		}
-		public InsertIntoContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterInsertInto(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitInsertInto(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitInsertInto(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class RenameTableContext extends StatementContext {
-		public QualifiedNameContext from;
-		public QualifiedNameContext to;
-		public TerminalNode ALTER() { return getToken(SqlBaseParser.ALTER, 0); }
-		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
-		public TerminalNode RENAME() { return getToken(SqlBaseParser.RENAME, 0); }
-		public TerminalNode TO() { return getToken(SqlBaseParser.TO, 0); }
-		public List<QualifiedNameContext> qualifiedName() {
-			return getRuleContexts(QualifiedNameContext.class);
-		}
-		public QualifiedNameContext qualifiedName(int i) {
-			return getRuleContext(QualifiedNameContext.class,i);
-		}
-		public RenameTableContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterRenameTable(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitRenameTable(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitRenameTable(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class ShowSessionContext extends StatementContext {
-		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
-		public TerminalNode SESSION() { return getToken(SqlBaseParser.SESSION, 0); }
-		public ShowSessionContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowSession(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowSession(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowSession(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCreateView(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -519,51 +439,153 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class DropViewContext extends StatementContext {
-		public TerminalNode DROP() { return getToken(SqlBaseParser.DROP, 0); }
-		public TerminalNode VIEW() { return getToken(SqlBaseParser.VIEW, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public TerminalNode IF() { return getToken(SqlBaseParser.IF, 0); }
-		public TerminalNode EXISTS() { return getToken(SqlBaseParser.EXISTS, 0); }
-		public DropViewContext(StatementContext ctx) { copyFrom(ctx); }
+	public static class ShowSessionContext extends StatementContext {
+		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
+		public TerminalNode SESSION() { return getToken(SqlBaseParser.SESSION, 0); }
+		public ShowSessionContext(StatementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDropView(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowSession(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDropView(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowSession(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDropView(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowSession(this);
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class DeleteContext extends StatementContext {
-		public TerminalNode DELETE() { return getToken(SqlBaseParser.DELETE, 0); }
-		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
+	public static class RenameTableContext extends StatementContext {
+		public QualifiedNameContext from;
+		public QualifiedNameContext to;
+		public TerminalNode ALTER() { return getToken(SqlBaseParser.ALTER, 0); }
+		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
+		public TerminalNode RENAME() { return getToken(SqlBaseParser.RENAME, 0); }
+		public TerminalNode TO() { return getToken(SqlBaseParser.TO, 0); }
+		public List<QualifiedNameContext> qualifiedName() {
+			return getRuleContexts(QualifiedNameContext.class);
 		}
-		public TerminalNode WHERE() { return getToken(SqlBaseParser.WHERE, 0); }
-		public BooleanExpressionContext booleanExpression() {
-			return getRuleContext(BooleanExpressionContext.class,0);
+		public QualifiedNameContext qualifiedName(int i) {
+			return getRuleContext(QualifiedNameContext.class,i);
 		}
-		public DeleteContext(StatementContext ctx) { copyFrom(ctx); }
+		public RenameTableContext(StatementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDelete(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterRenameTable(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDelete(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitRenameTable(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDelete(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitRenameTable(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class UseContext extends StatementContext {
+		public IdentifierContext schema;
+		public IdentifierContext catalog;
+		public TerminalNode USE() { return getToken(SqlBaseParser.USE, 0); }
+		public List<IdentifierContext> identifier() {
+			return getRuleContexts(IdentifierContext.class);
+		}
+		public IdentifierContext identifier(int i) {
+			return getRuleContext(IdentifierContext.class,i);
+		}
+		public UseContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterUse(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitUse(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitUse(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class CreateTableAsSelectContext extends StatementContext {
+		public TerminalNode CREATE() { return getToken(SqlBaseParser.CREATE, 0); }
+		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TerminalNode AS() { return getToken(SqlBaseParser.AS, 0); }
+		public QueryContext query() {
+			return getRuleContext(QueryContext.class,0);
+		}
+		public TerminalNode WITH() { return getToken(SqlBaseParser.WITH, 0); }
+		public TablePropertiesContext tableProperties() {
+			return getRuleContext(TablePropertiesContext.class,0);
+		}
+		public CreateTableAsSelectContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCreateTableAsSelect(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCreateTableAsSelect(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCreateTableAsSelect(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class SetSessionContext extends StatementContext {
+		public TerminalNode SET() { return getToken(SqlBaseParser.SET, 0); }
+		public TerminalNode SESSION() { return getToken(SqlBaseParser.SESSION, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TerminalNode EQ() { return getToken(SqlBaseParser.EQ, 0); }
+		public ExpressionContext expression() {
+			return getRuleContext(ExpressionContext.class,0);
+		}
+		public SetSessionContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSetSession(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSetSession(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSetSession(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class ShowColumnsContext extends StatementContext {
+		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
+		public TerminalNode COLUMNS() { return getToken(SqlBaseParser.COLUMNS, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
+		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
+		public TerminalNode DESCRIBE() { return getToken(SqlBaseParser.DESCRIBE, 0); }
+		public TerminalNode DESC() { return getToken(SqlBaseParser.DESC, 0); }
+		public ShowColumnsContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowColumns(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowColumns(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowColumns(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -593,24 +615,6 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class ShowCatalogsContext extends StatementContext {
-		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
-		public TerminalNode CATALOGS() { return getToken(SqlBaseParser.CATALOGS, 0); }
-		public ShowCatalogsContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowCatalogs(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowCatalogs(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowCatalogs(this);
-			else return visitor.visitChildren(this);
-		}
-	}
 	public static class StatementDefaultContext extends StatementContext {
 		public QueryContext query() {
 			return getRuleContext(QueryContext.class,0);
@@ -627,6 +631,29 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitStatementDefault(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class DropTableContext extends StatementContext {
+		public TerminalNode DROP() { return getToken(SqlBaseParser.DROP, 0); }
+		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TerminalNode IF() { return getToken(SqlBaseParser.IF, 0); }
+		public TerminalNode EXISTS() { return getToken(SqlBaseParser.EXISTS, 0); }
+		public DropTableContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDropTable(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDropTable(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDropTable(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -663,6 +690,52 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
+	public static class ResetSessionContext extends StatementContext {
+		public TerminalNode RESET() { return getToken(SqlBaseParser.RESET, 0); }
+		public TerminalNode SESSION() { return getToken(SqlBaseParser.SESSION, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public ResetSessionContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterResetSession(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitResetSession(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitResetSession(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class DeleteContext extends StatementContext {
+		public TerminalNode DELETE() { return getToken(SqlBaseParser.DELETE, 0); }
+		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TerminalNode WHERE() { return getToken(SqlBaseParser.WHERE, 0); }
+		public BooleanExpressionContext booleanExpression() {
+			return getRuleContext(BooleanExpressionContext.class,0);
+		}
+		public DeleteContext(StatementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDelete(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDelete(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDelete(this);
+			else return visitor.visitChildren(this);
+		}
+	}
 	public static class ShowFunctionsContext extends StatementContext {
 		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
 		public TerminalNode FUNCTIONS() { return getToken(SqlBaseParser.FUNCTIONS, 0); }
@@ -681,126 +754,53 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class SetSessionContext extends StatementContext {
-		public TerminalNode SET() { return getToken(SqlBaseParser.SET, 0); }
-		public TerminalNode SESSION() { return getToken(SqlBaseParser.SESSION, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
+	public static class ExplainContext extends StatementContext {
+		public TerminalNode EXPLAIN() { return getToken(SqlBaseParser.EXPLAIN, 0); }
+		public StatementContext statement() {
+			return getRuleContext(StatementContext.class,0);
 		}
-		public TerminalNode EQ() { return getToken(SqlBaseParser.EQ, 0); }
-		public ExpressionContext expression() {
-			return getRuleContext(ExpressionContext.class,0);
+		public List<ExplainOptionContext> explainOption() {
+			return getRuleContexts(ExplainOptionContext.class);
 		}
-		public SetSessionContext(StatementContext ctx) { copyFrom(ctx); }
+		public ExplainOptionContext explainOption(int i) {
+			return getRuleContext(ExplainOptionContext.class,i);
+		}
+		public ExplainContext(StatementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSetSession(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterExplain(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSetSession(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitExplain(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSetSession(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitExplain(this);
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class CreateViewContext extends StatementContext {
-		public TerminalNode CREATE() { return getToken(SqlBaseParser.CREATE, 0); }
-		public TerminalNode VIEW() { return getToken(SqlBaseParser.VIEW, 0); }
+	public static class InsertIntoContext extends StatementContext {
+		public TerminalNode INSERT() { return getToken(SqlBaseParser.INSERT, 0); }
+		public TerminalNode INTO() { return getToken(SqlBaseParser.INTO, 0); }
 		public QualifiedNameContext qualifiedName() {
 			return getRuleContext(QualifiedNameContext.class,0);
 		}
-		public TerminalNode AS() { return getToken(SqlBaseParser.AS, 0); }
 		public QueryContext query() {
 			return getRuleContext(QueryContext.class,0);
 		}
-		public TerminalNode OR() { return getToken(SqlBaseParser.OR, 0); }
-		public TerminalNode REPLACE() { return getToken(SqlBaseParser.REPLACE, 0); }
-		public CreateViewContext(StatementContext ctx) { copyFrom(ctx); }
+		public InsertIntoContext(StatementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCreateView(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterInsertInto(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCreateView(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitInsertInto(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCreateView(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class ShowSchemasContext extends StatementContext {
-		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
-		public TerminalNode SCHEMAS() { return getToken(SqlBaseParser.SCHEMAS, 0); }
-		public IdentifierContext identifier() {
-			return getRuleContext(IdentifierContext.class,0);
-		}
-		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
-		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
-		public ShowSchemasContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowSchemas(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowSchemas(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowSchemas(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class DropTableContext extends StatementContext {
-		public TerminalNode DROP() { return getToken(SqlBaseParser.DROP, 0); }
-		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public TerminalNode IF() { return getToken(SqlBaseParser.IF, 0); }
-		public TerminalNode EXISTS() { return getToken(SqlBaseParser.EXISTS, 0); }
-		public DropTableContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDropTable(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDropTable(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDropTable(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class ShowColumnsContext extends StatementContext {
-		public TerminalNode SHOW() { return getToken(SqlBaseParser.SHOW, 0); }
-		public TerminalNode COLUMNS() { return getToken(SqlBaseParser.COLUMNS, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
-		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
-		public TerminalNode DESCRIBE() { return getToken(SqlBaseParser.DESCRIBE, 0); }
-		public TerminalNode DESC() { return getToken(SqlBaseParser.DESC, 0); }
-		public ShowColumnsContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterShowColumns(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitShowColumns(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitShowColumns(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitInsertInto(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1973,25 +1973,6 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class SubqueryContext extends QueryPrimaryContext {
-		public QueryNoWithContext queryNoWith() {
-			return getRuleContext(QueryNoWithContext.class,0);
-		}
-		public SubqueryContext(QueryPrimaryContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSubquery(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSubquery(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSubquery(this);
-			else return visitor.visitChildren(this);
-		}
-	}
 	public static class QueryPrimaryDefaultContext extends QueryPrimaryContext {
 		public QuerySpecificationContext querySpecification() {
 			return getRuleContext(QuerySpecificationContext.class,0);
@@ -2008,26 +1989,6 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitQueryPrimaryDefault(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class TableContext extends QueryPrimaryContext {
-		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public TableContext(QueryPrimaryContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterTable(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitTable(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitTable(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2051,6 +2012,45 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitInlineTable(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class TableContext extends QueryPrimaryContext {
+		public TerminalNode TABLE() { return getToken(SqlBaseParser.TABLE, 0); }
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TableContext(QueryPrimaryContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterTable(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitTable(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitTable(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class SubqueryContext extends QueryPrimaryContext {
+		public QueryNoWithContext queryNoWith() {
+			return getRuleContext(QueryNoWithContext.class,0);
+		}
+		public SubqueryContext(QueryPrimaryContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSubquery(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSubquery(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSubquery(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2542,26 +2542,6 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class SelectAllContext extends SelectItemContext {
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public TerminalNode ASTERISK() { return getToken(SqlBaseParser.ASTERISK, 0); }
-		public SelectAllContext(SelectItemContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSelectAll(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSelectAll(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSelectAll(this);
-			else return visitor.visitChildren(this);
-		}
-	}
 	public static class SelectSingleContext extends SelectItemContext {
 		public ExpressionContext expression() {
 			return getRuleContext(ExpressionContext.class,0);
@@ -2582,6 +2562,26 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSelectSingle(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class SelectAllContext extends SelectItemContext {
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TerminalNode ASTERISK() { return getToken(SqlBaseParser.ASTERISK, 0); }
+		public SelectAllContext(SelectItemContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSelectAll(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSelectAll(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSelectAll(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2663,25 +2663,6 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class RelationDefaultContext extends RelationContext {
-		public SampledRelationContext sampledRelation() {
-			return getRuleContext(SampledRelationContext.class,0);
-		}
-		public RelationDefaultContext(RelationContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterRelationDefault(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitRelationDefault(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitRelationDefault(this);
-			else return visitor.visitChildren(this);
-		}
-	}
 	public static class JoinRelationContext extends RelationContext {
 		public RelationContext left;
 		public SampledRelationContext right;
@@ -2716,6 +2697,25 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitJoinRelation(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class RelationDefaultContext extends RelationContext {
+		public SampledRelationContext sampledRelation() {
+			return getRuleContext(SampledRelationContext.class,0);
+		}
+		public RelationDefaultContext(RelationContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterRelationDefault(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitRelationDefault(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitRelationDefault(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -3371,6 +3371,25 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
+	public static class TableNameContext extends RelationPrimaryContext {
+		public QualifiedNameContext qualifiedName() {
+			return getRuleContext(QualifiedNameContext.class,0);
+		}
+		public TableNameContext(RelationPrimaryContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterTableName(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitTableName(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitTableName(this);
+			else return visitor.visitChildren(this);
+		}
+	}
 	public static class ParenthesizedRelationContext extends RelationPrimaryContext {
 		public RelationContext relation() {
 			return getRuleContext(RelationContext.class,0);
@@ -3412,25 +3431,6 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitUnnest(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class TableNameContext extends RelationPrimaryContext {
-		public QualifiedNameContext qualifiedName() {
-			return getRuleContext(QualifiedNameContext.class,0);
-		}
-		public TableNameContext(RelationPrimaryContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterTableName(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitTableName(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitTableName(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -3583,26 +3583,6 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class LogicalNotContext extends BooleanExpressionContext {
-		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
-		public BooleanExpressionContext booleanExpression() {
-			return getRuleContext(BooleanExpressionContext.class,0);
-		}
-		public LogicalNotContext(BooleanExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterLogicalNot(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitLogicalNot(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitLogicalNot(this);
-			else return visitor.visitChildren(this);
-		}
-	}
 	public static class BooleanDefaultContext extends BooleanExpressionContext {
 		public PredicatedContext predicated() {
 			return getRuleContext(PredicatedContext.class,0);
@@ -3666,6 +3646,26 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitLogicalBinary(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class LogicalNotContext extends BooleanExpressionContext {
+		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
+		public BooleanExpressionContext booleanExpression() {
+			return getRuleContext(BooleanExpressionContext.class,0);
+		}
+		public LogicalNotContext(BooleanExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterLogicalNot(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitLogicalNot(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitLogicalNot(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -3937,26 +3937,91 @@ public class SqlBaseParser extends Parser {
 			this.value = ctx.value;
 		}
 	}
-	public static class ComparisonContext extends PredicateContext {
-		public ValueExpressionContext right;
-		public ComparisonOperatorContext comparisonOperator() {
-			return getRuleContext(ComparisonOperatorContext.class,0);
+	public static class InListContext extends PredicateContext {
+		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
+		public List<ExpressionContext> expression() {
+			return getRuleContexts(ExpressionContext.class);
 		}
-		public ValueExpressionContext valueExpression() {
-			return getRuleContext(ValueExpressionContext.class,0);
+		public ExpressionContext expression(int i) {
+			return getRuleContext(ExpressionContext.class,i);
 		}
-		public ComparisonContext(PredicateContext ctx) { copyFrom(ctx); }
+		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
+		public InListContext(PredicateContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterComparison(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterInList(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitComparison(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitInList(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitComparison(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitInList(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class DistinctFromContext extends PredicateContext {
+		public ValueExpressionContext right;
+		public TerminalNode IS() { return getToken(SqlBaseParser.IS, 0); }
+		public TerminalNode DISTINCT() { return getToken(SqlBaseParser.DISTINCT, 0); }
+		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
+		public ValueExpressionContext valueExpression() {
+			return getRuleContext(ValueExpressionContext.class,0);
+		}
+		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
+		public DistinctFromContext(PredicateContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDistinctFrom(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDistinctFrom(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDistinctFrom(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class NullPredicateContext extends PredicateContext {
+		public TerminalNode IS() { return getToken(SqlBaseParser.IS, 0); }
+		public TerminalNode NULL() { return getToken(SqlBaseParser.NULL, 0); }
+		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
+		public NullPredicateContext(PredicateContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNullPredicate(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNullPredicate(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNullPredicate(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class InSubqueryContext extends PredicateContext {
+		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
+		public QueryContext query() {
+			return getRuleContext(QueryContext.class,0);
+		}
+		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
+		public InSubqueryContext(PredicateContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterInSubquery(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitInSubquery(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitInSubquery(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -3987,94 +4052,6 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class InSubqueryContext extends PredicateContext {
-		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
-		public QueryContext query() {
-			return getRuleContext(QueryContext.class,0);
-		}
-		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
-		public InSubqueryContext(PredicateContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterInSubquery(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitInSubquery(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitInSubquery(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class DistinctFromContext extends PredicateContext {
-		public ValueExpressionContext right;
-		public TerminalNode IS() { return getToken(SqlBaseParser.IS, 0); }
-		public TerminalNode DISTINCT() { return getToken(SqlBaseParser.DISTINCT, 0); }
-		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
-		public ValueExpressionContext valueExpression() {
-			return getRuleContext(ValueExpressionContext.class,0);
-		}
-		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
-		public DistinctFromContext(PredicateContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDistinctFrom(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDistinctFrom(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDistinctFrom(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class InListContext extends PredicateContext {
-		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
-		public List<ExpressionContext> expression() {
-			return getRuleContexts(ExpressionContext.class);
-		}
-		public ExpressionContext expression(int i) {
-			return getRuleContext(ExpressionContext.class,i);
-		}
-		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
-		public InListContext(PredicateContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterInList(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitInList(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitInList(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class NullPredicateContext extends PredicateContext {
-		public TerminalNode IS() { return getToken(SqlBaseParser.IS, 0); }
-		public TerminalNode NULL() { return getToken(SqlBaseParser.NULL, 0); }
-		public TerminalNode NOT() { return getToken(SqlBaseParser.NOT, 0); }
-		public NullPredicateContext(PredicateContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNullPredicate(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNullPredicate(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNullPredicate(this);
-			else return visitor.visitChildren(this);
-		}
-	}
 	public static class BetweenContext extends PredicateContext {
 		public ValueExpressionContext lower;
 		public ValueExpressionContext upper;
@@ -4099,6 +4076,29 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitBetween(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class ComparisonContext extends PredicateContext {
+		public ValueExpressionContext right;
+		public ComparisonOperatorContext comparisonOperator() {
+			return getRuleContext(ComparisonOperatorContext.class,0);
+		}
+		public ValueExpressionContext valueExpression() {
+			return getRuleContext(ValueExpressionContext.class,0);
+		}
+		public ComparisonContext(PredicateContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterComparison(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitComparison(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitComparison(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4320,28 +4320,26 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class ConcatenationContext extends ValueExpressionContext {
-		public ValueExpressionContext left;
-		public ValueExpressionContext right;
-		public TerminalNode CONCAT() { return getToken(SqlBaseParser.CONCAT, 0); }
-		public List<ValueExpressionContext> valueExpression() {
-			return getRuleContexts(ValueExpressionContext.class);
+	public static class AtTimeZoneContext extends ValueExpressionContext {
+		public ValueExpressionContext valueExpression() {
+			return getRuleContext(ValueExpressionContext.class,0);
 		}
-		public ValueExpressionContext valueExpression(int i) {
-			return getRuleContext(ValueExpressionContext.class,i);
+		public TerminalNode AT() { return getToken(SqlBaseParser.AT, 0); }
+		public TimeZoneSpecifierContext timeZoneSpecifier() {
+			return getRuleContext(TimeZoneSpecifierContext.class,0);
 		}
-		public ConcatenationContext(ValueExpressionContext ctx) { copyFrom(ctx); }
+		public AtTimeZoneContext(ValueExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterConcatenation(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterAtTimeZone(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitConcatenation(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitAtTimeZone(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitConcatenation(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitAtTimeZone(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4397,26 +4395,28 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class AtTimeZoneContext extends ValueExpressionContext {
-		public ValueExpressionContext valueExpression() {
-			return getRuleContext(ValueExpressionContext.class,0);
+	public static class ConcatenationContext extends ValueExpressionContext {
+		public ValueExpressionContext left;
+		public ValueExpressionContext right;
+		public TerminalNode CONCAT() { return getToken(SqlBaseParser.CONCAT, 0); }
+		public List<ValueExpressionContext> valueExpression() {
+			return getRuleContexts(ValueExpressionContext.class);
 		}
-		public TerminalNode AT() { return getToken(SqlBaseParser.AT, 0); }
-		public TimeZoneSpecifierContext timeZoneSpecifier() {
-			return getRuleContext(TimeZoneSpecifierContext.class,0);
+		public ValueExpressionContext valueExpression(int i) {
+			return getRuleContext(ValueExpressionContext.class,i);
 		}
-		public AtTimeZoneContext(ValueExpressionContext ctx) { copyFrom(ctx); }
+		public ConcatenationContext(ValueExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterAtTimeZone(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterConcatenation(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitAtTimeZone(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitConcatenation(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitAtTimeZone(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitConcatenation(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4655,35 +4655,27 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class SimpleCaseContext extends PrimaryExpressionContext {
-		public ExpressionContext elseExpression;
-		public TerminalNode CASE() { return getToken(SqlBaseParser.CASE, 0); }
-		public ValueExpressionContext valueExpression() {
-			return getRuleContext(ValueExpressionContext.class,0);
+	public static class PositionContext extends PrimaryExpressionContext {
+		public TerminalNode POSITION() { return getToken(SqlBaseParser.POSITION, 0); }
+		public List<ValueExpressionContext> valueExpression() {
+			return getRuleContexts(ValueExpressionContext.class);
 		}
-		public TerminalNode END() { return getToken(SqlBaseParser.END, 0); }
-		public List<WhenClauseContext> whenClause() {
-			return getRuleContexts(WhenClauseContext.class);
+		public ValueExpressionContext valueExpression(int i) {
+			return getRuleContext(ValueExpressionContext.class,i);
 		}
-		public WhenClauseContext whenClause(int i) {
-			return getRuleContext(WhenClauseContext.class,i);
-		}
-		public TerminalNode ELSE() { return getToken(SqlBaseParser.ELSE, 0); }
-		public ExpressionContext expression() {
-			return getRuleContext(ExpressionContext.class,0);
-		}
-		public SimpleCaseContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
+		public PositionContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSimpleCase(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterPosition(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSimpleCase(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitPosition(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSimpleCase(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitPosition(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4703,70 +4695,6 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitColumnReference(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class NullLiteralContext extends PrimaryExpressionContext {
-		public TerminalNode NULL() { return getToken(SqlBaseParser.NULL, 0); }
-		public NullLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNullLiteral(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNullLiteral(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNullLiteral(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class RowConstructorContext extends PrimaryExpressionContext {
-		public List<ExpressionContext> expression() {
-			return getRuleContexts(ExpressionContext.class);
-		}
-		public ExpressionContext expression(int i) {
-			return getRuleContext(ExpressionContext.class,i);
-		}
-		public TerminalNode ROW() { return getToken(SqlBaseParser.ROW, 0); }
-		public RowConstructorContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterRowConstructor(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitRowConstructor(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitRowConstructor(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class SubscriptContext extends PrimaryExpressionContext {
-		public PrimaryExpressionContext value;
-		public ValueExpressionContext index;
-		public PrimaryExpressionContext primaryExpression() {
-			return getRuleContext(PrimaryExpressionContext.class,0);
-		}
-		public ValueExpressionContext valueExpression() {
-			return getRuleContext(ValueExpressionContext.class,0);
-		}
-		public SubscriptContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSubscript(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSubscript(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSubscript(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4790,30 +4718,6 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class SpecialDateTimeFunctionContext extends PrimaryExpressionContext {
-		public Token name;
-		public Token precision;
-		public TerminalNode CURRENT_DATE() { return getToken(SqlBaseParser.CURRENT_DATE, 0); }
-		public TerminalNode CURRENT_TIME() { return getToken(SqlBaseParser.CURRENT_TIME, 0); }
-		public TerminalNode INTEGER_VALUE() { return getToken(SqlBaseParser.INTEGER_VALUE, 0); }
-		public TerminalNode CURRENT_TIMESTAMP() { return getToken(SqlBaseParser.CURRENT_TIMESTAMP, 0); }
-		public TerminalNode LOCALTIME() { return getToken(SqlBaseParser.LOCALTIME, 0); }
-		public TerminalNode LOCALTIMESTAMP() { return getToken(SqlBaseParser.LOCALTIMESTAMP, 0); }
-		public SpecialDateTimeFunctionContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSpecialDateTimeFunction(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSpecialDateTimeFunction(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSpecialDateTimeFunction(this);
-			else return visitor.visitChildren(this);
-		}
-	}
 	public static class SubqueryExpressionContext extends PrimaryExpressionContext {
 		public QueryContext query() {
 			return getRuleContext(QueryContext.class,0);
@@ -4833,53 +4737,39 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class SubstringContext extends PrimaryExpressionContext {
-		public TerminalNode SUBSTRING() { return getToken(SqlBaseParser.SUBSTRING, 0); }
-		public List<ValueExpressionContext> valueExpression() {
-			return getRuleContexts(ValueExpressionContext.class);
+	public static class BooleanLiteralContext extends PrimaryExpressionContext {
+		public BooleanValueContext booleanValue() {
+			return getRuleContext(BooleanValueContext.class,0);
 		}
-		public ValueExpressionContext valueExpression(int i) {
-			return getRuleContext(ValueExpressionContext.class,i);
-		}
-		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
-		public TerminalNode FOR() { return getToken(SqlBaseParser.FOR, 0); }
-		public SubstringContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		public BooleanLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSubstring(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterBooleanLiteral(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSubstring(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitBooleanLiteral(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSubstring(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitBooleanLiteral(this);
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class CastContext extends PrimaryExpressionContext {
-		public TerminalNode CAST() { return getToken(SqlBaseParser.CAST, 0); }
-		public ExpressionContext expression() {
-			return getRuleContext(ExpressionContext.class,0);
-		}
-		public TerminalNode AS() { return getToken(SqlBaseParser.AS, 0); }
-		public TypeContext type() {
-			return getRuleContext(TypeContext.class,0);
-		}
-		public TerminalNode TRY_CAST() { return getToken(SqlBaseParser.TRY_CAST, 0); }
-		public CastContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+	public static class StringLiteralContext extends PrimaryExpressionContext {
+		public TerminalNode STRING() { return getToken(SqlBaseParser.STRING, 0); }
+		public StringLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCast(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterStringLiteral(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCast(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitStringLiteral(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCast(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitStringLiteral(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4926,43 +4816,104 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class StringLiteralContext extends PrimaryExpressionContext {
-		public TerminalNode STRING() { return getToken(SqlBaseParser.STRING, 0); }
-		public StringLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+	public static class SimpleCaseContext extends PrimaryExpressionContext {
+		public ExpressionContext elseExpression;
+		public TerminalNode CASE() { return getToken(SqlBaseParser.CASE, 0); }
+		public ValueExpressionContext valueExpression() {
+			return getRuleContext(ValueExpressionContext.class,0);
+		}
+		public TerminalNode END() { return getToken(SqlBaseParser.END, 0); }
+		public List<WhenClauseContext> whenClause() {
+			return getRuleContexts(WhenClauseContext.class);
+		}
+		public WhenClauseContext whenClause(int i) {
+			return getRuleContext(WhenClauseContext.class,i);
+		}
+		public TerminalNode ELSE() { return getToken(SqlBaseParser.ELSE, 0); }
+		public ExpressionContext expression() {
+			return getRuleContext(ExpressionContext.class,0);
+		}
+		public SimpleCaseContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterStringLiteral(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSimpleCase(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitStringLiteral(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSimpleCase(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitStringLiteral(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSimpleCase(this);
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class ArrayConstructorContext extends PrimaryExpressionContext {
-		public TerminalNode ARRAY() { return getToken(SqlBaseParser.ARRAY, 0); }
-		public List<ExpressionContext> expression() {
-			return getRuleContexts(ExpressionContext.class);
+	public static class SearchedCaseContext extends PrimaryExpressionContext {
+		public ExpressionContext elseExpression;
+		public TerminalNode CASE() { return getToken(SqlBaseParser.CASE, 0); }
+		public TerminalNode END() { return getToken(SqlBaseParser.END, 0); }
+		public List<WhenClauseContext> whenClause() {
+			return getRuleContexts(WhenClauseContext.class);
 		}
-		public ExpressionContext expression(int i) {
-			return getRuleContext(ExpressionContext.class,i);
+		public WhenClauseContext whenClause(int i) {
+			return getRuleContext(WhenClauseContext.class,i);
 		}
-		public ArrayConstructorContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		public TerminalNode ELSE() { return getToken(SqlBaseParser.ELSE, 0); }
+		public ExpressionContext expression() {
+			return getRuleContext(ExpressionContext.class,0);
+		}
+		public SearchedCaseContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterArrayConstructor(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSearchedCase(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitArrayConstructor(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSearchedCase(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitArrayConstructor(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSearchedCase(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class NormalizeContext extends PrimaryExpressionContext {
+		public TerminalNode NORMALIZE() { return getToken(SqlBaseParser.NORMALIZE, 0); }
+		public ValueExpressionContext valueExpression() {
+			return getRuleContext(ValueExpressionContext.class,0);
+		}
+		public NormalFormContext normalForm() {
+			return getRuleContext(NormalFormContext.class,0);
+		}
+		public NormalizeContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNormalize(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNormalize(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNormalize(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class NullLiteralContext extends PrimaryExpressionContext {
+		public TerminalNode NULL() { return getToken(SqlBaseParser.NULL, 0); }
+		public NullLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNullLiteral(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNullLiteral(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNullLiteral(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -4998,26 +4949,185 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class NormalizeContext extends PrimaryExpressionContext {
-		public TerminalNode NORMALIZE() { return getToken(SqlBaseParser.NORMALIZE, 0); }
-		public ValueExpressionContext valueExpression() {
-			return getRuleContext(ValueExpressionContext.class,0);
+	public static class IntervalLiteralContext extends PrimaryExpressionContext {
+		public IntervalContext interval() {
+			return getRuleContext(IntervalContext.class,0);
 		}
-		public NormalFormContext normalForm() {
-			return getRuleContext(NormalFormContext.class,0);
-		}
-		public NormalizeContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		public IntervalLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNormalize(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterIntervalLiteral(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNormalize(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitIntervalLiteral(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNormalize(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitIntervalLiteral(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class ArrayConstructorContext extends PrimaryExpressionContext {
+		public TerminalNode ARRAY() { return getToken(SqlBaseParser.ARRAY, 0); }
+		public List<ExpressionContext> expression() {
+			return getRuleContexts(ExpressionContext.class);
+		}
+		public ExpressionContext expression(int i) {
+			return getRuleContext(ExpressionContext.class,i);
+		}
+		public ArrayConstructorContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterArrayConstructor(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitArrayConstructor(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitArrayConstructor(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class RowConstructorContext extends PrimaryExpressionContext {
+		public List<ExpressionContext> expression() {
+			return getRuleContexts(ExpressionContext.class);
+		}
+		public ExpressionContext expression(int i) {
+			return getRuleContext(ExpressionContext.class,i);
+		}
+		public TerminalNode ROW() { return getToken(SqlBaseParser.ROW, 0); }
+		public RowConstructorContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterRowConstructor(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitRowConstructor(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitRowConstructor(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class CastContext extends PrimaryExpressionContext {
+		public TerminalNode CAST() { return getToken(SqlBaseParser.CAST, 0); }
+		public ExpressionContext expression() {
+			return getRuleContext(ExpressionContext.class,0);
+		}
+		public TerminalNode AS() { return getToken(SqlBaseParser.AS, 0); }
+		public TypeContext type() {
+			return getRuleContext(TypeContext.class,0);
+		}
+		public TerminalNode TRY_CAST() { return getToken(SqlBaseParser.TRY_CAST, 0); }
+		public CastContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCast(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCast(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCast(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class SubscriptContext extends PrimaryExpressionContext {
+		public PrimaryExpressionContext value;
+		public ValueExpressionContext index;
+		public PrimaryExpressionContext primaryExpression() {
+			return getRuleContext(PrimaryExpressionContext.class,0);
+		}
+		public ValueExpressionContext valueExpression() {
+			return getRuleContext(ValueExpressionContext.class,0);
+		}
+		public SubscriptContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSubscript(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSubscript(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSubscript(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class SubstringContext extends PrimaryExpressionContext {
+		public TerminalNode SUBSTRING() { return getToken(SqlBaseParser.SUBSTRING, 0); }
+		public List<ValueExpressionContext> valueExpression() {
+			return getRuleContexts(ValueExpressionContext.class);
+		}
+		public ValueExpressionContext valueExpression(int i) {
+			return getRuleContext(ValueExpressionContext.class,i);
+		}
+		public TerminalNode FROM() { return getToken(SqlBaseParser.FROM, 0); }
+		public TerminalNode FOR() { return getToken(SqlBaseParser.FOR, 0); }
+		public SubstringContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSubstring(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSubstring(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSubstring(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class SpecialDateTimeFunctionContext extends PrimaryExpressionContext {
+		public Token name;
+		public Token precision;
+		public TerminalNode CURRENT_DATE() { return getToken(SqlBaseParser.CURRENT_DATE, 0); }
+		public TerminalNode CURRENT_TIME() { return getToken(SqlBaseParser.CURRENT_TIME, 0); }
+		public TerminalNode INTEGER_VALUE() { return getToken(SqlBaseParser.INTEGER_VALUE, 0); }
+		public TerminalNode CURRENT_TIMESTAMP() { return getToken(SqlBaseParser.CURRENT_TIMESTAMP, 0); }
+		public TerminalNode LOCALTIME() { return getToken(SqlBaseParser.LOCALTIME, 0); }
+		public TerminalNode LOCALTIMESTAMP() { return getToken(SqlBaseParser.LOCALTIMESTAMP, 0); }
+		public SpecialDateTimeFunctionContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSpecialDateTimeFunction(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSpecialDateTimeFunction(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSpecialDateTimeFunction(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class NumericLiteralContext extends PrimaryExpressionContext {
+		public NumberContext number() {
+			return getRuleContext(NumberContext.class,0);
+		}
+		public NumericLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNumericLiteral(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNumericLiteral(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNumericLiteral(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -5042,116 +5152,6 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitFieldReference(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class SearchedCaseContext extends PrimaryExpressionContext {
-		public ExpressionContext elseExpression;
-		public TerminalNode CASE() { return getToken(SqlBaseParser.CASE, 0); }
-		public TerminalNode END() { return getToken(SqlBaseParser.END, 0); }
-		public List<WhenClauseContext> whenClause() {
-			return getRuleContexts(WhenClauseContext.class);
-		}
-		public WhenClauseContext whenClause(int i) {
-			return getRuleContext(WhenClauseContext.class,i);
-		}
-		public TerminalNode ELSE() { return getToken(SqlBaseParser.ELSE, 0); }
-		public ExpressionContext expression() {
-			return getRuleContext(ExpressionContext.class,0);
-		}
-		public SearchedCaseContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterSearchedCase(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitSearchedCase(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitSearchedCase(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class PositionContext extends PrimaryExpressionContext {
-		public TerminalNode POSITION() { return getToken(SqlBaseParser.POSITION, 0); }
-		public List<ValueExpressionContext> valueExpression() {
-			return getRuleContexts(ValueExpressionContext.class);
-		}
-		public ValueExpressionContext valueExpression(int i) {
-			return getRuleContext(ValueExpressionContext.class,i);
-		}
-		public TerminalNode IN() { return getToken(SqlBaseParser.IN, 0); }
-		public PositionContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterPosition(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitPosition(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitPosition(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class IntervalLiteralContext extends PrimaryExpressionContext {
-		public IntervalContext interval() {
-			return getRuleContext(IntervalContext.class,0);
-		}
-		public IntervalLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterIntervalLiteral(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitIntervalLiteral(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitIntervalLiteral(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class NumericLiteralContext extends PrimaryExpressionContext {
-		public NumberContext number() {
-			return getRuleContext(NumberContext.class,0);
-		}
-		public NumericLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterNumericLiteral(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitNumericLiteral(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitNumericLiteral(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class BooleanLiteralContext extends PrimaryExpressionContext {
-		public BooleanValueContext booleanValue() {
-			return getRuleContext(BooleanValueContext.class,0);
-		}
-		public BooleanLiteralContext(PrimaryExpressionContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterBooleanLiteral(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitBooleanLiteral(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitBooleanLiteral(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -5818,6 +5818,25 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
+	public static class TimeZoneStringContext extends TimeZoneSpecifierContext {
+		public TerminalNode TIME() { return getToken(SqlBaseParser.TIME, 0); }
+		public TerminalNode ZONE() { return getToken(SqlBaseParser.ZONE, 0); }
+		public TerminalNode STRING() { return getToken(SqlBaseParser.STRING, 0); }
+		public TimeZoneStringContext(TimeZoneSpecifierContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterTimeZoneString(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitTimeZoneString(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitTimeZoneString(this);
+			else return visitor.visitChildren(this);
+		}
+	}
 	public static class TimeZoneIntervalContext extends TimeZoneSpecifierContext {
 		public TerminalNode TIME() { return getToken(SqlBaseParser.TIME, 0); }
 		public TerminalNode ZONE() { return getToken(SqlBaseParser.ZONE, 0); }
@@ -5836,25 +5855,6 @@ public class SqlBaseParser extends Parser {
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
 			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitTimeZoneInterval(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class TimeZoneStringContext extends TimeZoneSpecifierContext {
-		public TerminalNode TIME() { return getToken(SqlBaseParser.TIME, 0); }
-		public TerminalNode ZONE() { return getToken(SqlBaseParser.ZONE, 0); }
-		public TerminalNode STRING() { return getToken(SqlBaseParser.STRING, 0); }
-		public TimeZoneStringContext(TimeZoneSpecifierContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterTimeZoneString(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitTimeZoneString(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitTimeZoneString(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -6697,25 +6697,21 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class BoundedFrameContext extends FrameBoundContext {
-		public Token boundType;
-		public ExpressionContext expression() {
-			return getRuleContext(ExpressionContext.class,0);
-		}
-		public TerminalNode PRECEDING() { return getToken(SqlBaseParser.PRECEDING, 0); }
-		public TerminalNode FOLLOWING() { return getToken(SqlBaseParser.FOLLOWING, 0); }
-		public BoundedFrameContext(FrameBoundContext ctx) { copyFrom(ctx); }
+	public static class CurrentRowBoundContext extends FrameBoundContext {
+		public TerminalNode CURRENT() { return getToken(SqlBaseParser.CURRENT, 0); }
+		public TerminalNode ROW() { return getToken(SqlBaseParser.ROW, 0); }
+		public CurrentRowBoundContext(FrameBoundContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterBoundedFrame(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCurrentRowBound(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitBoundedFrame(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCurrentRowBound(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitBoundedFrame(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCurrentRowBound(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -6739,21 +6735,25 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class CurrentRowBoundContext extends FrameBoundContext {
-		public TerminalNode CURRENT() { return getToken(SqlBaseParser.CURRENT, 0); }
-		public TerminalNode ROW() { return getToken(SqlBaseParser.ROW, 0); }
-		public CurrentRowBoundContext(FrameBoundContext ctx) { copyFrom(ctx); }
+	public static class BoundedFrameContext extends FrameBoundContext {
+		public Token boundType;
+		public ExpressionContext expression() {
+			return getRuleContext(ExpressionContext.class,0);
+		}
+		public TerminalNode PRECEDING() { return getToken(SqlBaseParser.PRECEDING, 0); }
+		public TerminalNode FOLLOWING() { return getToken(SqlBaseParser.FOLLOWING, 0); }
+		public BoundedFrameContext(FrameBoundContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterCurrentRowBound(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterBoundedFrame(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitCurrentRowBound(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitBoundedFrame(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitCurrentRowBound(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitBoundedFrame(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -7008,20 +7008,40 @@ public class SqlBaseParser extends Parser {
 			super.copyFrom(ctx);
 		}
 	}
-	public static class BackQuotedIdentifierContext extends IdentifierContext {
-		public TerminalNode BACKQUOTED_IDENTIFIER() { return getToken(SqlBaseParser.BACKQUOTED_IDENTIFIER, 0); }
-		public BackQuotedIdentifierContext(IdentifierContext ctx) { copyFrom(ctx); }
+	public static class UnquotedIdentifierContext extends IdentifierContext {
+		public TerminalNode IDENTIFIER() { return getToken(SqlBaseParser.IDENTIFIER, 0); }
+		public NonReservedContext nonReserved() {
+			return getRuleContext(NonReservedContext.class,0);
+		}
+		public UnquotedIdentifierContext(IdentifierContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterBackQuotedIdentifier(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterUnquotedIdentifier(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitBackQuotedIdentifier(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitUnquotedIdentifier(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitBackQuotedIdentifier(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitUnquotedIdentifier(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class DigitIdentifierContext extends IdentifierContext {
+		public TerminalNode DIGIT_IDENTIFIER() { return getToken(SqlBaseParser.DIGIT_IDENTIFIER, 0); }
+		public DigitIdentifierContext(IdentifierContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDigitIdentifier(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDigitIdentifier(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDigitIdentifier(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -7044,40 +7064,20 @@ public class SqlBaseParser extends Parser {
 			else return visitor.visitChildren(this);
 		}
 	}
-	public static class DigitIdentifierContext extends IdentifierContext {
-		public TerminalNode DIGIT_IDENTIFIER() { return getToken(SqlBaseParser.DIGIT_IDENTIFIER, 0); }
-		public DigitIdentifierContext(IdentifierContext ctx) { copyFrom(ctx); }
+	public static class BackQuotedIdentifierContext extends IdentifierContext {
+		public TerminalNode BACKQUOTED_IDENTIFIER() { return getToken(SqlBaseParser.BACKQUOTED_IDENTIFIER, 0); }
+		public BackQuotedIdentifierContext(IdentifierContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterDigitIdentifier(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterBackQuotedIdentifier(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitDigitIdentifier(this);
+			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitBackQuotedIdentifier(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitDigitIdentifier(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class UnquotedIdentifierContext extends IdentifierContext {
-		public TerminalNode IDENTIFIER() { return getToken(SqlBaseParser.IDENTIFIER, 0); }
-		public NonReservedContext nonReserved() {
-			return getRuleContext(NonReservedContext.class,0);
-		}
-		public UnquotedIdentifierContext(IdentifierContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).enterUnquotedIdentifier(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SqlBaseListener ) ((SqlBaseListener)listener).exitUnquotedIdentifier(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitUnquotedIdentifier(this);
+			if ( visitor instanceof SqlBaseVisitor ) return ((SqlBaseVisitor<? extends T>)visitor).visitBackQuotedIdentifier(this);
 			else return visitor.visitChildren(this);
 		}
 	}

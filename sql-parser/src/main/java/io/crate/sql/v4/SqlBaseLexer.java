@@ -1,4 +1,4 @@
-// Generated from /home/jordi/workspace/code/ct/crate/sql-parser/src/main/antlr/SqlBase.g4 by ANTLR 4.5
+// Generated from SqlBase.g4 by ANTLR 4.5
 package io.crate.sql.v4;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;

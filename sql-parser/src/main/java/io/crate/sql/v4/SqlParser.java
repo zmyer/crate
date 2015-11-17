@@ -22,6 +22,7 @@
 
 package io.crate.sql.v4;
 
+import io.crate.sql.tree.Node;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -30,7 +31,7 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 public class SqlParser {
 
-    public static ParserRuleContext createStatement(String sql) {
+    public static Node createStatement(String sql) {
         ANTLRInputStream antlrInputStream = new ANTLRInputStream(sql);
         SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(antlrInputStream));
         CommonTokenStream tokenStream = new CommonTokenStream(lexer);
@@ -49,6 +50,6 @@ public class SqlParser {
             parser.getInterpreter().setPredictionMode(PredictionMode.LL);
             tree = parser.statement();
         }
-        return tree;
+        return new AstBuilder().visit(tree);
     }
 }

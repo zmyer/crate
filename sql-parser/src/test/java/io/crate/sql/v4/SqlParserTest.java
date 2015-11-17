@@ -24,14 +24,10 @@ package io.crate.sql.v4;
 
 import org.junit.Test;
 
-/**
- * Created by jordi on 9/11/15.
- */
 public class SqlParserTest {
 
     @Test
     public void testCreateStatement() throws Exception {
         SqlParser.createStatement("SELECT * FROM foo");
-
     }
 }
