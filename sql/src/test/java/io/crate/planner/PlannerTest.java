@@ -5,7 +5,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.crate.Constants;
-import io.crate.analyze.Analyzer;
+import io.crate.analyze.V3Analyzer;
 import io.crate.analyze.BaseAnalyzerTest;
 import io.crate.analyze.ParameterContext;
 import io.crate.analyze.WhereClause;
@@ -78,7 +78,7 @@ import static org.mockito.Mockito.when;
 @SuppressWarnings("ConstantConditions")
 public class PlannerTest extends CrateUnitTest {
 
-    private Analyzer analyzer;
+    private V3Analyzer analyzer;
     private Planner planner;
     Routing shardRouting = new Routing(TreeMapBuilder.<String, Map<String, List<Integer>>>newMapBuilder()
             .put("nodeOne", TreeMapBuilder.<String, List<Integer>>newMapBuilder().put("t1", Arrays.asList(1, 2)).map())
@@ -111,7 +111,7 @@ public class PlannerTest extends CrateUnitTest {
                 .add(new PredicateModule())
                 .add(new OperatorModule())
                 .createInjector();
-        analyzer = injector.getInstance(Analyzer.class);
+        analyzer = injector.getInstance(V3Analyzer.class);
         planner = injector.getInstance(Planner.class);
     }
 

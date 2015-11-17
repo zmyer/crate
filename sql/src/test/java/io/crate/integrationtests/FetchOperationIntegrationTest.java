@@ -25,7 +25,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.analyze.Analysis;
-import io.crate.analyze.Analyzer;
+import io.crate.analyze.V3Analyzer;
 import io.crate.analyze.ParameterContext;
 import io.crate.core.collections.Row;
 import io.crate.executor.Job;
@@ -86,7 +86,7 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
     }
 
     private Analysis analyze(String stmt) {
-        Analyzer analyzer = internalCluster().getInstance(Analyzer.class);
+        V3Analyzer analyzer = internalCluster().getInstance(V3Analyzer.class);
         return analyzer.analyze(
                 SqlParser.createStatement(stmt),
                 new ParameterContext(new Object[0], new Object[0][], null)

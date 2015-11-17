@@ -23,7 +23,7 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -38,7 +38,7 @@ public class CreateRepository extends Statement{
                             @Nullable GenericProperties genericProperties) {
         this.repository = repository;
         this.type = type;
-        this.properties = Optional.fromNullable(genericProperties);
+        this.properties = Optional.ofNullable(genericProperties);
     }
 
     public String repository() {

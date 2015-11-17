@@ -21,7 +21,7 @@
 
 package io.crate.sql.tree;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.google.common.base.Preconditions;
 
 public class AllColumns
@@ -31,7 +31,7 @@ public class AllColumns
 
     public AllColumns()
     {
-        prefix = Optional.absent();
+        prefix = Optional.empty();
     }
 
     public AllColumns(QualifiedName prefix)

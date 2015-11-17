@@ -23,7 +23,7 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -34,7 +34,7 @@ public class NamedProperties extends Node {
 
     public NamedProperties(String ident, @Nullable GenericProperties properties) {
         this.ident = ident;
-        this.properties = Optional.fromNullable(properties);
+        this.properties = Optional.ofNullable(properties);
     }
 
     public String ident() {

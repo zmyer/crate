@@ -21,9 +21,8 @@
 
 package io.crate.action.sql;
 
-import io.crate.analyze.Analysis;
-import io.crate.analyze.Analyzer;
 import io.crate.analyze.ParameterContext;
+import io.crate.analyze.v4.V4Analyzer;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Buckets;
 import io.crate.core.collections.Row;
@@ -34,7 +33,6 @@ import io.crate.executor.transport.ResponseForwarder;
 import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 import io.crate.operation.collect.StatsTables;
 import io.crate.planner.Planner;
-import io.crate.sql.tree.Statement;
 import io.crate.types.DataType;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
@@ -60,7 +58,7 @@ public class TransportSQLAction extends TransportBaseSQLAction<SQLRequest, SQLRe
             ClusterService clusterService,
             Settings settings,
             ThreadPool threadPool,
-            Analyzer analyzer,
+            V4Analyzer analyzer,
             Planner planner,
             Provider<Executor> executor,
             TransportService transportService,
@@ -74,9 +72,9 @@ public class TransportSQLAction extends TransportBaseSQLAction<SQLRequest, SQLRe
     }
 
     @Override
-    public Analysis getAnalysis(Statement statement, SQLRequest request) {
-        return analyzer.analyze(statement, new ParameterContext(
-                request.args(), SQLBulkRequest.EMPTY_BULK_ARGS, request.getDefaultSchema(), request.getRequestFlags()));
+    public ParameterContext paramContext(SQLRequest request) {
+        return new ParameterContext(
+                request.args(), SQLBulkRequest.EMPTY_BULK_ARGS, request.getDefaultSchema(), request.getRequestFlags());
     }
 
     @Override

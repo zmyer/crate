@@ -213,7 +213,7 @@ public abstract class BaseAnalyzerTest extends CrateUnitTest {
             new FunctionIdent("year", Arrays.<DataType>asList(DataTypes.TIMESTAMP)),
             DataTypes.STRING);
     protected Injector injector;
-    Analyzer analyzer;
+    V3Analyzer analyzer;
 
 
     private ThreadPool threadPool;
@@ -326,7 +326,7 @@ public abstract class BaseAnalyzerTest extends CrateUnitTest {
             builder.add(m);
         }
         injector = builder.createInjector();
-        analyzer = injector.getInstance(Analyzer.class);
+        analyzer = injector.getInstance(V3Analyzer.class);
     }
 
     @After

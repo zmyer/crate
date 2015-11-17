@@ -22,7 +22,6 @@
 
 package io.crate.analyze;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,7 +34,10 @@ import io.crate.metadata.Schemas;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
-import io.crate.sql.tree.*;
+import io.crate.sql.tree.CreateSnapshot;
+import io.crate.sql.tree.Expression;
+import io.crate.sql.tree.QualifiedName;
+import io.crate.sql.tree.Table;
 import org.elasticsearch.cluster.metadata.SnapshotId;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;

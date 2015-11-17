@@ -133,7 +133,7 @@ public class TableElementsAnalyzer {
         public Void visitObjectColumnType(ObjectColumnType node, ColumnDefinitionContext context) {
             context.analyzedColumnDefinition.dataType(node.name());
 
-            switch (node.objectType().or("dynamic").toLowerCase(Locale.ENGLISH)) {
+            switch (node.objectType().orElse("dynamic").toLowerCase(Locale.ENGLISH)) {
                 case "dynamic":
                     context.analyzedColumnDefinition.objectType("true");
                     break;

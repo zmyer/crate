@@ -22,7 +22,8 @@
 package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
+
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

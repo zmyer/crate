@@ -72,7 +72,7 @@ import static org.mockito.Mockito.when;
 
 public class CrossJoinConsumerTest extends CrateUnitTest {
 
-    private Analyzer analyzer;
+    private V3Analyzer analyzer;
     private Planner planner;
 
     @Rule
@@ -94,7 +94,7 @@ public class CrossJoinConsumerTest extends CrateUnitTest {
                 .add(new PredicateModule())
                 .add(new OperatorModule())
                 .createInjector();
-        analyzer = injector.getInstance(Analyzer.class);
+        analyzer = injector.getInstance(V3Analyzer.class);
         planner = injector.getInstance(Planner.class);
         consumer = new CrossJoinConsumer(clusterService, mock(AnalysisMetaData.class), statsService);
     }

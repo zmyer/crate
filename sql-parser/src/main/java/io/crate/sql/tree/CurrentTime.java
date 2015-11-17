@@ -21,7 +21,7 @@
 
 package io.crate.sql.tree;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -61,7 +61,7 @@ public class CurrentTime
     {
         checkNotNull(type, "type is null");
         this.type = type;
-        this.precision = Optional.fromNullable(precision);
+        this.precision = Optional.ofNullable(precision);
     }
 
     public Type getType()

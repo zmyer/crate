@@ -23,7 +23,7 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -50,7 +50,7 @@ public class FrameBound
     public FrameBound(Type type, Expression value)
     {
         this.type = checkNotNull(type, "type is null");
-        this.value = Optional.fromNullable(value);
+        this.value = Optional.ofNullable(value);
     }
 
     public Type getType()

@@ -22,7 +22,7 @@
 package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -47,7 +47,7 @@ public class CopyTo extends Statement {
         this.table = table;
         this.directoryUri = directoryUri;
         this.targetUri = targetUri;
-        this.genericProperties = Optional.fromNullable(genericProperties);
+        this.genericProperties = Optional.ofNullable(genericProperties);
         this.columns = MoreObjects.firstNonNull(columns, ImmutableList.<Expression>of());
     }
 

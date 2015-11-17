@@ -22,7 +22,7 @@
 package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -34,8 +34,8 @@ public class CreateBlobTable extends Statement {
 
     public CreateBlobTable(Table name, @Nullable ClusteredBy clusteredBy, @Nullable GenericProperties properties) {
         this.name = name;
-        this.clusteredBy = Optional.fromNullable(clusteredBy);
-        this.genericProperties = Optional.fromNullable(properties);
+        this.clusteredBy = Optional.ofNullable(clusteredBy);
+        this.genericProperties = Optional.ofNullable(properties);
     }
 
     public Table name() {

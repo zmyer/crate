@@ -21,7 +21,6 @@
 
 package io.crate.analyze.expressions;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -444,7 +443,7 @@ public class ExpressionAnalyzer {
                 visitExpression(node, context);
             }
             List<Symbol> args = Lists.<Symbol>newArrayList(
-                    Literal.newLiteral(node.getPrecision().or(CurrentTimestampFunction.DEFAULT_PRECISION))
+                    Literal.newLiteral(node.getPrecision().orElse(CurrentTimestampFunction.DEFAULT_PRECISION))
             );
             return context.allocateCurrentTime(node, args, normalizer);
         }

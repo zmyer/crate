@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import io.crate.action.sql.SQLRequest;
 import io.crate.action.sql.SQLResponse;
 import io.crate.action.sql.TransportSQLAction;
-import io.crate.analyze.Analyzer;
+import io.crate.analyze.v4.V4Analyzer;
 import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 import io.crate.metadata.TableIdent;
 import io.crate.operation.collect.StatsTables;
@@ -75,7 +75,7 @@ public class TableStatsServiceTest extends CrateUnitTest  {
                 mock(ClusterService.class),
                 ImmutableSettings.EMPTY,
                 threadPool,
-                mock(Analyzer.class),
+                mock(V4Analyzer.class),
                 mock(Planner.class),
                 mock(Provider.class),
                 mock(TransportService.class),

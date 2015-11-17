@@ -35,9 +35,9 @@ options {
     import java.util.ArrayList;
     import java.util.List;
     import java.util.Locale;
+    import java.util.Optional;
     import com.google.common.collect.ImmutableList;
     import com.google.common.base.MoreObjects;
-    import com.google.common.base.Optional;
     import com.google.common.collect.Multimap;
     import com.google.common.collect.LinkedListMultimap;
 }
@@ -115,11 +115,11 @@ queryExpr returns [Query value]
       limitClause?
       offsetClause?
         { $value = new Query(
-            Optional.fromNullable($withClause.value),
+            Optional.ofNullable($withClause.value),
             $queryBody.value,
             MoreObjects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value),
-            Optional.fromNullable($offsetClause.value));
+            Optional.ofNullable($limitClause.value),
+            Optional.ofNullable($offsetClause.value));
         }
     ;
 
@@ -143,12 +143,12 @@ querySpec returns [QuerySpecification value]
         { $value = new QuerySpecification(
             $selectClause.value,
             $fromClause.value,
-            Optional.fromNullable($whereClause.value),
+            Optional.ofNullable($whereClause.value),
             MoreObjects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
-            Optional.fromNullable($havingClause.value),
+            Optional.ofNullable($havingClause.value),
             MoreObjects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value),
-            Optional.fromNullable($offsetClause.value));
+            Optional.ofNullable($limitClause.value),
+            Optional.ofNullable($offsetClause.value));
         }
     ;
 
@@ -161,19 +161,19 @@ setOperation returns [SetOperation value]
 restrictedSelectStmt returns [Query value]
     : selectClause fromClause
         { $value = new Query(
-            Optional.<With>absent(),
+            Optional.<With>empty(),
             new QuerySpecification(
                 $selectClause.value,
                 $fromClause.value,
-                Optional.<Expression>absent(),
+                Optional.<Expression>empty(),
                 ImmutableList.<Expression>of(),
-                Optional.<Expression>absent(),
+                Optional.<Expression>empty(),
                 ImmutableList.<SortItem>of(),
-                Optional.<Expression>absent(),
-                Optional.<Expression>absent()),
+                Optional.<Expression>empty(),
+                Optional.<Expression>empty()),
             ImmutableList.<SortItem>of(),
-            Optional.<Expression>absent(),
-            Optional.<Expression>absent());
+            Optional.<Expression>empty(),
+            Optional.<Expression>empty());
         }
     ;
 
@@ -215,7 +215,7 @@ selectList returns [List<SelectItem> value = new ArrayList<>()]
 
 selectItem returns [SelectItem value]
     :
-      ^(SELECT_ITEM expr ident?)                       { $value = new SingleColumn($expr.value, Optional.fromNullable($ident.value)); }
+      ^(SELECT_ITEM expr ident?)                       { $value = new SingleColumn($expr.value, Optional.ofNullable($ident.value)); }
     | (^(ALL_COLUMNS qname)) => ^(ALL_COLUMNS qname)   { $value = new AllColumns($qname.value); }
     | ALL_COLUMNS                                      { $value = new AllColumns(); }
     ;
@@ -305,8 +305,8 @@ joinedTable returns [Relation value]
     ;
 
 joinRelation returns [Join value]
-    : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, Optional.<JoinCriteria>absent()); }
-    | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, Optional.fromNullable($c.value)); }
+    : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, Optional.<JoinCriteria>empty()); }
+    | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, Optional.ofNullable($c.value)); }
     ;
 
 aliasedRelation returns [AliasedRelation value]
@@ -314,7 +314,7 @@ aliasedRelation returns [AliasedRelation value]
     ;
 
 sampledRelation returns [SampledRelation value]
-    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, Optional.fromNullable($st.value)); }
+    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, Optional.ofNullable($st.value)); }
     ;
 
 aliasedColumns returns [List<String> value]
@@ -589,7 +589,7 @@ showTablesLike returns [String value]
     ;
 
 showSchemas returns [Statement value]
-    : ^(SHOW_SCHEMAS from=showSchemasFrom?) { $value = new ShowSchemas(Optional.fromNullable($from.value)); }
+    : ^(SHOW_SCHEMAS from=showSchemasFrom?) { $value = new ShowSchemas(Optional.ofNullable($from.value)); }
     ;
 
 showSchemasFrom returns [String value]
@@ -608,10 +608,10 @@ showPartitions returns [Statement value]
     : ^(SHOW_PARTITIONS qname whereClause? orderClause? limitClause? offsetClause?)
         { $value = new ShowPartitions(
             $qname.value,
-            Optional.fromNullable($whereClause.value),
+            Optional.ofNullable($whereClause.value),
             MoreObjects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value),
-            Optional.fromNullable($offsetClause.value));
+            Optional.ofNullable($limitClause.value),
+            Optional.ofNullable($offsetClause.value));
         }
     ;
 
@@ -628,7 +628,7 @@ showCreateTable returns [Statement value]
 
 createMaterializedView returns [Statement value]
     : ^(CREATE_MATERIALIZED_VIEW qname refreshView=viewRefresh? select=restrictedSelectStmt)
-        { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refreshView.value), $select.value); }
+        { $value = new CreateMaterializedView($qname.value, Optional.ofNullable($refreshView.value), $select.value); }
     ;
 
 refreshMaterializedView returns [Statement value]

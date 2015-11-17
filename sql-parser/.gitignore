@@ -3,3 +3,9 @@
 /src/main/java/io/crate/sql/parser/StatementLexer.java
 /src/main/java/io/crate/sql/parser/StatementParser.java
 /src/main/java/io/crate/sql/parser/StatementBuilder.java
+/src/main/java/io/crate/sql/v4/SqlBaseBaseListener.java
+/src/main/java/io/crate/sql/v4/SqlBaseBaseVisitor.java
+/src/main/java/io/crate/sql/v4/SqlBaseLexer.java
+/src/main/java/io/crate/sql/v4/SqlBaseParser.java
+/src/main/java/io/crate/sql/v4/SqlBaseVisitor.java
+/src/main/java/io/crate/sql/v4/SqlBaseListener.java

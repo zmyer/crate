@@ -25,7 +25,7 @@ package io.crate.testing;
 import com.google.common.collect.ImmutableList;
 import io.crate.action.job.SharedShardContexts;
 import io.crate.analyze.Analysis;
-import io.crate.analyze.Analyzer;
+import io.crate.analyze.V3Analyzer;
 import io.crate.analyze.ParameterContext;
 import io.crate.analyze.relations.PlannedAnalyzedRelation;
 import io.crate.breaker.RamAccountingContext;
@@ -62,14 +62,14 @@ public class LuceneDocCollectorProvider implements AutoCloseable {
             new RamAccountingContext("dummy", new NoopCircuitBreaker(CircuitBreaker.Name.FIELDDATA));
 
     private final InternalTestCluster cluster;
-    private final Analyzer analyzer;
+    private final V3Analyzer analyzer;
     private final QueryAndFetchConsumer queryAndFetchConsumer;
 
     private List<JobCollectContext> collectContexts = new ArrayList<>();
 
     public LuceneDocCollectorProvider(InternalTestCluster cluster) {
         this.cluster = cluster;
-        this.analyzer = cluster.getDataNodeInstance(Analyzer.class);
+        this.analyzer = cluster.getDataNodeInstance(V3Analyzer.class);
         this.queryAndFetchConsumer = cluster.getDataNodeInstance(QueryAndFetchConsumer.class);
     }
 

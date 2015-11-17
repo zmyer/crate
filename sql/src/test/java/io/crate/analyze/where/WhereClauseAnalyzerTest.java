@@ -71,7 +71,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
 
-    private Analyzer analyzer;
+    private V3Analyzer analyzer;
     private AnalysisMetaData ctxMetaData;
     private ThreadPool threadPool;
 
@@ -86,7 +86,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
                 .add(new ScalarFunctionModule())
                 .add(new MetaDataSysModule())
                 .add(new TestMetaDataModule()).createInjector();
-        analyzer = injector.getInstance(Analyzer.class);
+        analyzer = injector.getInstance(V3Analyzer.class);
         ctxMetaData = injector.getInstance(AnalysisMetaData.class);
     }
 

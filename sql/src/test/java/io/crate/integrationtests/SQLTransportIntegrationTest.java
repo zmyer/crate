@@ -29,7 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.action.sql.*;
 import io.crate.action.sql.parser.SQLXContentSourceContext;
 import io.crate.action.sql.parser.SQLXContentSourceParser;
-import io.crate.analyze.Analyzer;
+import io.crate.analyze.V3Analyzer;
 import io.crate.analyze.ParameterContext;
 import io.crate.executor.Job;
 import io.crate.executor.TaskResult;
@@ -265,7 +265,7 @@ public abstract class SQLTransportIntegrationTest extends ElasticsearchIntegrati
     }
 
     public Plan plan(String stmt) {
-        Analyzer analyzer = internalCluster().getInstance(Analyzer.class);
+        V3Analyzer analyzer = internalCluster().getInstance(V3Analyzer.class);
         Planner planner = internalCluster().getInstance(Planner.class);
 
         ParameterContext parameterContext = new ParameterContext(new Object[0], new Object[0][], null);

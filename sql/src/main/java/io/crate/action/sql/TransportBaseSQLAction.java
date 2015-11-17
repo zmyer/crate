@@ -21,16 +21,15 @@
 
 package io.crate.action.sql;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Constants;
 import io.crate.analyze.Analysis;
 import io.crate.analyze.Analyzer;
+import io.crate.analyze.ParameterContext;
 import io.crate.analyze.symbol.Field;
+import io.crate.analyze.v4.V4Analyzer;
 import io.crate.exceptions.*;
 import io.crate.executor.Executor;
 import io.crate.executor.Job;
@@ -44,8 +43,6 @@ import io.crate.planner.Plan;
 import io.crate.planner.PlanPrinter;
 import io.crate.planner.Planner;
 import io.crate.sql.parser.ParsingException;
-import io.crate.sql.parser.SqlParser;
-import io.crate.sql.tree.Statement;
 import io.crate.types.DataType;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;
@@ -84,18 +81,6 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
     private static final String[] EMPTY_NAMES = new String[0];
     private static final int MAX_SHARD_MISSING_RETRIES = 3;
 
-
-    private final LoadingCache<String, Statement> statementCache = CacheBuilder.newBuilder()
-            .maximumSize(100)
-            .build(
-                    new CacheLoader<String, Statement>() {
-                        @Override
-                        public Statement load(@Nonnull String statement) throws Exception {
-                            return SqlParser.createStatement(statement);
-                        }
-                    }
-            );
-
     private final ClusterService clusterService;
     private final TransportKillJobsNodeAction transportKillJobsNodeAction;
     protected final Analyzer analyzer;
@@ -108,7 +93,7 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
                                   Settings settings,
                                   String actionName,
                                   ThreadPool threadPool,
-                                  Analyzer analyzer,
+                                  V4Analyzer analyzer,
                                   Planner planner,
                                   Provider<Executor> executorProvider,
                                   StatsTables statsTables,
@@ -123,7 +108,7 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
         this.transportKillJobsNodeAction = transportKillJobsNodeAction;
     }
 
-    public abstract Analysis getAnalysis(Statement statement, TRequest request);
+    public abstract ParameterContext paramContext(TRequest request);
 
 
     /**
@@ -197,8 +182,7 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
             return;
         }
         try {
-            Statement statement = statementCache.get(request.stmt());
-            Analysis analysis = getAnalysis(statement, request);
+            Analysis analysis = analyzer.analyze(request.stmt(), paramContext(request));
             processAnalysis(analysis, request, listener, attempt, jobId);
         } catch (Throwable e) {
             logger.debug("Error executing SQLRequest", e);

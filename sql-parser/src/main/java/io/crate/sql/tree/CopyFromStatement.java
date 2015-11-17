@@ -22,7 +22,7 @@
 package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -38,7 +38,7 @@ public class CopyFromStatement extends Statement {
 
         this.table = table;
         this.path = path;
-        this.genericProperties = Optional.fromNullable(genericProperties);
+        this.genericProperties = Optional.ofNullable(genericProperties);
     }
 
     public Table table() {

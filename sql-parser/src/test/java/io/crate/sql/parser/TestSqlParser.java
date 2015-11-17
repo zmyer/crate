@@ -22,12 +22,12 @@
 package io.crate.sql.parser;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.crate.sql.tree.*;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import static io.crate.sql.SqlFormatter.formatSql;
 import static io.crate.sql.tree.QueryUtil.selectList;
@@ -83,19 +83,19 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123.456E7 FROM DUAL",
                 new Query(
-                        Optional.<With>absent(),
+                        Optional.<With>empty(),
                         new QuerySpecification(
                                 selectList(new DoubleLiteral("123.456E7")),
                                 table(QualifiedName.of("dual")),
-                                Optional.<Expression>absent(),
+                                Optional.<Expression>empty(),
                                 ImmutableList.<Expression>of(),
-                                Optional.<Expression>absent(),
+                                Optional.<Expression>empty(),
                                 ImmutableList.<SortItem>of(),
-                                Optional.<Expression>absent(),
-                                Optional.<Expression>absent()),
+                                Optional.<Expression>empty(),
+                                Optional.<Expression>empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.<Expression>absent(),
-                        Optional.<Expression>absent()));
+                        Optional.<Expression>empty(),
+                        Optional.<Expression>empty()));
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")

@@ -23,7 +23,7 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -47,7 +47,7 @@ public class CreateTable extends Statement {
         this.tableElements = tableElements;
         this.ifNotExists = ifNotExists;
         this.crateTableOptions = crateTableOptions != null ? crateTableOptions : ImmutableList.<CrateTableOption>of();
-        this.properties = Optional.fromNullable(genericProperties);
+        this.properties = Optional.ofNullable(genericProperties);
     }
 
     public boolean ifNotExists() {

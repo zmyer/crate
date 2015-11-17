@@ -23,7 +23,7 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -33,8 +33,8 @@ public class ClusteredBy extends CrateTableOption {
     private final Optional<Expression> numberOfShards;
 
     public ClusteredBy(@Nullable Expression column, @Nullable Expression numberOfShards) {
-        this.column = Optional.fromNullable(column);
-        this.numberOfShards = Optional.fromNullable(numberOfShards);
+        this.column = Optional.ofNullable(column);
+        this.numberOfShards = Optional.ofNullable(numberOfShards);
     }
 
     public Optional<Expression> column() {

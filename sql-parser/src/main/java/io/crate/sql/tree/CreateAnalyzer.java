@@ -23,7 +23,7 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -37,7 +37,7 @@ public class CreateAnalyzer extends Statement {
 
     public CreateAnalyzer(String ident, @Nullable String extendedAnalyzer, List<AnalyzerElement> elements) {
         this.ident = ident;
-        this.extendedAnalyzer = Optional.fromNullable(extendedAnalyzer);
+        this.extendedAnalyzer = Optional.ofNullable(extendedAnalyzer);
         this.elements = elements;
 
         this.properties = new GenericProperties();

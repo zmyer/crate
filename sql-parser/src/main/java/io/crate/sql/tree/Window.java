@@ -23,7 +23,7 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import java.util.List;
 
@@ -40,7 +40,7 @@ public class Window
     {
         this.partitionBy = checkNotNull(partitionBy, "partitionBy is null");
         this.orderBy = checkNotNull(orderBy, "orderBy is null");
-        this.frame = Optional.fromNullable(frame);
+        this.frame = Optional.ofNullable(frame);
     }
 
     public List<Expression> getPartitionBy()
