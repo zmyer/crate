@@ -461,4 +461,12 @@ public abstract class AstVisitor<R, C>
     {
         return visitStatement(node, context);
     }
+
+    public R visitColumnDefinition(ColumnDefinition columnDefinition, C context) {
+        return visitNode(columnDefinition, context);
+    }
+
+    public R visitInsertFromValues(InsertFromValues insertFromValues, C context) {
+        return visitStatement(insertFromValues, context);
+    }
 }

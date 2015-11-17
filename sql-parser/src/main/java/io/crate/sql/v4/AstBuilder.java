@@ -60,7 +60,16 @@ class AstBuilder
     @Override
     public Node visitCreateTable(SqlBaseParser.CreateTableContext context)
     {
-        return new CreateTable(getLocation(context), getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null, processTableProperties(context.tableProperties()));
+        Optional<Expression> clusteredBy = visitIfPresent(context.clusteredBy().by, Expression.class);
+        Optional<Expression> clusteredInto = visitIfPresent(context.clusteredBy().into, Expression.class);
+        Optional<Expression> partitionedBy = visitIfPresent(context.partitionedBy(), Expression.class);
+        return new CreateTable(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                visit(context.tableElement(), TableElement.class),
+                context.EXISTS() != null,
+                processTableProperties(context.tableProperties())
+        );
     }
 
     private Map<String, Expression> processTableProperties(TablePropertiesContext tablePropertiesContext)
@@ -80,17 +89,27 @@ class AstBuilder
         return new DropTable(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
-    /*
-    TODO
     @Override
     public Node visitInsertInto(SqlBaseParser.InsertIntoContext context)
     {
+        if (!context.valuesList().isEmpty()) {
+            List<List<Expression>> valuesList = context.valuesList().values().stream()
+                    .map(x -> visit(x.expression(), Expression.class))
+                    .collect(Collectors.toList());
+            return new InsertFromValues(
+                    getQualifiedName(context.qualifiedName()),
+                    valuesList,
+                    getColumnAliases(context.columnAliases()),
+                    null);
+        }
+        return null;
+        /*
         return new Insert(
                 getQualifiedName(context.qualifiedName()),
                 Optional.ofNullable(getColumnAliases(context.columnAliases())),
                 (Query) visit(context.query()));
+                */
     }
-    */
 
     @Override
     public Node visitDelete(SqlBaseParser.DeleteContext context)
@@ -861,9 +880,11 @@ class AstBuilder
     }
 
     @Override
-    public Node visitTableElement(SqlBaseParser.TableElementContext context)
-    {
-        return new TableElement(getLocation(context), context.identifier().getText(), getType(context.type()));
+    public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext ctx) {
+        List<String> constraints = ctx.columnConstraint().stream()
+                .map(SqlBaseParser.ColumnConstraintContext::getText)
+                .collect(Collectors.toList());
+        return new ColumnDefinition(ctx.identifier().getText(), getType(ctx.type()), constraints);
     }
 
     @Override

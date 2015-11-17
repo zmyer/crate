@@ -14,12 +14,7 @@ import java.util.List;
 
 public class Function extends Symbol implements Cloneable {
 
-    public static final SymbolFactory<Function> FACTORY = new SymbolFactory<Function>() {
-        @Override
-        public Function newInstance() {
-            return new Function();
-        }
-    };
+    public static final SymbolFactory<Function> FACTORY = Function::new;
 
     private List<Symbol> arguments;
     private FunctionInfo info;

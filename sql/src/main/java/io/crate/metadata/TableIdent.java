@@ -27,6 +27,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import io.crate.exceptions.InvalidSchemaNameException;
 import io.crate.exceptions.InvalidTableNameException;
+import io.crate.sql.tree.QualifiedName;
 import io.crate.sql.tree.Table;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
@@ -45,7 +46,11 @@ public class TableIdent implements Streamable {
     private String name;
 
     public static TableIdent of(Table tableNode, @Nullable String fallbackSchema) {
-        List<String> parts = tableNode.getName().getParts();
+        return of(tableNode.getName(), fallbackSchema);
+    }
+
+    public static TableIdent of(QualifiedName name, @Nullable String fallbackSchema) {
+        List<String> parts = name.getParts();
         Preconditions.checkArgument(parts.size() < 3,
                 "Table with more then 2 QualifiedName parts is not supported. only <schema>.<tableName> works.");
         if (parts.size() == 2) {

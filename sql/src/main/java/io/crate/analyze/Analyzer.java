@@ -20,10 +20,7 @@
  */
 package io.crate.analyze;
 
-import io.crate.sql.tree.AstVisitor;
-import io.crate.sql.tree.Node;
-import io.crate.sql.tree.Query;
-import io.crate.sql.tree.Statement;
+import io.crate.sql.tree.*;
 import org.elasticsearch.common.inject.Inject;
 
 public class Analyzer {
@@ -124,6 +121,11 @@ public class Analyzer {
             return selectStatementAnalyzer.process(node, analysis);
         }
 
+        @Override
+        public AnalyzedStatement visitCreateTable(CreateTable node, Analysis analysis) {
+            return createTableStatementAnalyzer.analyze(node, analysis);
+        }
+
         /*
         @Override
         public AnalyzedStatement visitDelete(Delete node, Analysis context) {
@@ -162,10 +164,6 @@ public class Analyzer {
             return dropTableStatementAnalyzer.analyze(node, context);
         }
 
-        @Override
-        public AnalyzedStatement visitCreateTable(CreateTable node, Analysis analysis) {
-            return createTableStatementAnalyzer.analyze(node, analysis);
-        }
 
         public AnalyzedStatement visitShowCreateTable(ShowCreateTable node, Analysis analysis) {
             return showCreateTableAnalyzer.analyze(node, analysis);

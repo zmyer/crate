@@ -21,16 +21,34 @@
 
 package io.crate.analyze;
 
+import io.crate.analyze.expressions.ExpressionAnalysisContext;
+import io.crate.analyze.expressions.ExpressionAnalyzer;
 import io.crate.analyze.relations.DocTableRelation;
-import io.crate.analyze.symbol.Field;
-import io.crate.analyze.symbol.Literal;
-import io.crate.analyze.symbol.Reference;
-import io.crate.analyze.symbol.Symbol;
+import io.crate.analyze.relations.FieldProvider;
+import io.crate.analyze.relations.NameFieldProvider;
+import io.crate.analyze.symbol.*;
+import io.crate.analyze.symbol.Function;
+import io.crate.core.StringUtils;
+import io.crate.core.collections.StringObjectMaps;
+import io.crate.exceptions.ColumnValidationException;
+import io.crate.metadata.ColumnIdent;
+import io.crate.metadata.TableIdent;
+import io.crate.metadata.doc.DocTableInfo;
+import io.crate.operation.Input;
+import io.crate.sql.tree.Expression;
+import io.crate.sql.tree.InsertFromValues;
 import io.crate.types.DataType;
+import jdk.nashorn.internal.ir.Assignment;
+import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
+import org.elasticsearch.common.lucene.BytesRefs;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @Singleton
 public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
@@ -88,14 +106,14 @@ public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
                 tableInfo, analysis.parameterContext().hasBulkParams());
         handleInsertColumns(node, node.maxValuesLength(), statement);
 
-        for (ValuesList valuesList : node.valuesLists()) {
+        for (List<Expression> values : node.valuesLists()) {
             analyzeValues(
                     tableRelation,
                     expressionAnalyzer,
                     expressionAnalysisContext,
                     valuesResolver,
                     valuesAwareExpressionAnalyzer,
-                    valuesList,
+                    values,
                     node.onDuplicateKeyAssignments(),
                     statement,
                     analysis.parameterContext());
@@ -108,19 +126,20 @@ public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
                                ExpressionAnalysisContext expressionAnalysisContext,
                                ValuesResolver valuesResolver,
                                ExpressionAnalyzer valuesAwareExpressionAnalyzer,
-                               ValuesList node,
+                               List<Expression> values,
                                List<Assignment> assignments,
                                InsertFromValuesAnalyzedStatement statement,
                                ParameterContext parameterContext) {
-        if (node.values().size() != statement.columns().size()) {
+        if (values.size() != statement.columns().size()) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
                     "Invalid number of values: Got %d columns specified but %d values",
-                    statement.columns().size(), node.values().size()));
+                    statement.columns().size(), values.size()));
         }
         try {
             DocTableInfo tableInfo = statement.tableInfo();
             int numPks = tableInfo.primaryKey().size();
-            Function<List<BytesRef>, String> idFunction = Id.compile(tableInfo.primaryKey(), tableInfo.clusteredBy());
+            com.google.common.base.Function<List<BytesRef>, String> idFunction =
+                    Id.compile(tableInfo.primaryKey(), tableInfo.clusteredBy());
             if (parameterContext.bulkParameters.length > 0) {
                 for (int i = 0; i < parameterContext.bulkParameters.length; i++) {
                     parameterContext.setBulkIdx(i);
@@ -161,20 +180,21 @@ public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
                            ExpressionAnalysisContext expressionAnalysisContext,
                            ValuesResolver valuesResolver,
                            ExpressionAnalyzer valuesAwareExpressionAnalyzer,
-                           ValuesList node,
+                           List<Expression> values,
                            List<Assignment> assignments,
                            InsertFromValuesAnalyzedStatement context,
-                           int numPrimaryKeys, Function<List<BytesRef>, String> idFunction) throws IOException {
+                           int numPrimaryKeys,
+                           Function<List<BytesRef>, String> idFunction) throws IOException {
         if (context.tableInfo().isPartitioned()) {
             context.newPartitionMap();
         }
         List<BytesRef> primaryKeyValues = new ArrayList<>(numPrimaryKeys);
         String routingValue = null;
         List<ColumnIdent> primaryKey = context.tableInfo().primaryKey();
-        Object[] insertValues = new Object[node.values().size()];
+        Object[] insertValues = new Object[values.size()];
 
-        for (int i = 0, valuesSize = node.values().size(); i < valuesSize; i++) {
-            Expression expression = node.values().get(i);
+        for (int i = 0, valuesSize = values.size(); i < valuesSize; i++) {
+            Expression expression = values.get(i);
             Symbol valuesSymbol = expressionAnalyzer.convert(expression, expressionAnalysisContext);
 
             // implicit type conversion

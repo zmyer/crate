@@ -13,17 +13,16 @@
  */
 package io.crate.sql.tree;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class TableElement
+public abstract class TableElement
         extends Node
 {
-    private final String name;
-    private final String type;
+    protected final String name;
+    protected final String type;
 
     public TableElement(String name, String type)
     {
@@ -56,26 +55,6 @@ public final class TableElement
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableElement(this, context);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        TableElement o = (TableElement) obj;
-        return Objects.equals(this.name, o.name) &&
-                Objects.equals(this.type, o.type);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, type);
     }
 
     @Override

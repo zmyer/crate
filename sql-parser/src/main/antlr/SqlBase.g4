@@ -31,9 +31,10 @@ statement
     | CREATE TABLE qualifiedName (WITH tableProperties)? AS query      #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'
+        clusteredBy? partitionedBy?
         (WITH tableProperties)?                                        #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
-    | INSERT INTO qualifiedName query                                  #insertInto
+    | INSERT INTO qualifiedName columnAliases? (query | valuesList)    #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | ALTER TABLE tableName=qualifiedName
@@ -51,6 +52,14 @@ statement
     | RESET SESSION qualifiedName                                      #resetSession
     ;
 
+valuesList
+    : VALUES values ( ',' values )*
+    ;
+
+values
+    : '(' expression ( ',' expression )* ')'
+    ;
+
 query
     :  with? queryNoWith
     ;
@@ -60,7 +69,19 @@ with
     ;
 
 tableElement
-    : identifier type
+    : identifier type columnConstraint*     #columnDefinition
+    ;
+
+columnConstraint
+    : PRIMARY_KEY
+    ;
+
+clusteredBy
+    : CLUSTERED (BY '(' by=expression ')' )? (INTO into=expression SHARDS)?
+    ;
+
+partitionedBy
+    : PARTITIONED BY '(' identifier (',' identifier )* ')'
     ;
 
 tableProperties
@@ -425,6 +446,10 @@ WITH: 'WITH';
 RECURSIVE: 'RECURSIVE';
 VALUES: 'VALUES';
 CREATE: 'CREATE';
+PRIMARY_KEY: 'PRIMARY KEY';
+CLUSTERED: 'CLUSTERED';
+SHARDS: 'SHARDS';
+PARTITIONED: 'PARTITIONED';
 TABLE: 'TABLE';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
