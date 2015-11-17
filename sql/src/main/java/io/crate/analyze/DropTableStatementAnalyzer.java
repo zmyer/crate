@@ -41,9 +41,11 @@ public class DropTableStatementAnalyzer extends DefaultTraversalVisitor<DropTabl
 
     @Override
     public DropTableAnalyzedStatement visitDropTable(DropTable node, Analysis context) {
+        /*
         DropTableAnalyzedStatement statement = new DropTableAnalyzedStatement(schemas, node.ignoreNonExistentTable());
         statement.table(TableIdent.of(node.table(), context.parameterContext().defaultSchema()));
-        return statement;
+        */
+        return null;
     }
 
     public AnalyzedStatement analyze(Node node, Analysis analysis) {

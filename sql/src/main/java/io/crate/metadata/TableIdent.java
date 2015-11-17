@@ -44,17 +44,6 @@ public class TableIdent implements Streamable {
     private String schema;
     private String name;
 
-    public static TableIdent of(io.crate.sql.treev4.Table table, @Nullable String fallbackSchema) {
-        List<String> parts = table.getName().getParts();
-        Preconditions.checkArgument(parts.size() < 3,
-                "Table with more then 2 QualifiedName parts is not supported. only <schema>.<tableName> works.");
-        if (parts.size() == 2) {
-            return new TableIdent(parts.get(0), parts.get(1));
-        }
-        return new TableIdent(fallbackSchema, parts.get(0));
-    }
-
-    @Deprecated
     public static TableIdent of(Table tableNode, @Nullable String fallbackSchema) {
         List<String> parts = tableNode.getName().getParts();
         Preconditions.checkArgument(parts.size() < 3,

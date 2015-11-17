@@ -1,67 +1,80 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
+import java.util.Objects;
+import java.util.Optional;
 
-public class SubscriptExpression extends Expression {
+import static java.util.Objects.requireNonNull;
 
-    private Expression name;
-    private Expression index;
+public class SubscriptExpression
+        extends Expression
+{
+    private final Expression base;
+    private final Expression index;
 
-    public SubscriptExpression(Expression nameExpression, Expression indexExpression) {
-        this.name = nameExpression;
-        this.index = indexExpression;
+    public SubscriptExpression(Expression base, Expression index)
+    {
+        this(Optional.empty(), base, index);
     }
 
-    public Expression name() {
-        return name;
+    public SubscriptExpression(NodeLocation location, Expression base, Expression index)
+    {
+        this(Optional.of(location), base, index);
     }
 
-    public Expression index() {
+    private SubscriptExpression(Optional<NodeLocation> location, Expression base, Expression index)
+    {
+        super(location);
+        this.base = requireNonNull(base, "base is null");
+        this.index = requireNonNull(index, "index is null");
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitSubscriptExpression(this, context);
+    }
+
+    public Expression getBase()
+    {
+        return base;
+    }
+
+    public Expression getIndex()
+    {
         return index;
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context) {
-        return visitor.visitSubscriptExpression(this, context);
-    }
-
-    @Override
-    public int hashCode() {
-        int result = name != null ? name.hashCode() : 0;
-        result = 31 * result + (index != null ? index.hashCode() : 0);
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
 
         SubscriptExpression that = (SubscriptExpression) o;
 
-        if (index != null ? !index.equals(that.index) : that.index != null) return false;
-        if (name != null ? !name.equals(that.name) : that.name != null) return false;
+        return Objects.equals(this.base, that.base) && Objects.equals(this.index, that.index);
+    }
 
-        return true;
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(base, index);
     }
 }

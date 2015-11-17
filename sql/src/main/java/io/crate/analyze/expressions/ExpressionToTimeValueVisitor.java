@@ -58,25 +58,6 @@ public class ExpressionToTimeValueVisitor extends AstVisitor<TimeValue, Object[]
         return new TimeValue((long) node.getValue());
     }
 
-    @Override
-    public TimeValue visitParameterExpression(ParameterExpression node, Object[] context) {
-        TimeValue timeValue;
-        Object param = context[node.index()];
-        if (param instanceof Number) {
-            timeValue = new TimeValue(((Number) param).longValue());
-        } else if (param instanceof String) {
-            try {
-                timeValue = TimeValue.parseTimeValue((String) param, DEFAULT_VALUE);
-            } catch (ElasticsearchParseException e) {
-                throw new IllegalArgumentException(
-                        String.format(Locale.ENGLISH, "Invalid time value '%s'", param));
-            }
-        } else {
-            throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "Invalid time value %s", param));
-        }
-        return timeValue;
-    }
 
     @Override
     protected TimeValue visitNode(Node node, Object[] context) {

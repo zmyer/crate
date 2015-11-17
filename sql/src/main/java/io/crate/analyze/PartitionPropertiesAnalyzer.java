@@ -29,9 +29,9 @@ import io.crate.metadata.PartitionName;
 import io.crate.metadata.ReferenceInfo;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
-import io.crate.sql.tree.Assignment;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
+import jdk.nashorn.internal.ir.Assignment;
 import org.apache.lucene.util.BytesRef;
 
 import javax.annotation.Nullable;
@@ -45,12 +45,14 @@ public class PartitionPropertiesAnalyzer {
     public static Map<ColumnIdent, Object> assignmentsToMap(List<Assignment> assignments,
                                                        Object[] parameters) {
         Map<ColumnIdent, Object> map = new HashMap<>(assignments.size());
+        /*
         for (Assignment assignment : assignments) {
             map.put(
                     ColumnIdent.fromPath(ExpressionToStringVisitor.convert(assignment.columnName(), parameters)),
                     ExpressionToObjectVisitor.convert(assignment.expression(), parameters)
                     );
         }
+        */
         return map;
     }
 

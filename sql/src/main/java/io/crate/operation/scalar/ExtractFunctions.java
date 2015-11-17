@@ -42,7 +42,6 @@ public class ExtractFunctions {
     private final static String NAME_TMPL = "extract_%s";
 
     public static void register(ScalarFunctionModule scalarFunctionModule) {
-        scalarFunctionModule.register(new ExtractCentury());
         scalarFunctionModule.register(new ExtractYear());
         scalarFunctionModule.register(new ExtractQuarter());
         scalarFunctionModule.register(new ExtractMonth());
@@ -57,8 +56,6 @@ public class ExtractFunctions {
 
     public static FunctionInfo functionInfo(Extract.Field field) {
         switch (field) {
-            case CENTURY:
-                return ExtractCentury.INFO;
             case YEAR:
                 return ExtractYear.INFO;
             case QUARTER:
@@ -121,22 +118,6 @@ public class ExtractFunctions {
                 return Literal.newLiteral(evaluate(((Input) arg)));
             }
             return symbol;
-        }
-    }
-
-    private static class ExtractCentury extends GenericExtractFunction {
-
-        public static final FunctionInfo INFO = createFunctionInfo(Extract.Field.CENTURY);
-        private static final DateTimeField CENTURY = ISOChronology.getInstanceUTC().centuryOfEra();
-
-        @Override
-        public int evaluate(long value) {
-            return CENTURY.get(value);
-        }
-
-        @Override
-        public FunctionInfo info() {
-            return INFO;
         }
     }
 

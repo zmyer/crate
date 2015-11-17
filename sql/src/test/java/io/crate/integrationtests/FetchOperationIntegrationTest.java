@@ -35,7 +35,7 @@ import io.crate.planner.Plan;
 import io.crate.planner.Planner;
 import io.crate.planner.node.dql.CollectAndMerge;
 import io.crate.planner.projection.FetchProjection;
-import io.crate.sql.parser.SqlParser;
+import io.crate.sql.v4.SqlParser;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.test.ElasticsearchIntegrationTest;
 import org.junit.After;
@@ -87,8 +87,9 @@ public class FetchOperationIntegrationTest extends SQLTransportIntegrationTest {
 
     private Analysis analyze(String stmt) {
         Analyzer analyzer = internalCluster().getInstance(Analyzer.class);
+        SqlParser parser = new SqlParser();
         return analyzer.analyze(
-                SqlParser.createStatement(stmt),
+                parser.createStatement(stmt),
                 new ParameterContext(new Object[0], new Object[0][], null)
         );
     }

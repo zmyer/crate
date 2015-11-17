@@ -1,53 +1,57 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class SingleColumn
         extends SelectItem
 {
-    private Optional<String> alias;
-    private Expression expression;
+    private final Optional<String> alias;
+    private final Expression expression;
+
+    public SingleColumn(Expression expression)
+    {
+        this(Optional.empty(), expression, Optional.empty());
+    }
 
     public SingleColumn(Expression expression, Optional<String> alias)
     {
-        Preconditions.checkNotNull(expression, "expression is null");
-        Preconditions.checkNotNull(alias, "alias is null");
-
-        this.expression = expression;
-        this.alias = alias;
+        this(Optional.empty(), expression, alias);
     }
 
     public SingleColumn(Expression expression, String alias)
     {
-        this(expression, Optional.of(alias));
+        this(Optional.empty(), expression, Optional.of(alias));
     }
 
-    public SingleColumn(Expression expression)
+    public SingleColumn(NodeLocation location, Expression expression, Optional<String> alias)
     {
-        this(expression, Optional.<String>absent());
+        this(Optional.of(location), expression, alias);
+    }
+
+    private SingleColumn(Optional<NodeLocation> location, Expression expression, Optional<String> alias)
+    {
+        super(location);
+        requireNonNull(expression, "expression is null");
+        requireNonNull(alias, "alias is null");
+
+        this.expression = expression;
+        this.alias = alias;
     }
 
     public Optional<String> getAlias()
@@ -55,18 +59,9 @@ public class SingleColumn
         return alias;
     }
 
-    public void setAlias(String alias) {
-        Preconditions.checkNotNull(alias);
-        this.alias = Optional.of(alias);
-    }
-
     public Expression getExpression()
     {
         return expression;
-    }
-
-    public void setExpression(Expression expression) {
-        this.expression = expression;
     }
 
     @Override
@@ -79,15 +74,16 @@ public class SingleColumn
             return false;
         }
         final SingleColumn other = (SingleColumn) obj;
-        return Objects.equal(this.alias, other.alias) && Objects.equal(this.expression, other.expression);
+        return Objects.equals(this.alias, other.alias) && Objects.equals(this.expression, other.expression);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(alias, expression);
+        return Objects.hash(alias, expression);
     }
 
+    @Override
     public String toString()
     {
         if (alias.isPresent()) {

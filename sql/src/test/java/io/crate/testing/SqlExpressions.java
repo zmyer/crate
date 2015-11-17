@@ -33,8 +33,8 @@ import io.crate.metadata.*;
 import io.crate.operation.operator.OperatorModule;
 import io.crate.operation.predicate.PredicateModule;
 import io.crate.operation.scalar.ScalarFunctionModule;
-import io.crate.sql.parser.SqlParser;
 import io.crate.sql.tree.QualifiedName;
+import io.crate.sql.v4.SqlParser;
 import org.elasticsearch.common.inject.Injector;
 import org.elasticsearch.common.inject.ModulesBuilder;
 
@@ -48,6 +48,7 @@ public class SqlExpressions {
     private final ExpressionAnalysisContext expressionAnalysisCtx;
     private final Injector injector;
     private final AnalysisMetaData analysisMetaData;
+    private final SqlParser parser = new SqlParser();
 
     public SqlExpressions(Map<QualifiedName, AnalyzedRelation> sources) {
         ModulesBuilder modulesBuilder = new ModulesBuilder()
@@ -72,7 +73,7 @@ public class SqlExpressions {
     }
 
     public Symbol asSymbol(String expression) {
-        return expressionAnalyzer.convert(SqlParser.createExpression(expression), expressionAnalysisCtx);
+        return expressionAnalyzer.convert(parser.createExpression(expression), expressionAnalysisCtx);
     }
 
     public Symbol normalize(Symbol symbol) {

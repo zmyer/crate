@@ -1,33 +1,24 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class Query
         extends Statement
@@ -35,27 +26,50 @@ public class Query
     private final Optional<With> with;
     private final QueryBody queryBody;
     private final List<SortItem> orderBy;
-    private final Optional<Expression> limit;
-    private final Optional<Expression> offset;
+    private final Optional<String> limit;
+    private final Optional<Approximate> approximate;
 
     public Query(
             Optional<With> with,
             QueryBody queryBody,
             List<SortItem> orderBy,
-            Optional<Expression> limit,
-            Optional<Expression> offset)
+            Optional<String> limit,
+            Optional<Approximate> approximate)
     {
-        checkNotNull(with, "with is null");
-        checkNotNull(queryBody, "queryBody is null");
-        checkNotNull(orderBy, "orderBy is null");
-        checkNotNull(limit, "limit is null");
-        checkNotNull(offset, "offset is null");
+        this(Optional.empty(), with, queryBody, orderBy, limit, approximate);
+    }
+
+    public Query(
+            NodeLocation location,
+            Optional<With> with,
+            QueryBody queryBody,
+            List<SortItem> orderBy,
+            Optional<String> limit,
+            Optional<Approximate> approximate)
+    {
+        this(Optional.of(location), with, queryBody, orderBy, limit, approximate);
+    }
+
+    private Query(
+            Optional<NodeLocation> location,
+            Optional<With> with,
+            QueryBody queryBody,
+            List<SortItem> orderBy,
+            Optional<String> limit,
+            Optional<Approximate> approximate)
+    {
+        super(location);
+        requireNonNull(with, "with is null");
+        requireNonNull(queryBody, "queryBody is null");
+        requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(limit, "limit is null");
+        requireNonNull(approximate, "approximate is null");
 
         this.with = with;
         this.queryBody = queryBody;
         this.orderBy = orderBy;
         this.limit = limit;
-        this.offset = offset;
+        this.approximate = approximate;
     }
 
     public Optional<With> getWith()
@@ -73,14 +87,14 @@ public class Query
         return orderBy;
     }
 
-    public Optional<Expression> getLimit()
+    public Optional<String> getLimit()
     {
         return limit;
     }
 
-    public Optional<Expression> getOffset()
+    public Optional<Approximate> getApproximate()
     {
-        return offset;
+        return approximate;
     }
 
     @Override
@@ -92,12 +106,12 @@ public class Query
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
-                .add("with", with.orNull())
+        return toStringHelper(this)
+                .add("with", with.orElse(null))
                 .add("queryBody", queryBody)
                 .add("orderBy", orderBy)
-                .add("limit", limit.orNull())
-                .add("offset", offset.orNull())
+                .add("limit", limit.orElse(null))
+                .add("approximate", approximate.orElse(null))
                 .omitNullValues()
                 .toString();
     }
@@ -112,16 +126,16 @@ public class Query
             return false;
         }
         Query o = (Query) obj;
-        return Objects.equal(with, o.with) &&
-                Objects.equal(queryBody, o.queryBody) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit) &&
-                Objects.equal(offset, o.offset);
+        return Objects.equals(with, o.with) &&
+                Objects.equals(queryBody, o.queryBody) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(limit, o.limit) &&
+                Objects.equals(approximate, o.approximate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(with, queryBody, orderBy, limit, offset);
+        return Objects.hash(with, queryBody, orderBy, limit, approximate);
     }
 }

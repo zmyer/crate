@@ -25,7 +25,7 @@ import io.crate.analyze.AnalysisMetaData;
 import io.crate.analyze.ParameterContext;
 import io.crate.analyze.expressions.ExpressionAnalysisContext;
 import io.crate.analyze.expressions.ExpressionAnalyzer;
-import io.crate.sql.treev4.QualifiedName;
+import io.crate.sql.tree.QualifiedName;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;

@@ -41,7 +41,7 @@ import io.crate.planner.consumer.ConsumerContext;
 import io.crate.planner.consumer.QueryAndFetchConsumer;
 import io.crate.planner.node.dql.CollectAndMerge;
 import io.crate.planner.node.dql.CollectPhase;
-import io.crate.sql.parser.SqlParser;
+import io.crate.sql.v4.SqlParser;
 import org.elasticsearch.common.breaker.CircuitBreaker;
 import org.elasticsearch.common.breaker.NoopCircuitBreaker;
 import org.elasticsearch.indices.IndicesService;
@@ -94,8 +94,9 @@ public class LuceneDocCollectorProvider implements AutoCloseable {
     }
 
     public Iterable<CrateCollector> createCollectors(String statement, final RowReceiver downstream, Integer nodePageSizeHint, Object ... args) {
+        SqlParser parser = new SqlParser();
         Analysis analysis = analyzer.analyze(
-                SqlParser.createStatement(statement), new ParameterContext(args, new Object[0][], null));
+                parser.createStatement(statement), new ParameterContext(args, new Object[0][], null));
         PlannedAnalyzedRelation plannedAnalyzedRelation = queryAndFetchConsumer.consume(
                 analysis.rootRelation(),
                 new ConsumerContext(analysis.rootRelation(), new Planner.Context(cluster.clusterService(), UUID.randomUUID(), null)));

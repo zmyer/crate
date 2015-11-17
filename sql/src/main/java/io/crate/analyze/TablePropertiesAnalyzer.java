@@ -32,9 +32,7 @@ import io.crate.analyze.expressions.ExpressionToStringVisitor;
 import io.crate.core.NumberOfReplicas;
 import io.crate.metadata.settings.CrateTableSettings;
 import io.crate.metadata.table.ColumnPolicy;
-import io.crate.sql.tree.ArrayLiteral;
 import io.crate.sql.tree.Expression;
-import io.crate.sql.tree.GenericProperties;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 
@@ -119,48 +117,6 @@ public class TablePropertiesAnalyzer {
 
     public void analyze(TableParameter tableParameter,
                         TableParameterInfo tableParameterInfo,
-                        Optional<GenericProperties> properties,
-                        Object[] parameters) {
-        analyze(tableParameter, tableParameterInfo, properties, parameters, false);
-    }
-
-    public void analyze(TableParameter tableParameter,
-                        TableParameterInfo tableParameterInfo,
-                        Optional<GenericProperties> properties,
-                        Object[] parameters,
-                        boolean withDefaults) {
-        if (withDefaults) {
-            SettingsApplier settingsApplier = SETTINGS_APPLIER.get(TableParameterInfo.NUMBER_OF_REPLICAS);
-            tableParameter.settingsBuilder().put(settingsApplier.getDefault());
-            for (String mappingEntry : tableParameterInfo.supportedMappings()) {
-                MappingsApplier mappingsApplier = MAPPINGS_APPLIER.get(mappingEntry);
-                tableParameter.mappings().put(mappingsApplier.name, mappingsApplier.getDefault());
-            }
-        }
-        if (properties.isPresent()) {
-            Map<String, Expression> tableProperties = properties.get().properties();
-            validateTableProperties(tableParameterInfo, tableProperties.keySet());
-
-            for (String setting : tableParameterInfo.supportedSettings()) {
-                String settingName = ES_TO_CRATE_SETTINGS_MAP.get(setting);
-                if (tableProperties.containsKey(settingName)) {
-                    SettingsApplier settingsApplier = SETTINGS_APPLIER.get(setting);
-                    settingsApplier.apply(tableParameter.settingsBuilder(), parameters, tableProperties.get(settingName));
-                }
-            }
-            for (String mappingEntry : tableParameterInfo.supportedMappings()) {
-                String mappingName = ES_TO_CRATE_MAPPINGS_MAP.get(mappingEntry);
-                if (tableProperties.containsKey(mappingName)) {
-                    MappingsApplier mappingsApplier = MAPPINGS_APPLIER.get(mappingEntry);
-                    mappingsApplier.apply(tableParameter.mappings(), parameters, tableProperties.get(mappingName));
-                }
-            }
-        }
-
-    }
-
-    public void analyze(TableParameter tableParameter,
-                        TableParameterInfo tableParameterInfo,
                         List<String> properties) {
         validateTableProperties(tableParameterInfo, properties);
 
@@ -209,8 +165,6 @@ public class TablePropertiesAnalyzer {
         public void apply(ImmutableSettings.Builder settingsBuilder,
                           Object[] parameters,
                           Expression expression) {
-            Preconditions.checkArgument(!(expression instanceof ArrayLiteral),
-                    String.format("array literal not allowed for \"%s\"", ES_TO_CRATE_SETTINGS_MAP.get(TableParameterInfo.NUMBER_OF_REPLICAS)));
 
             NumberOfReplicas numberOfReplicas;
             try {

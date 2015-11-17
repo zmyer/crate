@@ -14,7 +14,7 @@
 package io.crate.sql.v4;
 
 import com.google.common.collect.ImmutableList;
-import io.crate.sql.treev4.*;
+import io.crate.sql.tree.*;
 
 import java.util.List;
 import java.util.Optional;

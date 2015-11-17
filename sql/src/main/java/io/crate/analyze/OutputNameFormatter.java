@@ -22,10 +22,10 @@
 package io.crate.analyze;
 
 import com.google.common.base.Joiner;
-import io.crate.sql.ExpressionFormatter;
 import io.crate.sql.tree.Expression;
 import io.crate.sql.tree.QualifiedNameReference;
 import io.crate.sql.tree.SubscriptExpression;
+import io.crate.sql.v4.ExpressionFormatter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,19 +39,5 @@ public class OutputNameFormatter {
     }
 
     private static class InnerOutputNameFormatter extends ExpressionFormatter.Formatter {
-        @Override
-        protected String visitQualifiedNameReference(QualifiedNameReference node, Void context) {
-
-            List<String> parts = new ArrayList<>();
-            for (String part : node.getName().getParts()) {
-                parts.add(part);
-            }
-            return Joiner.on('.').join(parts);
-        }
-
-        @Override
-        protected String visitSubscriptExpression(SubscriptExpression node, Void context) {
-            return String.format("%s[%s]", process(node.name(), null), process(node.index(), null));
-        }
     }
 }

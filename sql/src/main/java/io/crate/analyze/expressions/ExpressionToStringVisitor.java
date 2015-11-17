@@ -21,8 +21,8 @@
 
 package io.crate.analyze.expressions;
 
-import io.crate.sql.ExpressionFormatter;
 import io.crate.sql.tree.*;
+import io.crate.sql.v4.ExpressionFormatter;
 
 import javax.annotation.Nullable;
 import java.util.Locale;
@@ -59,31 +59,6 @@ public class ExpressionToStringVisitor extends AstVisitor<String, Object[]> {
     @Override
     protected String visitLongLiteral(LongLiteral node, Object[] parameters) {
         return Long.toString(node.getValue());
-    }
-
-    @Override
-    public String visitArrayLiteral(ArrayLiteral node, Object[] context) {
-        return ExpressionFormatter.formatExpression(node);
-    }
-
-    @Override
-    public String visitObjectLiteral(ObjectLiteral node, Object[] context) {
-        return ExpressionFormatter.formatExpression(node);
-    }
-
-    @Override
-    public String visitParameterExpression(ParameterExpression node, Object[] parameters) {
-        return parameters[node.index()].toString();
-    }
-
-    @Override
-    protected String visitNegativeExpression(NegativeExpression node, Object[] context) {
-        return "-" + process(node.getValue(), context);
-    }
-
-    @Override
-    protected String visitSubscriptExpression(SubscriptExpression node, Object[] context) {
-        return String.format(Locale.ENGLISH, "%s.%s", process(node.name(), context), process(node.index(), context));
     }
 
     @Override

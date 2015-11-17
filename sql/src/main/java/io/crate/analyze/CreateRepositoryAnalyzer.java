@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.crate.exceptions.RepositoryAlreadyExistsException;
 import io.crate.executor.transport.RepositoryService;
-import io.crate.sql.tree.CreateRepository;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.settings.ImmutableSettings;
@@ -49,6 +48,8 @@ public class CreateRepositoryAnalyzer extends AbstractRepositoryDDLAnalyzer {
         this.paramValidator = new ParamValidator();
     }
 
+    /*
+
     @Override
     public CreateRepositoryAnalyzedStatement visitCreateRepository(CreateRepository node, Analysis context) {
         String repositoryName = node.repository();
@@ -63,6 +64,7 @@ public class CreateRepositoryAnalyzer extends AbstractRepositoryDDLAnalyzer {
         paramValidator.validate(node.type(), settings);
         return new CreateRepositoryAnalyzedStatement(repositoryName, node.type(), settings);
     }
+    */
 
     static class ParamValidator {
         private final ImmutableMap<String, TypeSettings> typeSettings;

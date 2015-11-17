@@ -23,7 +23,6 @@ package io.crate.analyze;
 
 import io.crate.metadata.*;
 import io.crate.metadata.table.TableInfo;
-import io.crate.sql.tree.AlterTableAddColumn;
 import io.crate.sql.tree.DefaultTraversalVisitor;
 import io.crate.sql.tree.Node;
 import io.crate.sql.tree.Table;
@@ -57,6 +56,7 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
                 String.format("Encountered node %s but expected a AlterTableAddColumn node", node));
     }
 
+    /*
     @Override
     public AddColumnAnalyzedStatement visitAlterTableAddColumnStatement(AlterTableAddColumn node, Analysis analysis) {
         AddColumnAnalyzedStatement statement = new AddColumnAnalyzedStatement(schemas);
@@ -82,6 +82,7 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
         statement.newPrimaryKeys(statement.analyzedTableElements().primaryKeys().size() > numCurrentPks);
         return statement;
     }
+    */
 
     private void ensureColumnLeafsAreNew(AnalyzedColumnDefinition column, TableInfo tableInfo) {
         if ((!column.isParentColumn() || !column.hasChildren()) && tableInfo.getReferenceInfo(column.ident()) != null) {
@@ -127,6 +128,7 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
             ensureNoIndexDefinitions(column.children());
         }
     }
+    /*
 
     private void setTableAndPartitionName(Table node, AddColumnAnalyzedStatement context, ParameterContext parameterContext) {
         if (!node.partitionProperties().isEmpty()) {
@@ -134,5 +136,6 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
         }
         context.table(TableIdent.of(node, parameterContext.defaultSchema()));
     }
+    */
 
 }

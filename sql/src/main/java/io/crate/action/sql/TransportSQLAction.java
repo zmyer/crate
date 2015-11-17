@@ -34,7 +34,7 @@ import io.crate.executor.transport.ResponseForwarder;
 import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 import io.crate.operation.collect.StatsTables;
 import io.crate.planner.Planner;
-import io.crate.sql.treev4.Statement;
+import io.crate.sql.tree.Statement;
 import io.crate.types.DataType;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.support.ActionFilters;

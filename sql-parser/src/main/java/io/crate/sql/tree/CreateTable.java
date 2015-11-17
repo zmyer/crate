@@ -1,72 +1,73 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
-public class CreateTable extends Statement {
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
-    private final Table name;
-    private final List<TableElement> tableElements;
-    private final boolean ifNotExists;
-    private final List<CrateTableOption> crateTableOptions;
-    private final Optional<GenericProperties> properties;
+public class CreateTable
+        extends Statement
+{
+    private final QualifiedName name;
+    private final List<TableElement> elements;
+    private final boolean notExists;
+    private final Map<String, Expression> properties;
 
-    public CreateTable(Table name,
-                       List<TableElement> tableElements,
-                       @Nullable List<CrateTableOption> crateTableOptions,
-                       @Nullable GenericProperties genericProperties,
-                       boolean ifNotExists)
+    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
     {
-        this.name = name;
-        this.tableElements = tableElements;
-        this.ifNotExists = ifNotExists;
-        this.crateTableOptions = crateTableOptions != null ? crateTableOptions : ImmutableList.<CrateTableOption>of();
-        this.properties = Optional.fromNullable(genericProperties);
+        this(Optional.empty(), name, elements, notExists, properties);
     }
 
-    public boolean ifNotExists() {
-        return ifNotExists;
+    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    {
+        this(Optional.of(location), name, elements, notExists, properties);
     }
 
-    public Table name() {
+    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    {
+        super(location);
+        this.name = requireNonNull(name, "table is null");
+        this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
+        this.notExists = notExists;
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+    }
+
+    public QualifiedName getName()
+    {
         return name;
     }
 
-    public List<TableElement> tableElements() {
-        return tableElements;
+    public List<TableElement> getElements()
+    {
+        return elements;
     }
 
-    public List<CrateTableOption> crateTableOptions() {
-        return crateTableOptions;
+    public boolean isNotExists()
+    {
+        return notExists;
     }
 
-    public Optional<GenericProperties> properties() {
+    public Map<String, Expression> getProperties()
+    {
         return properties;
     }
 
@@ -79,33 +80,33 @@ public class CreateTable extends Statement {
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, tableElements, crateTableOptions, properties, ifNotExists);
+        return Objects.hash(name, elements, notExists, properties);
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        CreateTable that = (CreateTable) o;
-
-        if (!name.equals(that.name)) return false;
-        if (ifNotExists != that.ifNotExists) return false;
-        if (!crateTableOptions.equals(that.crateTableOptions)) return false;
-        if (!tableElements.equals(that.tableElements)) return false;
-        if (!properties.equals(that.properties)) return false;
-
-        return true;
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        CreateTable o = (CreateTable) obj;
+        return Objects.equals(name, o.name) &&
+                Objects.equals(elements, o.elements) &&
+                Objects.equals(notExists, o.notExists) &&
+                Objects.equals(properties, o.properties);
     }
 
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
-                .add("tableElements", tableElements)
-                .add("crateTableOptions", crateTableOptions)
-                .add("ifNotExists", ifNotExists)
-                .add("properties", properties).toString();
+                .add("elements", elements)
+                .add("notExists", notExists)
+                .add("properties", properties)
+                .toString();
     }
 }

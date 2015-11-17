@@ -26,7 +26,6 @@ import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
 import io.crate.sql.tree.DefaultTraversalVisitor;
 import io.crate.sql.tree.Node;
-import io.crate.sql.tree.ShowCreateTable;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
@@ -44,6 +43,7 @@ public class ShowCreateTableAnalyzer extends DefaultTraversalVisitor<ShowCreateT
         this.analysisMetaData = analysisMetaData;
     }
 
+    /*
     @Override
     public ShowCreateTableAnalyzedStatement visitShowCreateTable(ShowCreateTable node, Analysis analysis) {
         TableIdent tableIdent = TableIdent.of(node.table(), analysis.parameterContext().defaultSchema());
@@ -58,4 +58,5 @@ public class ShowCreateTableAnalyzer extends DefaultTraversalVisitor<ShowCreateT
         return analyzedStatement;
     }
 
+*/
 }

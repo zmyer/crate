@@ -70,34 +70,6 @@ public class ExpressionToNumberVisitor extends AstVisitor<Number, Object[]> {
     }
 
     @Override
-    public Number visitParameterExpression(ParameterExpression node, Object[] context) {
-        Number num;
-        Object param = context[node.index()];
-        if (param instanceof Number) {
-            num = (Number)param;
-        } else if (param instanceof String) {
-            num = parseString((String)param);
-        } else {
-            throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "invalid number %s", param));
-        }
-        return num;
-    }
-
-    @Override
-    protected Number visitNegativeExpression(NegativeExpression node, Object[] context) {
-        Number n = process(node.getValue(), context);
-        if (n instanceof Long) {
-            return -1L * (Long)n;
-        } else if (n instanceof Double) {
-            return -1 * (Double)n;
-        } else {
-            throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "invalid number %s", node.getValue()));
-        }
-    }
-
-    @Override
     protected Number visitNode(Node node, Object[] context) {
         throw new IllegalArgumentException(String.format(Locale.ENGLISH, "invalid number %s", node));
     }

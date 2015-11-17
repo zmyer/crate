@@ -1,29 +1,21 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class ComparisonExpression
         extends Expression
@@ -36,24 +28,7 @@ public class ComparisonExpression
         LESS_THAN_OR_EQUAL("<="),
         GREATER_THAN(">"),
         GREATER_THAN_OR_EQUAL(">="),
-        IS_DISTINCT_FROM("IS DISTINCT FROM"),
-        REGEX_MATCH("~"),
-        REGEX_NO_MATCH("!~"),
-        REGEX_MATCH_CI("~*"),
-        REGEX_NO_MATCH_CI("!~*");
-
-        public static ImmutableMap<Type, Type> INVERSE_MAP = ImmutableMap.<Type, Type>builder()
-                .put(EQUAL, NOT_EQUAL)
-                .put(NOT_EQUAL, EQUAL)
-                .put(LESS_THAN, GREATER_THAN_OR_EQUAL)
-                .put(LESS_THAN_OR_EQUAL, GREATER_THAN)
-                .put(GREATER_THAN, LESS_THAN_OR_EQUAL)
-                .put(GREATER_THAN_OR_EQUAL, LESS_THAN)
-                .put(REGEX_MATCH, REGEX_NO_MATCH)
-                .put(REGEX_NO_MATCH, REGEX_MATCH)
-                .put(REGEX_MATCH_CI, REGEX_NO_MATCH_CI)
-                .put(REGEX_NO_MATCH_CI, REGEX_MATCH_CI)
-                .build();
+        IS_DISTINCT_FROM("IS DISTINCT FROM");
 
         private final String value;
 
@@ -66,10 +41,6 @@ public class ComparisonExpression
         {
             return value;
         }
-
-        public Type inverse() {
-            return INVERSE_MAP.get(this);
-        }
     }
 
     private final Type type;
@@ -78,9 +49,20 @@ public class ComparisonExpression
 
     public ComparisonExpression(Type type, Expression left, Expression right)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
+        this(Optional.empty(), type, left, right);
+    }
+
+    public ComparisonExpression(NodeLocation location, Type type, Expression left, Expression right)
+    {
+        this(Optional.of(location), type, left, right);
+    }
+
+    private ComparisonExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    {
+        super(location);
+        requireNonNull(type, "type is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
 
         this.type = type;
         this.left = left;
@@ -141,19 +123,4 @@ public class ComparisonExpression
         result = 31 * result + right.hashCode();
         return result;
     }
-
-    public static Predicate<ComparisonExpression> matchesPattern(final Type type, final Class<?> left, final Class<?> right)
-    {
-        return new Predicate<ComparisonExpression>()
-        {
-            @Override
-            public boolean apply(ComparisonExpression expression)
-            {
-                return expression.getType() == type &&
-                        left.isAssignableFrom(expression.getLeft().getClass()) &&
-                        right.isAssignableFrom(expression.getRight().getClass());
-            }
-        };
-    }
 }
-

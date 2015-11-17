@@ -22,7 +22,6 @@
 package io.crate.analyze;
 
 import io.crate.metadata.Schemas;
-import io.crate.sql.tree.AlterBlobTable;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
@@ -37,6 +36,7 @@ public class AlterBlobTableAnalyzer extends BlobTableAnalyzer<AlterBlobTableAnal
         this.schemas = schemas;
     }
 
+    /*
     @Override
     public AlterBlobTableAnalyzedStatement visitAlterBlobTable(AlterBlobTable node, Analysis analysis) {
         AlterBlobTableAnalyzedStatement statement = new AlterBlobTableAnalyzedStatement(schemas);
@@ -56,4 +56,5 @@ public class AlterBlobTableAnalyzer extends BlobTableAnalyzer<AlterBlobTableAnal
         return statement;
     }
 
+*/
 }

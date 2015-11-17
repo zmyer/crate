@@ -23,7 +23,6 @@ package io.crate.analyze;
 
 import io.crate.sql.tree.AstVisitor;
 import io.crate.sql.tree.Node;
-import io.crate.sql.tree.ParameterExpression;
 import io.crate.sql.tree.StringLiteral;
 
 import javax.annotation.Nullable;
@@ -43,14 +42,6 @@ public class SafeExpressionToStringVisitor extends AstVisitor<String, Object[]> 
         return node.getValue();
     }
 
-    @Override
-    public String visitParameterExpression(ParameterExpression node, Object[] parameters) {
-        Object value = parameters[node.index()];
-        if (!(value instanceof String)) {
-            throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Parameter %s not a string value, can't handle this.", value));
-        }
-        return (String)value;
-    }
 
     @Override
     protected String visitNode(Node node, Object[] context) {

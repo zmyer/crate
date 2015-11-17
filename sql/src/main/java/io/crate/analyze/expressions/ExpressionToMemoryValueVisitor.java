@@ -54,26 +54,6 @@ public class ExpressionToMemoryValueVisitor extends AstVisitor<ByteSizeValue, Ob
     }
 
     @Override
-    public ByteSizeValue visitParameterExpression(ParameterExpression node, Object[] context) {
-        ByteSizeValue value;
-        Object param = context[node.index()];
-        if (param instanceof Number) {
-            value = new ByteSizeValue(((Number) param).longValue());
-        } else if (param instanceof String) {
-            try {
-                value = MemorySizeValue.parseBytesSizeValueOrHeapRatio((String) param);
-            } catch (ElasticsearchParseException e) {
-                throw new IllegalArgumentException(
-                        String.format(Locale.ENGLISH, "Invalid byte size value '%s'", param));
-            }
-        } else {
-            throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "Invalid byte size value %s", param));
-        }
-        return value;
-    }
-
-    @Override
     protected ByteSizeValue visitNode(Node node, Object[] context) {
         throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Invalid byte size value %s", node));
     }

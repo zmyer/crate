@@ -27,6 +27,7 @@ import io.crate.analyze.expressions.ExpressionToStringVisitor;
 import io.crate.metadata.settings.CrateSettings;
 import io.crate.metadata.settings.Setting;
 import io.crate.sql.tree.*;
+import jdk.nashorn.internal.ir.Assignment;
 import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -44,51 +45,6 @@ public class SetStatementAnalyzer extends DefaultTraversalVisitor<SetAnalyzedSta
         return super.process(node, analysis);
     }
 
-    @Override
-    public SetAnalyzedStatement visitSetStatement(SetStatement node, Analysis analysis) {
-        SetAnalyzedStatement statement = new SetAnalyzedStatement();
-        statement.persistent(node.settingType().equals(SetStatement.SettingType.PERSISTENT));
-        ImmutableSettings.Builder builder = ImmutableSettings.builder();
-        for (Assignment assignment : node.assignments()) {
-            String settingsName = ExpressionToStringVisitor.convert(assignment.columnName(),
-                    analysis.parameterContext().parameters());
-
-            SettingsApplier settingsApplier = CrateSettings.getSetting(settingsName);
-            if (settingsApplier == null) {
-                throw new IllegalArgumentException(String.format(Locale.ENGLISH, "setting '%s' not supported", settingsName));
-            }
-            for (String setting : ExpressionToSettingNameListVisitor.convert(assignment)) {
-                checkIfSettingIsRuntime(setting);
-            }
-
-            settingsApplier.apply(builder, analysis.parameterContext().parameters(), assignment.expression());
-        }
-        statement.settings(builder.build());
-        return statement;
-    }
-
-    @Override
-    public SetAnalyzedStatement visitResetStatement(ResetStatement node, Analysis analysis) {
-        SetAnalyzedStatement statement = new SetAnalyzedStatement();
-        statement.isReset(true);
-        Set<String> settingsToRemove = Sets.newHashSet();
-        for (Expression expression : node.columns()) {
-            String settingsName = ExpressionToStringVisitor.convert(expression, analysis.parameterContext().parameters());
-            if (!settingsToRemove.contains(settingsName)) {
-                Set<String> settingNames = CrateSettings.settingNamesByPrefix(settingsName);
-                if (settingNames.size() == 0) {
-                    throw new IllegalArgumentException(String.format(Locale.ENGLISH, "setting '%s' not supported", settingsName));
-                }
-                for (String setting : settingNames) {
-                    checkIfSettingIsRuntime(setting);
-                }
-                settingsToRemove.addAll(settingNames);
-                logger.info("resetting [{}]", settingNames);
-            }
-        }
-        statement.settingsToRemove(settingsToRemove);
-        return statement;
-    }
 
     private void checkIfSettingIsRuntime(String name) {
         checkIfSettingIsRuntime(CrateSettings.CRATE_SETTINGS, name);
@@ -101,51 +57,6 @@ public class SetStatementAnalyzer extends DefaultTraversalVisitor<SetAnalyzedSta
                         "setting '%s' cannot be set/reset at runtime", name));
             }
             checkIfSettingIsRuntime(setting.children(), name);
-        }
-    }
-
-    private static class ExpressionToSettingNameListVisitor extends AstVisitor<Collection<String>, String> {
-
-        private static final ExpressionToSettingNameListVisitor INSTANCE = new ExpressionToSettingNameListVisitor();
-        private ExpressionToSettingNameListVisitor() {}
-
-        public static Collection<String> convert(Node node) {
-            return INSTANCE.process(node, null);
-        }
-
-        @Override
-        public Collection<String> visitAssignment(Assignment node, String context) {
-            String left = ExpressionToStringVisitor.convert(node.columnName(), null);
-            return node.expression().accept(this, left);
-        }
-
-        @Override
-        public Collection<String> visitObjectLiteral(ObjectLiteral node, String context) {
-            Collection<String> settingNames = new ArrayList<>();
-            for (Map.Entry<String, Expression> entry : node.values().entries()) {
-                String s = String.format("%s.%s", context, entry.getKey());
-                if (entry.getValue() instanceof ObjectLiteral) {
-                    settingNames.addAll(entry.getValue().accept(this, s));
-                } else {
-                    settingNames.add(s);
-                }
-            }
-            return settingNames;
-        }
-
-        @Override
-        protected Collection<String> visitLiteral(Literal node, String context) {
-            return ImmutableList.of(context);
-        }
-
-        @Override
-        public Collection<String> visitParameterExpression(ParameterExpression node, String context) {
-            return ImmutableList.of(context);
-        }
-
-        @Override
-        protected Collection<String> visitNode(Node node, String context) {
-            return ImmutableList.of(context);
         }
     }
 

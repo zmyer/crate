@@ -21,13 +21,7 @@
 
 package io.crate.analyze;
 
-import io.crate.Constants;
-import io.crate.analyze.expressions.ExpressionToNumberVisitor;
 import io.crate.metadata.Schemas;
-import io.crate.metadata.TableIdent;
-import io.crate.sql.tree.ClusteredBy;
-import io.crate.sql.tree.CreateBlobTable;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
@@ -42,6 +36,7 @@ public class CreateBlobTableStatementAnalyzer extends BlobTableAnalyzer<CreateBl
         this.schemas = schemas;
     }
 
+    /*
     @Override
     public CreateBlobTableAnalyzedStatement visitCreateBlobTable(CreateBlobTable node, Analysis analysis) {
         CreateBlobTableAnalyzedStatement statement = new CreateBlobTableAnalyzedStatement();
@@ -73,4 +68,5 @@ public class CreateBlobTableStatementAnalyzer extends BlobTableAnalyzer<CreateBl
 
         return statement;
     }
+    */
 }

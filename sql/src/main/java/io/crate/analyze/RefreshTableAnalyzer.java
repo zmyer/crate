@@ -30,7 +30,6 @@ import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
 import io.crate.sql.tree.DefaultTraversalVisitor;
 import io.crate.sql.tree.Node;
-import io.crate.sql.tree.RefreshStatement;
 import io.crate.sql.tree.Table;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
@@ -53,6 +52,7 @@ public class RefreshTableAnalyzer extends DefaultTraversalVisitor<RefreshTableAn
         analysis.expectsAffectedRows(true);
         return super.process(node, analysis);
     }
+    /*
 
     @Override
     public RefreshTableAnalyzedStatement visitRefreshStatement(RefreshStatement node, Analysis analysis) {
@@ -80,4 +80,5 @@ public class RefreshTableAnalyzer extends DefaultTraversalVisitor<RefreshTableAn
         }
         return new RefreshTableAnalyzedStatement(indexNames);
     }
+    */
 }

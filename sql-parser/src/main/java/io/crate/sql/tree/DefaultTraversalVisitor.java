@@ -1,24 +1,16 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
 public abstract class DefaultTraversalVisitor<R, C>
@@ -37,12 +29,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitTryCast(TryCast node, C context) {
-        return process(node.getExpression(), context);
-    }
-
-    @Override
-    protected R visitArithmeticExpression(ArithmeticExpression node, C context)
+    protected R visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
     {
         process(node.getLeft(), context);
         process(node.getRight(), context);
@@ -66,6 +53,25 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (Expression operand : node.getOperands()) {
             process(operand, context);
         }
+
+        return null;
+    }
+
+    @Override
+    protected R visitArrayConstructor(ArrayConstructor node, C context)
+    {
+        for (Expression expression : node.getValues()) {
+            process(expression, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    {
+        process(node.getBase(), context);
+        process(node.getIndex(), context);
 
         return null;
     }
@@ -160,6 +166,13 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitDereferenceExpression(DereferenceExpression node, C context)
+    {
+        process(node.getBase(), context);
+        return null;
+    }
+
+    @Override
     public R visitWindow(Window node, C context)
     {
         for (Expression expression : node.getPartitionBy()) {
@@ -205,9 +218,9 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
         }
-        if (node.getDefaultValue() != null) {
-            process(node.getDefaultValue(), context);
-        }
+
+        node.getDefaultValue()
+                .ifPresent(value -> process(value, context));
 
         return null;
     }
@@ -244,7 +257,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitNegativeExpression(NegativeExpression node, C context)
+    protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
         return process(node.getValue(), context);
     }
@@ -261,9 +274,8 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
         }
-        if (node.getDefaultValue() != null) {
-            process(node.getDefaultValue(), context);
-        }
+        node.getDefaultValue()
+                .ifPresent(value -> process(value, context));
 
         return null;
     }
@@ -316,15 +328,10 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitQuerySpecification(QuerySpecification node, C context)
     {
-
-        // visit the from first, since this qualifies the select
-        if (node.getFrom() != null) {
-            for (Relation relation : node.getFrom()) {
-                process(relation, context);
-            }
-        }
-
         process(node.getSelect(), context);
+        if (node.getFrom().isPresent()) {
+            process(node.getFrom().get(), context);
+        }
         if (node.getWhere().isPresent()) {
             process(node.getWhere().get(), context);
         }
@@ -367,6 +374,24 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitValues(Values node, C context)
+    {
+        for (Expression row : node.getRows()) {
+            process(row, context);
+        }
+        return null;
+    }
+
+    @Override
+    protected R visitRow(Row node, C context)
+    {
+        for (Expression expression : node.getItems()) {
+            process(expression, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitTableSubquery(TableSubquery node, C context)
     {
         return process(node.getQuery(), context);
@@ -397,107 +422,19 @@ public abstract class DefaultTraversalVisitor<R, C>
         process(node.getLeft(), context);
         process(node.getRight(), context);
 
-        if (node.getCriteria().isPresent() && node.getCriteria().get() instanceof JoinOn) {
-            process(((JoinOn) node.getCriteria().get()).getExpression(), context);
-        }
+        node.getCriteria()
+                .filter(criteria -> criteria instanceof JoinOn)
+                .map(criteria -> process(((JoinOn) criteria).getExpression(), context));
 
         return null;
     }
 
     @Override
-    public R visitInsertFromValues(InsertFromValues node, C context) {
-        process(node.table(), context);
-        for (ValuesList valuesList : node.valuesLists()) {
-            process(valuesList, context);
-        }
-        return null;
-    }
-
-    @Override
-    public R visitValuesList(ValuesList node, C context) {
-        for (Expression value : node.values()) {
-            process(value, context);
-        }
-        return null;
-    }
-
-    @Override
-    public R visitUpdate(Update node, C context) {
-        process(node.relation(), context);
-        for (Assignment assignment : node.assignements()) {
-            process(assignment, context);
-        }
-        if (node.whereClause().isPresent()) {
-            process(node.whereClause().get(), context);
-        }
-        return null;
-    }
-
-    @Override
-    public R visitDelete(Delete node, C context) {
-        process(node.getRelation(), context);
-        return null;
-    }
-
-    @Override
-    public R visitCopyFromStatement(CopyFromStatement node, C context) {
-        process(node.table(), context);
-        return null;
-    }
-
-    @Override
-    public R visitCopyTo(CopyTo node, C context) {
-        process(node.table(), context);
-        return null;
-    }
-
-    @Override
-    public R visitAlterTable(AlterTable node, C context) {
-        process(node.table(), context);
-        return null;
-    }
-
-    @Override
-    public R visitInsertFromSubquery(InsertFromSubquery node, C context) {
-        process(node.table(), context);
-        process(node.subQuery(), context);
-        return null;
-    }
-
-    @Override
-    public R visitDropTable(DropTable node, C context) {
-        process(node.table(), context);
-        return super.visitDropTable(node, context);
-    }
-
-    @Override
-    public R visitCreateTable(CreateTable node, C context) {
-        process(node.name(), context);
-        return null;
-    }
-
-    @Override
-    public R visitShowCreateTable(ShowCreateTable node, C context) {
-        process(node.table(), context);
-        return null;
-    }
-
-    @Override
-    public R visitRefreshStatement(RefreshStatement node, C context) {
-        for (Table nodeTable : node.tables()) {
-            process(nodeTable, context);
-        }
-        return null;
-    }
-
-    @Override
-    public R visitMatchPredicate(MatchPredicate node, C context)
+    protected R visitUnnest(Unnest node, C context)
     {
-        for (MatchPredicateColumnIdent columnIdent : node.idents()) {
-            process(columnIdent.columnIdent(), context);
-            process(columnIdent.boost(), context);
+        for (Expression expression : node.getExpressions()) {
+            process(expression, context);
         }
-        process(node.value(), context);
 
         return null;
     }

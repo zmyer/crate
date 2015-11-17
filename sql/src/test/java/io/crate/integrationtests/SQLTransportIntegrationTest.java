@@ -47,7 +47,7 @@ import io.crate.metadata.table.TableInfo;
 import io.crate.planner.Plan;
 import io.crate.planner.Planner;
 import io.crate.plugin.CrateCorePlugin;
-import io.crate.sql.parser.SqlParser;
+import io.crate.sql.v4.SqlParser;
 import io.crate.testing.SQLTransportExecutor;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
@@ -269,7 +269,8 @@ public abstract class SQLTransportIntegrationTest extends ElasticsearchIntegrati
         Planner planner = internalCluster().getInstance(Planner.class);
 
         ParameterContext parameterContext = new ParameterContext(new Object[0], new Object[0][], null);
-        return planner.plan(analyzer.analyze(SqlParser.createStatement(stmt), parameterContext), UUID.randomUUID());
+        SqlParser parser = new SqlParser();
+        return planner.plan(analyzer.analyze(parser.createStatement(stmt), parameterContext), UUID.randomUUID());
     }
 
     public ListenableFuture<List<TaskResult>> execute(Plan plan) {

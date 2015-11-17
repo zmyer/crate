@@ -1,28 +1,21 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.Function;
-import com.google.common.base.MoreObjects;
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class SortItem
         extends Node
@@ -43,6 +36,17 @@ public class SortItem
 
     public SortItem(Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
     {
+        this(Optional.empty(), sortKey, ordering, nullOrdering);
+    }
+
+    public SortItem(NodeLocation location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    {
+        this(Optional.of(location), sortKey, ordering, nullOrdering);
+    }
+
+    private SortItem(Optional<NodeLocation> location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    {
+        super(location);
         this.ordering = ordering;
         this.sortKey = sortKey;
         this.nullOrdering = nullOrdering;
@@ -72,7 +76,7 @@ public class SortItem
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("sortKey", sortKey)
                 .add("ordering", ordering)
                 .add("nullOrdering", nullOrdering)
@@ -111,17 +115,5 @@ public class SortItem
         result = 31 * result + (ordering != null ? ordering.hashCode() : 0);
         result = 31 * result + (nullOrdering != null ? nullOrdering.hashCode() : 0);
         return result;
-    }
-
-    public static Function<SortItem, Expression> sortKeyGetter()
-    {
-        return new Function<SortItem, Expression>()
-        {
-            @Override
-            public Expression apply(SortItem input)
-            {
-                return input.getSortKey();
-            }
-        };
     }
 }

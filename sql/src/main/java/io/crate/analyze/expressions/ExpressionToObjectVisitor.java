@@ -53,11 +53,6 @@ public class ExpressionToObjectVisitor extends AstVisitor<Object, Object[]> {
     }
 
     @Override
-    public Object visitParameterExpression(ParameterExpression node, Object[] parameters) {
-        return parameters[node.index()];
-    }
-
-    @Override
     protected Object visitLongLiteral(LongLiteral node, Object[] context) {
         return node.getValue();
     }
@@ -70,48 +65,6 @@ public class ExpressionToObjectVisitor extends AstVisitor<Object, Object[]> {
     @Override
     protected Object visitNullLiteral(NullLiteral node, Object[] context) {
         return null;
-    }
-
-    @Override
-    protected String visitSubscriptExpression(SubscriptExpression node, Object[] context) {
-        return String.format(Locale.ENGLISH, "%s.%s", process(node.name(), context), process(node.index(), context));
-    }
-
-    @Override
-    public Object[] visitArrayLiteral(ArrayLiteral node, Object[] context) {
-        Object[] array = new Object[node.values().size()];
-        for (int i = 0; i< node.values().size(); i++) {
-            array[i] = node.values().get(i).accept(this, context);
-        }
-        return array;
-    }
-
-    @Override
-    public Map<String, Object> visitObjectLiteral(ObjectLiteral node, Object[] context) {
-        Map<String, Object> object = new HashMap<>();
-        for (Map.Entry<String, Expression> entry : node.values().entries()) {
-            if (object.put(entry.getKey(), entry.getValue().accept(this, context)) != null) {
-                throw new IllegalArgumentException(
-                        String.format(Locale.ENGLISH,
-                                "key '%s' listed twice in object literal",
-                                entry.getKey())
-                );
-            }
-        }
-        return object;
-    }
-
-    @Override
-    protected Object visitNegativeExpression(NegativeExpression node, Object[] context) {
-        Object o = process(node.getValue(), context);
-        if (o instanceof Long) {
-            return -1L * (Long)o;
-        } else if (o instanceof Double) {
-            return -1 * (Double)o;
-        } else {
-            throw new UnsupportedOperationException(
-                    String.format("Can't handle negative of %s.", node.getValue()));
-        }
     }
 
     @Override

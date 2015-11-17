@@ -1,74 +1,41 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.*;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.common.collect.Iterables.transform;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
 {
     private final List<String> parts;
-
-
-    public static QualifiedName of(QualifiedName prefix, String suffix)
-    {
-        Preconditions.checkNotNull(prefix, "prefix is null");
-        Preconditions.checkNotNull(suffix, "suffix is null");
-
-        return new QualifiedName(Iterables.concat(prefix.getParts(), ImmutableList.of(suffix)));
-    }
-
-    public static QualifiedName of(String prefix, QualifiedName suffix)
-    {
-        Preconditions.checkNotNull(prefix, "prefix is null");
-        Preconditions.checkNotNull(suffix, "suffix is null");
-
-        return QualifiedName.of(Iterables.concat(ImmutableList.of(prefix), suffix.getParts()));
-    }
+    private final List<String> originalParts;
 
     public static QualifiedName of(String first, String... rest)
     {
-        Preconditions.checkNotNull(first, "first is null");
+        requireNonNull(first, "first is null");
         return new QualifiedName(ImmutableList.copyOf(Lists.asList(first, rest)));
-    }
-
-    public static QualifiedName of(Iterable<String> parts)
-    {
-        Preconditions.checkNotNull(parts, "parts is null");
-        Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
-
-        return new QualifiedName(parts);
-    }
-
-    public static QualifiedName parseQualifiedName(String qualifiedName)
-    {
-        Preconditions.checkNotNull(qualifiedName, "qualifiedName is null");
-
-        return of(Splitter.on('.').split(qualifiedName));
     }
 
     public QualifiedName(String name)
@@ -78,15 +45,20 @@ public class QualifiedName
 
     public QualifiedName(Iterable<String> parts)
     {
-        Preconditions.checkNotNull(parts, "parts");
-        Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
-
-        this.parts = ImmutableList.copyOf(parts);
+        requireNonNull(parts, "parts is null");
+        checkArgument(!isEmpty(parts), "parts is empty");
+        this.parts = ImmutableList.copyOf(transform(parts, part -> part.toLowerCase(ENGLISH)));
+        this.originalParts = ImmutableList.copyOf(parts);
     }
 
     public List<String> getParts()
     {
         return parts;
+    }
+
+    public List<String> getOriginalParts()
+    {
+        return originalParts;
     }
 
     @Override
@@ -102,10 +74,10 @@ public class QualifiedName
     public Optional<QualifiedName> getPrefix()
     {
         if (parts.size() == 1) {
-            return Optional.absent();
+            return Optional.empty();
         }
 
-        return Optional.of(QualifiedName.of(parts.subList(0, parts.size() - 1)));
+        return Optional.of(new QualifiedName(parts.subList(0, parts.size() - 1)));
     }
 
     public boolean hasSuffix(QualifiedName suffix)
@@ -119,45 +91,9 @@ public class QualifiedName
         return parts.subList(start, parts.size()).equals(suffix.getParts());
     }
 
-    public static Predicate<QualifiedName> hasSuffixPredicate(final QualifiedName suffix)
-    {
-        return new Predicate<QualifiedName>()
-        {
-            @Override
-            public boolean apply(QualifiedName name)
-            {
-                return name.hasSuffix(suffix);
-            }
-        };
-    }
-
-    public static Function<String, QualifiedName> addPrefixFunction(final QualifiedName prefix)
-    {
-        return new Function<String, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(@Nullable String suffix)
-            {
-                return QualifiedName.of(prefix, suffix);
-            }
-        };
-    }
-
     public String getSuffix()
     {
         return Iterables.getLast(parts);
-    }
-
-    public static Function<String, QualifiedName> fromStringFunction()
-    {
-        return new Function<String, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(String input)
-            {
-                return new QualifiedName(input);
-            }
-        };
     }
 
     @Override
@@ -169,14 +105,7 @@ public class QualifiedName
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        QualifiedName that = (QualifiedName) o;
-
-        if (!parts.equals(that.parts)) {
-            return false;
-        }
-
-        return true;
+        return parts.equals(((QualifiedName) o).parts);
     }
 
     @Override

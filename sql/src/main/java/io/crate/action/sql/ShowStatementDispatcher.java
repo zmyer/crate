@@ -29,8 +29,8 @@ import io.crate.core.collections.Row1;
 import io.crate.core.collections.SingleRowBucket;
 import io.crate.executor.QueryResult;
 import io.crate.executor.TaskResult;
-import io.crate.sql.SqlFormatter;
 import io.crate.sql.tree.CreateTable;
+import io.crate.sql.v4.SqlFormatter;
 import org.elasticsearch.common.inject.Singleton;
 
 import java.util.UUID;

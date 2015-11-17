@@ -39,54 +39,6 @@ public class AlterTableAnalyzer extends DefaultTraversalVisitor<AlterTableAnalyz
         this.schemas = schemas;
     }
 
-    @Override
-    public AlterTableAnalyzedStatement visitColumnDefinition(ColumnDefinition node, Analysis analysis) {
-        if (node.ident().startsWith("_")) {
-            throw new IllegalArgumentException("Column ident must not start with '_'");
-        }
-
-        return null;
-    }
-
-    @Override
-    public AlterTableAnalyzedStatement visitAlterTable(AlterTable node, Analysis analysis) {
-
-        AlterTableAnalyzedStatement statement = new AlterTableAnalyzedStatement(schemas);
-        setTableAndPartitionName(node.table(), statement, analysis);
-
-        TableParameterInfo tableParameterInfo = statement.table().tableParameterInfo();
-        if (statement.partitionName().isPresent()) {
-            assert tableParameterInfo instanceof AlterPartitionedTableParameterInfo;
-            assert !node.table().excludePartitions() : "Alter table ONLY not supported when using a partition";
-            tableParameterInfo = ((AlterPartitionedTableParameterInfo) tableParameterInfo).partitionTableSettingsInfo();
-        }
-        statement.excludePartitions(node.table().excludePartitions());
-
-        if (node.genericProperties().isPresent()) {
-            TABLE_PROPERTIES_ANALYZER.analyze(
-                    statement.tableParameter(), tableParameterInfo, node.genericProperties(),
-                    analysis.parameterContext().parameters());
-        } else if (!node.resetProperties().isEmpty()) {
-            TABLE_PROPERTIES_ANALYZER.analyze(
-                    statement.tableParameter(), tableParameterInfo, node.resetProperties());
-        }
-
-        return statement;
-    }
-
-    private void setTableAndPartitionName(Table node, AlterTableAnalyzedStatement context, Analysis analysis) {
-        context.table(TableIdent.of(node, analysis.parameterContext().defaultSchema()));
-        if (!node.partitionProperties().isEmpty()) {
-            PartitionName partitionName = PartitionPropertiesAnalyzer.toPartitionName(
-                    context.table(),
-                    node.partitionProperties(),
-                    analysis.parameterContext().parameters());
-            if (!context.table().partitions().contains(partitionName)) {
-                throw new IllegalArgumentException("Referenced partition does not exist.");
-            }
-            context.partitionName(partitionName);
-        }
-    }
 
     public AnalyzedStatement analyze(Node node, Analysis analysis) {
         analysis.expectsAffectedRows(true);

@@ -21,17 +21,14 @@
 
 package io.crate.analyze;
 
-import io.crate.analyze.expressions.ExpressionToStringVisitor;
 import io.crate.sql.tree.AstVisitor;
-import io.crate.sql.tree.KillStatement;
 import io.crate.sql.tree.Node;
 import org.elasticsearch.common.inject.Singleton;
-
-import java.util.UUID;
 
 @Singleton
 public class KillStatementAnalyzer extends AstVisitor<KillAnalyzedStatement, Analysis> {
 
+    /*
     @Override
     public KillAnalyzedStatement visitKillStatement(KillStatement node, Analysis context) {
         KillAnalyzedStatement killAnalyzedStatement;
@@ -49,6 +46,7 @@ public class KillStatementAnalyzer extends AstVisitor<KillAnalyzedStatement, Ana
         }
         return killAnalyzedStatement;
     }
+    */
 
     public AnalyzedStatement analyze(Node node, Analysis analysis) {
         analysis.expectsAffectedRows(true);

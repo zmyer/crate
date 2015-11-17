@@ -101,7 +101,7 @@ public class DeleteStatementAnalyzer extends DefaultTraversalVisitor<AnalyzedSta
         RelationAnalysisContext relationAnalysisContext = new RelationAnalysisContext(
                 context.parameterContext(), analysisMetaData);
 
-        AnalyzedRelation analyzedRelation = relationAnalyzer.process(node.getRelation(), relationAnalysisContext);
+        AnalyzedRelation analyzedRelation = relationAnalyzer.process(node.getTable(), relationAnalysisContext);
         if (Relations.isReadOnly(analyzedRelation)) {
             throw new UnsupportedOperationException(String.format(
                     "relation \"%s\" is read-only and cannot be deleted", analyzedRelation));

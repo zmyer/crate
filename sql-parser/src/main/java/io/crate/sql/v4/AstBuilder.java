@@ -16,7 +16,7 @@ package io.crate.sql.v4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import io.crate.sql.treev4.*;
+import io.crate.sql.tree.*;
 import io.crate.sql.v4.SqlBaseParser.TablePropertiesContext;
 import io.crate.sql.v4.SqlBaseParser.TablePropertyContext;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -49,12 +49,6 @@ class AstBuilder
 
     // ******************* statements **********************
 
-    @Override
-    public Node visitUse(SqlBaseParser.UseContext context)
-    {
-        return new Use(getLocation(context), getTextIfPresent(context.catalog), context.schema.getText());
-    }
-
     /*
     @Override
     public Node visitCreateTableAsSelect(SqlBaseParser.CreateTableAsSelectContext context)
@@ -84,12 +78,6 @@ class AstBuilder
     public Node visitDropTable(SqlBaseParser.DropTableContext context)
     {
         return new DropTable(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
-    }
-
-    @Override
-    public Node visitDropView(SqlBaseParser.DropViewContext context)
-    {
-        return new DropView(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     /*
@@ -133,15 +121,6 @@ class AstBuilder
     }
     */
 
-    @Override
-    public Node visitCreateView(SqlBaseParser.CreateViewContext context)
-    {
-        return new CreateView(
-                getLocation(context),
-                getQualifiedName(context.qualifiedName()),
-                (Query) visit(context.query()),
-                context.REPLACE() != null);
-    }
 
     // ********************** query expressions ********************
 
@@ -358,16 +337,6 @@ class AstBuilder
         return new ShowColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
     }
 
-    @Override
-    public Node visitShowPartitions(SqlBaseParser.ShowPartitionsContext context)
-    {
-        return new ShowPartitions(
-                getLocation(context),
-                getQualifiedName(context.qualifiedName()),
-                visitIfPresent(context.booleanExpression(), Expression.class),
-                visit(context.sortItem(), SortItem.class),
-                getTextIfPresent(context.limit));
-    }
 
     @Override
     public Node visitShowFunctions(SqlBaseParser.ShowFunctionsContext context)

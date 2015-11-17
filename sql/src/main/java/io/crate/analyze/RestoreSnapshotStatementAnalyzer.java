@@ -33,7 +33,6 @@ import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
 import io.crate.sql.tree.Expression;
-import io.crate.sql.tree.RestoreSnapshot;
 import io.crate.sql.tree.Table;
 import org.elasticsearch.common.Preconditions;
 import org.elasticsearch.common.inject.Inject;
@@ -62,6 +61,7 @@ public class RestoreSnapshotStatementAnalyzer extends AbstractRepositoryDDLAnaly
         this.schemas = schemas;
     }
 
+    /*
     @Override
     public RestoreSnapshotAnalyzedStatement visitRestoreSnapshot(RestoreSnapshot node, Analysis analysis) {
         List<String> nameParts = node.name().getParts();
@@ -140,4 +140,5 @@ public class RestoreSnapshotStatementAnalyzer extends AbstractRepositoryDDLAnaly
             return RestoreSnapshotAnalyzedStatement.all(nameParts.get(1), repositoryName, builder.build());
         }
     }
+    */
 }

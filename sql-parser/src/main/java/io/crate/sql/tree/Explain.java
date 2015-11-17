@@ -1,33 +1,26 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class Explain
         extends Statement
@@ -37,7 +30,18 @@ public class Explain
 
     public Explain(Statement statement, List<ExplainOption> options)
     {
-        this.statement = checkNotNull(statement, "statement is null");
+        this(Optional.empty(), statement, options);
+    }
+
+    public Explain(NodeLocation location, Statement statement, List<ExplainOption> options)
+    {
+        this(Optional.of(location), statement, options);
+    }
+
+    private Explain(Optional<NodeLocation> location, Statement statement, List<ExplainOption> options)
+    {
+        super(location);
+        this.statement = requireNonNull(statement, "statement is null");
         if (options == null) {
             this.options = ImmutableList.of();
         }
@@ -65,7 +69,7 @@ public class Explain
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(statement, options);
+        return Objects.hash(statement, options);
     }
 
     @Override
@@ -78,14 +82,14 @@ public class Explain
             return false;
         }
         Explain o = (Explain) obj;
-        return Objects.equal(statement, o.statement) &&
-                Objects.equal(options, o.options);
+        return Objects.equals(statement, o.statement) &&
+                Objects.equals(options, o.options);
     }
 
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("statement", statement)
                 .add("options", options)
                 .toString();

@@ -20,15 +20,10 @@
  */
 package io.crate.analyze;
 
-import io.crate.sql.tree.*;
-import io.crate.sql.treev4.*;
-import io.crate.sql.treev4.AstVisitor;
-import io.crate.sql.treev4.CreateTable;
-import io.crate.sql.treev4.Delete;
-import io.crate.sql.treev4.DropTable;
-import io.crate.sql.treev4.Node;
-import io.crate.sql.treev4.Query;
-import io.crate.sql.treev4.Statement;
+import io.crate.sql.tree.AstVisitor;
+import io.crate.sql.tree.Node;
+import io.crate.sql.tree.Query;
+import io.crate.sql.tree.Statement;
 import org.elasticsearch.common.inject.Inject;
 
 public class Analyzer {

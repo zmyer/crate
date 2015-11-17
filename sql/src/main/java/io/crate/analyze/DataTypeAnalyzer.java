@@ -21,47 +21,11 @@
 
 package io.crate.analyze;
 
-import io.crate.sql.tree.CollectionColumnType;
-import io.crate.sql.tree.ColumnType;
 import io.crate.sql.tree.DefaultTraversalVisitor;
-import io.crate.sql.tree.ObjectColumnType;
-import io.crate.types.ArrayType;
 import io.crate.types.DataType;
-import io.crate.types.DataTypes;
-
-import java.util.Locale;
 
 public class DataTypeAnalyzer extends DefaultTraversalVisitor<DataType, Void> {
 
-    @Override
-    public DataType visitColumnType(ColumnType node, Void context) {
-        String typeName = node.name();
-        if (typeName == null) {
-            return DataTypes.NOT_SUPPORTED;
-        } else {
-            typeName = typeName.toLowerCase(Locale.ENGLISH);
-            return DataTypes.ofName(typeName);
-        }
-    }
-
-    @Override
-    public DataType visitObjectColumnType(ObjectColumnType node, Void context) {
-        return DataTypes.OBJECT;
-    }
-
-    @Override
-    public DataType visitCollectionColumnType(CollectionColumnType node, Void context) {
-        if (node.type() == ColumnType.Type.SET) {
-            throw new UnsupportedOperationException("the SET dataType is currently not supported");
-        }
-
-        if (node.innerType().type() != ColumnType.Type.PRIMITIVE) {
-            throw new UnsupportedOperationException("Nesting ARRAY or SET types is not supported");
-        }
-
-        DataType innerType = process(node.innerType(), context);
-        return new ArrayType(innerType);
-    }
 
 
 }

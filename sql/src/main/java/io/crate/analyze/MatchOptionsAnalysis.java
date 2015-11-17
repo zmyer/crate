@@ -26,7 +26,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import io.crate.analyze.expressions.ExpressionToObjectVisitor;
 import io.crate.sql.tree.Expression;
-import io.crate.sql.tree.GenericProperties;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -62,21 +61,4 @@ public class MatchOptionsAnalysis {
             .put("zero_terms_query", IS_STRING)
             .build();
 
-    public static Map<String, Object> process(GenericProperties properties, Object[] parameters) {
-        Map<String, Object> processed = new HashMap<>(properties.properties().size());
-        for (Map.Entry<String, Expression> option : properties.properties().entrySet()) {
-            Predicate<Object> validator = ALLOWED_SETTINGS.get(option.getKey());
-            if (validator == null) {
-                throw new IllegalArgumentException(
-                        String.format(Locale.ENGLISH, "unknown match option '%s'", option.getKey()));
-            }
-            Object value = ExpressionToObjectVisitor.convert(option.getValue(), parameters);
-            if (!validator.apply(value)) {
-                throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                        "invalid value for option '%s': %s", option.getKey(), value));
-            }
-            processed.put(option.getKey(), value);
-        }
-        return processed;
-    }
 }

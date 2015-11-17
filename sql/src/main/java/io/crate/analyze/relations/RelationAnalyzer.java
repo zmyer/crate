@@ -23,6 +23,7 @@ package io.crate.analyze.relations;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import io.crate.Constants;
 import io.crate.analyze.*;
 import io.crate.analyze.expressions.ExpressionAnalysisContext;
 import io.crate.analyze.relations.select.SelectAnalyzer;
@@ -36,7 +37,7 @@ import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
-import io.crate.sql.treev4.*;
+import io.crate.sql.tree.*;
 import io.crate.types.DataTypes;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
@@ -110,8 +111,7 @@ public class RelationAnalyzer extends DefaultTraversalVisitor<AnalyzedRelation, 
         QuerySpec querySpec = new QuerySpec()
                 .orderBy(analyzeOrderBy(selectAnalysis, node.getOrderBy(), context))
                 .having(analyzeHaving(node.getHaving(), groupBy, context))
-                .limit(context.expressionAnalyzer().integerFromExpression(node.getLimit()))
-                .offset(context.expressionAnalyzer().integerFromExpression(node.getOffset()))
+                .limit(Integer.parseInt(node.getLimit().orElse(Constants.DEFAULT_SELECT_LIMIT.toString())))
                 .outputs(selectAnalysis.outputSymbols())
                 .where(whereClause)
                 .groupBy(groupBy)

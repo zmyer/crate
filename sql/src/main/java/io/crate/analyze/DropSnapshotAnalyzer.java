@@ -23,7 +23,6 @@ package io.crate.analyze;
 
 import com.google.common.base.Preconditions;
 import io.crate.executor.transport.RepositoryService;
-import io.crate.sql.tree.DropSnapshot;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
@@ -39,6 +38,7 @@ public class DropSnapshotAnalyzer extends AbstractRepositoryDDLAnalyzer {
         this.repositoryService = repositoryService;
     }
 
+    /*
     @Override
     public DropSnapshotAnalyzedStatement visitDropSnapshot(DropSnapshot node, Analysis context) {
         List<String> parts = node.name().getParts();
@@ -50,4 +50,5 @@ public class DropSnapshotAnalyzer extends AbstractRepositoryDDLAnalyzer {
 
         return new DropSnapshotAnalyzedStatement(repositoryName, parts.get(1));
     }
+    */
 }

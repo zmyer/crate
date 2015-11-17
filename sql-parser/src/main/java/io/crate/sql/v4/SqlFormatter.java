@@ -15,7 +15,7 @@ package io.crate.sql.v4;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import io.crate.sql.treev4.*;
+import io.crate.sql.tree.*;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -392,34 +392,6 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitCreateView(CreateView node, Integer indent)
-        {
-            builder.append("CREATE ");
-            if (node.isReplace()) {
-                builder.append("OR REPLACE ");
-            }
-            builder.append("VIEW ")
-                    .append(node.getName())
-                    .append(" AS\n");
-
-            process(node.getQuery(), indent);
-
-            return null;
-        }
-
-        @Override
-        protected Void visitDropView(DropView node, Integer context)
-        {
-            builder.append("DROP VIEW ");
-            if (node.isExists()) {
-                builder.append("IF EXISTS ");
-            }
-            builder.append(node.getName());
-
-            return null;
-        }
-
-        @Override
         protected Void visitExplain(Explain node, Integer indent)
         {
             builder.append("EXPLAIN ");
@@ -493,30 +465,6 @@ public final class SqlFormatter
         {
             builder.append("SHOW COLUMNS FROM ")
                     .append(node.getTable());
-
-            return null;
-        }
-
-        @Override
-        protected Void visitShowPartitions(ShowPartitions node, Integer context)
-        {
-            builder.append("SHOW PARTITIONS FROM ")
-                    .append(node.getTable());
-
-            if (node.getWhere().isPresent()) {
-                builder.append(" WHERE ")
-                        .append(formatExpression(node.getWhere().get()));
-            }
-
-            if (!node.getOrderBy().isEmpty()) {
-                builder.append(" ORDER BY ")
-                        .append(formatSortItems(node.getOrderBy()));
-            }
-
-            if (node.getLimit().isPresent()) {
-                builder.append(" LIMIT ")
-                        .append(node.getLimit().get());
-            }
 
             return null;
         }

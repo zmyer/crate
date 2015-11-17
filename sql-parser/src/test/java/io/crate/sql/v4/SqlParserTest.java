@@ -22,7 +22,7 @@
 
 package io.crate.sql.v4;
 
-import io.crate.sql.treev4.Statement;
+import io.crate.sql.tree.Statement;
 import org.junit.Test;
 
 public class SqlParserTest {

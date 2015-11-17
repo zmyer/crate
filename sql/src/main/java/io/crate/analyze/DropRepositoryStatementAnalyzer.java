@@ -23,7 +23,6 @@
 package io.crate.analyze;
 
 import io.crate.executor.transport.RepositoryService;
-import io.crate.sql.tree.DropRepository;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
@@ -37,11 +36,13 @@ public class DropRepositoryStatementAnalyzer extends AbstractRepositoryDDLAnalyz
         this.repositoryService = repositoryService;
     }
 
+    /*
     @Override
     public DropRepositoryAnalyzedStatement visitDropRepository(DropRepository node, Analysis context) {
         String repositoryName = node.repository();
         repositoryService.failIfRepositoryDoesNotExist(repositoryName);
         return new DropRepositoryAnalyzedStatement(repositoryName);
     }
+    */
 
 }

@@ -1,31 +1,23 @@
- /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
-import com.google.common.base.Function;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-
 import java.util.List;
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class AliasedRelation
         extends Relation
@@ -36,8 +28,19 @@ public class AliasedRelation
 
     public AliasedRelation(Relation relation, String alias, List<String> columnNames)
     {
-        Preconditions.checkNotNull(relation, "relation is null");
-        Preconditions.checkNotNull(alias, " is null");
+        this(Optional.empty(), relation, alias, columnNames);
+    }
+
+    public AliasedRelation(NodeLocation location, Relation relation, String alias, List<String> columnNames)
+    {
+        this(Optional.of(location), relation, alias, columnNames);
+    }
+
+    private AliasedRelation(Optional<NodeLocation> location, Relation relation, String alias, List<String> columnNames)
+    {
+        super(location);
+        requireNonNull(relation, "relation is null");
+        requireNonNull(alias, " is null");
 
         this.relation = relation;
         this.alias = alias;
@@ -68,7 +71,7 @@ public class AliasedRelation
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("relation", relation)
                 .add("alias", alias)
                 .add("columnNames", columnNames)
@@ -108,17 +111,5 @@ public class AliasedRelation
         result = 31 * result + alias.hashCode();
         result = 31 * result + (columnNames != null ? columnNames.hashCode() : 0);
         return result;
-    }
-
-    public static Function<QualifiedName, QualifiedName> applyAlias(final AliasedRelation node)
-    {
-        return new Function<QualifiedName, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(QualifiedName input)
-            {
-                return QualifiedName.of(node.getAlias(), input.getSuffix()); // TODO: handle column aliases
-            }
-        };
     }
 }

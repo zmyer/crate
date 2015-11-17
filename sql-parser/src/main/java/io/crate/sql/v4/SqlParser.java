@@ -13,9 +13,9 @@
  */
 package io.crate.sql.v4;
 
-import io.crate.sql.treev4.Expression;
-import io.crate.sql.treev4.Node;
-import io.crate.sql.treev4.Statement;
+import io.crate.sql.tree.Expression;
+import io.crate.sql.tree.Node;
+import io.crate.sql.tree.Statement;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.NotNull;

@@ -1,29 +1,23 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
- * obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- * However, if you have executed another commercial license agreement
- * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package io.crate.sql.tree;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class Extract
@@ -34,7 +28,6 @@ public class Extract
 
     public enum Field
     {
-        CENTURY,
         YEAR,
         QUARTER,
         MONTH,
@@ -45,17 +38,30 @@ public class Extract
         DOW,
         DAY_OF_YEAR,
         DOY,
+        YEAR_OF_WEEK,
+        YOW,
         HOUR,
         MINUTE,
         SECOND,
-        TIMEZONE_HOUR,
-        TIMEZONE_MINUTE
+        TIMEZONE_MINUTE,
+        TIMEZONE_HOUR
     }
 
     public Extract(Expression expression, Field field)
     {
-        checkNotNull(expression, "expression is null");
-        checkNotNull(field, "field is null");
+        this(Optional.empty(), expression, field);
+    }
+
+    public Extract(NodeLocation location, Expression expression, Field field)
+    {
+        this(Optional.of(location), expression, field);
+    }
+
+    private Extract(Optional<NodeLocation> location, Expression expression, Field field)
+    {
+        super(location);
+        requireNonNull(expression, "expression is null");
+        requireNonNull(field, "field is null");
 
         this.expression = expression;
         this.field = field;

@@ -58,25 +58,6 @@ public class ExpressionToByteSizeValueVisitor extends AstVisitor<ByteSizeValue, 
         return new ByteSizeValue(((Double) node.getValue()).longValue());
     }
 
-    @Override
-    public ByteSizeValue visitParameterExpression(ParameterExpression node, Object[] context) {
-        ByteSizeValue byteSizeValue;
-        Object param = context[node.index()];
-        if (param instanceof Number) {
-            byteSizeValue = new ByteSizeValue(((Number) param).longValue());
-        } else if (param instanceof String) {
-            try {
-                byteSizeValue = ByteSizeValue.parseBytesSizeValue((String) param, DEFAULT_VALUE);
-            } catch (ElasticsearchParseException e) {
-                throw new IllegalArgumentException(
-                        String.format(Locale.ENGLISH, "Invalid byte size value '%s'", param));
-            }
-        } else {
-            throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "Invalid byte size value %s", param));
-        }
-        return byteSizeValue;
-    }
 
     @Override
     protected ByteSizeValue visitNode(Node node, Object[] context) {

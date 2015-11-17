@@ -29,8 +29,7 @@ import io.crate.analyze.symbol.*;
 import io.crate.exceptions.UnsupportedFeatureException;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
-import io.crate.sql.tree.Assignment;
-import io.crate.sql.tree.InsertFromSubquery;
+import jdk.nashorn.internal.ir.Assignment;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
@@ -136,6 +135,7 @@ public class InsertFromSubQueryAnalyzer extends AbstractInsertAnalyzer {
         }
     }
 
+    /*
     private void processUpdateAssignments(DocTableRelation tableRelation,
                                           InsertFromSubQueryAnalyzedStatement statement,
                                           Analysis analysis,
@@ -167,4 +167,5 @@ public class InsertFromSubQueryAnalyzer extends AbstractInsertAnalyzer {
 
         statement.onDuplicateKeyAssignments(updateAssignments);
     }
+    */
 }

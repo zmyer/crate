@@ -35,35 +35,13 @@ public class SubscriptVisitor extends AstVisitor<Void, SubscriptContext> {
     private static final Set<Class<?>> SUBSCRIPT_NAME_CLASSES = ImmutableSet.<Class<?>>of(
             SubscriptExpression.class,
             QualifiedNameReference.class,
-            FunctionCall.class,
-            ArrayLiteral.class
+            FunctionCall.class
     );
     private static final Set<Class<?>> SUBSCRIPT_INDEX_CLASSES = ImmutableSet.<Class<?>>of(
             StringLiteral.class,
-            LongLiteral.class,
-            NegativeExpression.class,
-            ParameterExpression.class
+            LongLiteral.class
     );
 
-    @Override
-    protected Void visitSubscriptExpression(SubscriptExpression node, SubscriptContext context) {
-        Preconditions.checkArgument(
-                node.index() == null
-                        || SUBSCRIPT_INDEX_CLASSES.contains(node.index().getClass()),
-                "index of subscript has to be a string or long literal or parameter. " +
-                "Any other index expression is not supported"
-        );
-        Preconditions.checkArgument(
-                SUBSCRIPT_NAME_CLASSES.contains(node.name().getClass()),
-                "An expression of type %s cannot have an index accessor ([])",
-                node.name().getClass().getSimpleName()
-        );
-        if (node.index() != null) {
-            node.index().accept(this, context);
-        }
-        node.name().accept(this, context);
-        return null;
-    }
 
     @Override
     protected Void visitQualifiedNameReference(QualifiedNameReference node, SubscriptContext context) {
@@ -78,19 +56,6 @@ public class SubscriptVisitor extends AstVisitor<Void, SubscriptContext> {
         return null;
     }
 
-    @Override
-    public Void visitParameterExpression(ParameterExpression node, SubscriptContext context) {
-        throw new UnsupportedOperationException("Parameter substitution is not supported in subscript");
-    }
-
-    @Override
-    public Void visitArrayLiteral(ArrayLiteral node, SubscriptContext context) {
-        Preconditions.checkArgument(
-                context.index() != null,
-                "Array literals can only be accessed via numeric index.");
-        context.expression(node);
-        return null;
-    }
 
     @Override
     protected Void visitLongLiteral(LongLiteral node, SubscriptContext context) {
@@ -104,13 +69,6 @@ public class SubscriptVisitor extends AstVisitor<Void, SubscriptContext> {
         }
         context.index((int) value);
         return null;
-    }
-
-    @Override
-    protected Void visitNegativeExpression(NegativeExpression node, SubscriptContext context) {
-        throw new UnsupportedOperationException(
-                String.format(Locale.ENGLISH, "Array index must be in range 1 to %s",
-                        MAX_VALUE));
     }
 
     @Override

@@ -35,26 +35,23 @@ import io.crate.analyze.symbol.Literal;
 import io.crate.exceptions.ColumnUnknownException;
 import io.crate.exceptions.ColumnValidationException;
 import io.crate.exceptions.ConversionException;
-import io.crate.exceptions.UnsupportedFeatureException;
 import io.crate.metadata.*;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.ColumnPolicy;
 import io.crate.metadata.table.TableInfo;
 import io.crate.operation.aggregation.impl.CollectSetAggregation;
-import io.crate.operation.operator.*;
+import io.crate.operation.operator.AndOperator;
+import io.crate.operation.operator.EqOperator;
+import io.crate.operation.operator.LikeOperator;
+import io.crate.operation.operator.OrOperator;
 import io.crate.operation.operator.any.AnyEqOperator;
-import io.crate.operation.operator.any.AnyLikeOperator;
-import io.crate.operation.operator.any.AnyNotLikeOperator;
-import io.crate.operation.operator.any.AnyOperator;
 import io.crate.operation.predicate.NotPredicate;
 import io.crate.operation.scalar.ExtractFunctions;
 import io.crate.operation.scalar.SubscriptFunction;
 import io.crate.operation.scalar.cast.CastFunctionResolver;
-import io.crate.operation.scalar.timestamp.CurrentTimestampFunction;
-import io.crate.sql.ExpressionFormatter;
-import io.crate.sql.parser.SqlParser;
 import io.crate.sql.tree.*;
-import io.crate.sql.tree.MatchPredicate;
+import io.crate.sql.v4.ExpressionFormatter;
+import io.crate.sql.v4.SqlParser;
 import io.crate.types.*;
 
 import javax.annotation.Nullable;
@@ -442,9 +439,7 @@ public class ExpressionAnalyzer {
             if (!node.getType().equals(CurrentTime.Type.TIMESTAMP)) {
                 visitExpression(node, context);
             }
-            List<Symbol> args = Lists.<Symbol>newArrayList(
-                    Literal.newLiteral(node.getPrecision().or(CurrentTimestampFunction.DEFAULT_PRECISION))
-            );
+            List<Symbol> args = Lists.<Symbol>newArrayList(Literal.newLiteral(node.getPrecision()));
             return context.allocateCurrentTime(node, args, normalizer);
         }
 
@@ -455,23 +450,9 @@ public class ExpressionAnalyzer {
 
         @Override
         protected Symbol visitCast(Cast node, ExpressionAnalysisContext context) {
-            DataType returnType = DATA_TYPE_ANALYZER.process(node.getType(), null);
-            return cast(process(node.getExpression(), context), returnType, context, false);
-        }
-
-        @Override
-        protected Symbol visitTryCast(TryCast node, ExpressionAnalysisContext context) {
-            DataType returnType = DATA_TYPE_ANALYZER.process(node.getType(), null);
-
-            if (CastFunctionResolver.supportsExplicitConversion(returnType)) {
-                try {
-                    return cast(process(node.getExpression(), context), returnType, context, true);
-                } catch (ConversionException e) {
-                    return Literal.NULL;
-                }
-            }
-            throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "No cast function found for return type %s", returnType.getName()));
+            //DataType returnType = DATA_TYPE_ANALYZER.process(node.getType(), null);
+            //return cast(process(node.getExpression(), context), returnType, context, false);
+            return null;
         }
 
         @Override
@@ -655,85 +636,6 @@ public class ExpressionAnalyzer {
         }
 
         @Override
-        public Symbol visitArrayComparisonExpression(ArrayComparisonExpression node, ExpressionAnalysisContext context) {
-            if (node.quantifier().equals(ArrayComparisonExpression.Quantifier.ALL)) {
-                throw new UnsupportedFeatureException("ALL is not supported");
-            }
-
-            Symbol rightSymbol = process(node.getRight(), context);
-            Symbol leftSymbol = process(node.getLeft(), context);
-            DataType rightType = rightSymbol.valueType();
-
-            if (!DataTypes.isCollectionType(rightType)) {
-                throw new IllegalArgumentException(
-                        SymbolFormatter.format("invalid array expression: '%s'", rightSymbol));
-            }
-            DataType rightInnerType = ((CollectionType) rightType).innerType();
-            if (rightInnerType.equals(DataTypes.OBJECT)) {
-                throw new IllegalArgumentException("ANY on object arrays is not supported");
-            }
-
-            // always try to convert literal to reference type
-            if (!rightInnerType.equals(leftSymbol.valueType())) {
-                if (rightInnerType.isConvertableTo(leftSymbol.valueType())) {
-                    if (rightSymbol.symbolType().isValueSymbol()) {
-                        rightSymbol = Literal.convert(rightSymbol, new ArrayType(leftSymbol.valueType()));
-                    } else {
-                        leftSymbol = normalizeInputForType(leftSymbol, rightInnerType);
-                    }
-                } else {
-                    throw new IllegalArgumentException(
-                            String.format(Locale.ENGLISH,
-                                    "array expression of invalid type array(%s)", rightInnerType));
-                }
-            }
-
-            ComparisonExpression.Type operationType = node.getType();
-            String operatorName;
-            operatorName = AnyOperator.OPERATOR_PREFIX + operationType.getValue();
-            FunctionIdent functionIdent = new FunctionIdent(operatorName, Arrays.asList(leftSymbol.valueType(), rightSymbol.valueType()));
-            FunctionInfo functionInfo = getFunctionInfo(functionIdent);
-            return context.allocateFunction(functionInfo, Arrays.asList(leftSymbol, rightSymbol));
-        }
-
-        @Override
-        public Symbol visitArrayLikePredicate(ArrayLikePredicate node, ExpressionAnalysisContext context) {
-            if (node.getEscape() != null) {
-                throw new UnsupportedOperationException("ESCAPE is not supported.");
-            }
-            Symbol rightSymbol = process(node.getValue(), context);
-            Symbol leftSymbol = process(node.getPattern(), context);
-            DataType rightType = rightSymbol.valueType();
-
-            if (!DataTypes.isCollectionType(rightType)) {
-                throw new IllegalArgumentException(
-                        SymbolFormatter.format("invalid array expression: '%s'", rightSymbol));
-            }
-            DataType rightInnerType = ((CollectionType) rightType).innerType();
-
-            // always try to convert literal to reference type
-            if (rightInnerType.id() != StringType.ID) {
-                if (rightInnerType.isConvertableTo(DataTypes.STRING)) {
-                    if (rightSymbol.symbolType().isValueSymbol()) {
-                        rightSymbol = Literal.convert(rightSymbol, new ArrayType(DataTypes.STRING));
-                    } else {
-                        leftSymbol = normalizeInputForType(leftSymbol, DataTypes.STRING);
-                    }
-                } else {
-                    throw new IllegalArgumentException(
-                            String.format(Locale.ENGLISH,
-                                    "array expression of invalid type array(%s)", rightInnerType));
-                }
-            }
-
-            String operatorName = node.inverse() ? AnyNotLikeOperator.NAME : AnyLikeOperator.NAME;
-
-            FunctionIdent functionIdent = new FunctionIdent(operatorName, Arrays.asList(leftSymbol.valueType(), rightSymbol.valueType()));
-            FunctionInfo functionInfo = getFunctionInfo(functionIdent);
-            return context.allocateFunction(functionInfo, Arrays.asList(leftSymbol, rightSymbol));
-        }
-
-        @Override
         protected Symbol visitLikePredicate(LikePredicate node, ExpressionAnalysisContext context) {
             if (node.getEscape() != null) {
                 throw new UnsupportedOperationException("ESCAPE is not supported.");
@@ -769,26 +671,6 @@ public class ExpressionAnalyzer {
         }
 
         @Override
-        protected Symbol visitNegativeExpression(NegativeExpression node, ExpressionAnalysisContext context) {
-            // in statements like "where x = -1" the  positive (expression)IntegerLiteral (1)
-            // is just wrapped inside a negativeExpression
-            // the visitor here swaps it to get -1 in a (symbol)LiteralInteger
-            return NEGATIVE_LITERAL_VISITOR.process(process(node.getValue(), context), null);
-        }
-
-        @Override
-        protected Symbol visitArithmeticExpression(ArithmeticExpression node, ExpressionAnalysisContext context) {
-            Symbol left = process(node.getLeft(), context);
-            Symbol right = process(node.getRight(), context);
-
-            FunctionIdent functionIdent = new FunctionIdent(
-                    node.getType().name().toLowerCase(Locale.ENGLISH),
-                    Arrays.asList(left.valueType(), right.valueType())
-            );
-            return context.allocateFunction(getFunctionInfo(functionIdent), Arrays.asList(left, right));
-        }
-
-        @Override
         protected Symbol visitQualifiedNameReference(QualifiedNameReference node, ExpressionAnalysisContext context) {
             try {
                 return fieldProvider.resolveField(node.getName(), forWrite);
@@ -796,7 +678,8 @@ public class ExpressionAnalyzer {
                 if ((parameterContext.headerFlags() & SQLBaseRequest.HEADER_FLAG_ALLOW_QUOTED_SUBSCRIPT) == SQLBaseRequest.HEADER_FLAG_ALLOW_QUOTED_SUBSCRIPT) {
                     String quotedSubscriptLiteral = getQuotedSubscriptLiteral(node.getName().toString());
                     if (quotedSubscriptLiteral != null) {
-                        return process(SqlParser.createExpression(quotedSubscriptLiteral), context);
+                        SqlParser parser = new SqlParser();
+                        return process(parser.createExpression(quotedSubscriptLiteral), context);
                     } else {
                         throw exception;
                     }
@@ -831,12 +714,6 @@ public class ExpressionAnalyzer {
             return newLiteral(UndefinedType.INSTANCE, null);
         }
 
-        @Override
-        public Symbol visitArrayLiteral(ArrayLiteral node, ExpressionAnalysisContext context) {
-            // TODO: support everything that is immediately evaluable as values
-            return toArrayLiteral(node.values(), context);
-        }
-
         private Literal toArrayLiteral(List<Expression> values, ExpressionAnalysisContext context) {
             if (values.isEmpty()) {
                 return newLiteral(new ArrayType(UndefinedType.INSTANCE), new Object[0]);
@@ -857,62 +734,6 @@ public class ExpressionAnalyzer {
             }
         }
 
-        @Override
-        public Symbol visitObjectLiteral(ObjectLiteral node, ExpressionAnalysisContext context) {
-            // TODO: support everything that is immediately evaluable as values
-            Map<String, Object> values = new HashMap<>(node.values().size());
-            for (Map.Entry<String, Expression> entry : node.values().entries()) {
-                Object value;
-                try {
-                    value = ExpressionToObjectVisitor.convert(entry.getValue(), parameterContext.parameters());
-                } catch (UnsupportedOperationException e) {
-                    throw new IllegalArgumentException(
-                            String.format(Locale.ENGLISH,
-                                    "invalid object literal value '%s'",
-                                    entry.getValue())
-                    );
-                }
-
-                if (values.put(entry.getKey(), value) != null) {
-                    throw new IllegalArgumentException(
-                            String.format(Locale.ENGLISH,
-                                    "key '%s' listed twice in object literal",
-                                    entry.getKey()));
-                }
-            }
-            return newLiteral(values);
-        }
-
-        @Override
-        public Symbol visitParameterExpression(ParameterExpression node, ExpressionAnalysisContext context) {
-            return parameterContext.getAsSymbol(node.index());
-        }
-
-        @Override
-        public Symbol visitMatchPredicate(MatchPredicate node, ExpressionAnalysisContext context) {
-            Map<Field, Double> identBoostMap = new HashMap<>(node.idents().size());
-            DataType columnType = null;
-            for (MatchPredicateColumnIdent ident : node.idents()) {
-                Symbol column = process(ident.columnIdent(), context);
-                if (columnType == null) {
-                    columnType = column.valueType();
-                }
-                Preconditions.checkArgument(
-                        column instanceof Field,
-                        SymbolFormatter.format("can only MATCH on columns, not on %s", column));
-                Number boost = ExpressionToNumberVisitor.convert(ident.boost(), parameterContext.parameters());
-                identBoostMap.put(((Field) column), boost == null ? null : boost.doubleValue());
-            }
-            assert columnType != null : "columnType must not be null";
-            verifyTypesForMatch(identBoostMap.keySet(), columnType);
-
-            Object queryTerm = ExpressionToObjectVisitor.convert(node.value(), parameterContext.parameters());
-            queryTerm = columnType.value(queryTerm);
-            String matchType = io.crate.operation.predicate.MatchPredicate.getMatchType(node.matchType(), columnType);
-            Map<String, Object> options = MatchOptionsAnalysis.process(node.properties(), parameterContext.parameters());
-            return new io.crate.analyze.symbol.MatchPredicate(identBoostMap, columnType, queryTerm, matchType, options);
-        }
-
         private void verifyTypesForMatch(Iterable<? extends Symbol> columns, DataType columnType) {
             Preconditions.checkArgument(
                     io.crate.operation.predicate.MatchPredicate.SUPPORTED_TYPES.contains(columnType),
@@ -931,8 +752,6 @@ public class ExpressionAnalyzer {
     private static class Comparison {
 
         private static final Set<ComparisonExpression.Type> NEGATING_TYPES = ImmutableSet.of(
-                ComparisonExpression.Type.REGEX_NO_MATCH,
-                ComparisonExpression.Type.REGEX_NO_MATCH_CI,
                 ComparisonExpression.Type.NOT_EQUAL);
         private final ExpressionAnalysisContext expressionAnalysisContext;
 
@@ -1006,14 +825,6 @@ public class ExpressionAnalyzer {
                 case NOT_EQUAL:
                     opName = EqOperator.NAME;
                     opType = EqOperator.RETURN_TYPE;
-                    break;
-                case REGEX_NO_MATCH:
-                    opName = RegexpMatchOperator.NAME;
-                    opType = RegexpMatchOperator.RETURN_TYPE;
-                    break;
-                case REGEX_NO_MATCH_CI:
-                    opName = RegexpMatchCaseInsensitiveOperator.NAME;
-                    opType = RegexpMatchCaseInsensitiveOperator.RETURN_TYPE;
                     break;
             }
 

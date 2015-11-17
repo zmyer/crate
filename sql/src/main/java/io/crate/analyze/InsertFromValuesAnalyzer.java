@@ -21,35 +21,16 @@
 
 package io.crate.analyze;
 
-import com.google.common.base.Function;
-import io.crate.analyze.expressions.ExpressionAnalysisContext;
-import io.crate.analyze.expressions.ExpressionAnalyzer;
 import io.crate.analyze.relations.DocTableRelation;
-import io.crate.analyze.relations.FieldProvider;
-import io.crate.analyze.relations.NameFieldProvider;
-import io.crate.analyze.symbol.*;
-import io.crate.core.StringUtils;
-import io.crate.core.collections.StringObjectMaps;
-import io.crate.exceptions.ColumnValidationException;
-import io.crate.metadata.ColumnIdent;
-import io.crate.metadata.TableIdent;
-import io.crate.metadata.doc.DocTableInfo;
-import io.crate.operation.Input;
-import io.crate.sql.tree.Assignment;
-import io.crate.sql.tree.Expression;
-import io.crate.sql.tree.InsertFromValues;
-import io.crate.sql.tree.ValuesList;
+import io.crate.analyze.symbol.Field;
+import io.crate.analyze.symbol.Literal;
+import io.crate.analyze.symbol.Reference;
+import io.crate.analyze.symbol.Symbol;
 import io.crate.types.DataType;
-import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
-import org.elasticsearch.common.lucene.BytesRefs;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 @Singleton
 public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
@@ -86,6 +67,7 @@ public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
         super(analysisMetaData);
     }
 
+    /*
     @Override
     public AbstractInsertAnalyzedStatement visitInsertFromValues(InsertFromValues node, Analysis analysis) {
         DocTableInfo tableInfo = analysisMetaData.referenceInfos().getWritableTable(
@@ -330,4 +312,5 @@ public class InsertFromValuesAnalyzer extends AbstractInsertAnalyzer {
         }
         return null;
     }
+    */
 }

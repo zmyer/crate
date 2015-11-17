@@ -25,7 +25,6 @@ import com.google.common.base.Joiner;
 import io.crate.analyze.expressions.*;
 import io.crate.metadata.settings.*;
 import io.crate.sql.tree.Expression;
-import io.crate.sql.tree.ObjectLiteral;
 import io.crate.types.BooleanType;
 import io.crate.types.DoubleType;
 import io.crate.types.FloatType;
@@ -318,10 +317,6 @@ public class SettingsAppliers {
 
         @Override
         public void apply(ImmutableSettings.Builder settingsBuilder, Object[] parameters, Expression expression) {
-            if (expression instanceof ObjectLiteral) {
-                throw new IllegalArgumentException(
-                        String.format(Locale.ENGLISH, "Object values are not allowed at '%s'", name));
-            }
             applyValue(settingsBuilder, ExpressionToStringVisitor.convert(expression, parameters));
         }
     }
