@@ -29,10 +29,8 @@ import io.crate.analyze.symbol.Literal;
 import io.crate.blob.v2.BlobIndices;
 import io.crate.executor.transport.TransportActionProvider;
 import io.crate.lucene.CrateDocIndexService;
-import io.crate.metadata.Functions;
-import io.crate.metadata.NestedReferenceResolver;
-import io.crate.metadata.RowGranularity;
-import io.crate.metadata.ScoreReferenceDetector;
+import io.crate.metadata.*;
+import io.crate.metadata.shard.DynamicShardReferenceResolver;
 import io.crate.metadata.shard.ShardReferenceResolver;
 import io.crate.metadata.shard.blob.BlobShardReferenceResolver;
 import io.crate.operation.ImplementationSymbolVisitor;
@@ -74,13 +72,16 @@ public class ShardCollectService {
     private final ThreadPool threadPool;
     private final ClusterService clusterService;
     private final ShardId shardId;
+    private final IndexShard indexShard;
     private final ImplementationSymbolVisitor shardImplementationSymbolVisitor;
-    private final EvaluatingNormalizer shardNormalizer;
-    private final ProjectionToProjectorVisitor projectorVisitor;
     private final boolean isBlobShard;
     private final BlobIndices blobIndices;
     private final MapperService mapperService;
     private final IndexFieldDataService indexFieldDataService;
+    private final Functions functions;
+    private final AbstractReferenceResolver shardResolver;
+    private final EvaluatingNormalizer globalShardNormalizer;
+    private final ProjectionToProjectorVisitor globalProjectorVisitor;
 
     @Inject
     public ShardCollectService(SearchContextFactory searchContextFactory,
@@ -90,6 +91,7 @@ public class ShardCollectService {
                                TransportActionProvider transportActionProvider,
                                BulkRetryCoordinatorPool bulkRetryCoordinatorPool,
                                ShardId shardId,
+                               IndexShard indexShard,
                                Functions functions,
                                ShardReferenceResolver referenceResolver,
                                BlobIndices blobIndices,
@@ -101,28 +103,31 @@ public class ShardCollectService {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.shardId = shardId;
+        this.indexShard = indexShard;
         this.blobIndices = blobIndices;
         this.mapperService = mapperService;
         this.indexFieldDataService = indexFieldDataService;
         isBlobShard = BlobIndices.isBlobShard(this.shardId);
 
-        NestedReferenceResolver shardResolver = isBlobShard ? blobShardReferenceResolver : referenceResolver;
+        shardResolver = isBlobShard ? blobShardReferenceResolver : referenceResolver;
         docInputSymbolVisitor = crateDocIndexService.docInputSymbolVisitor();
 
+        this.functions = functions;
         this.shardImplementationSymbolVisitor = new ImplementationSymbolVisitor(functions);
-        this.shardNormalizer = new EvaluatingNormalizer(
+
+        globalShardNormalizer = new EvaluatingNormalizer(
                 functions,
                 RowGranularity.SHARD,
                 shardResolver
         );
-        this.projectorVisitor = new ProjectionToProjectorVisitor(
+        globalProjectorVisitor = new ProjectionToProjectorVisitor(
                 clusterService,
                 threadPool,
                 settings,
                 transportActionProvider,
                 bulkRetryCoordinatorPool,
                 shardImplementationSymbolVisitor,
-                shardNormalizer,
+                globalShardNormalizer,
                 shardId
         );
     }
@@ -131,6 +136,11 @@ public class ShardCollectService {
     public Object[] getRowForShard(CollectPhase collectPhase) {
         assert collectPhase.maxRowGranularity() == RowGranularity.SHARD : "granularity must be SHARD";
 
+        EvaluatingNormalizer shardNormalizer = new EvaluatingNormalizer(
+                functions,
+                RowGranularity.SHARD,
+                new DynamicShardReferenceResolver(shardResolver, indexShard)
+        );
         collectPhase =  collectPhase.normalize(shardNormalizer);
         if (collectPhase.whereClause().noMatch()) {
             return null;
@@ -158,16 +168,16 @@ public class ShardCollectService {
                                           ShardProjectorChain projectorChain,
                                           JobCollectContext jobCollectContext) throws Exception {
         assert collectPhase.orderBy() == null : "getDocCollector shouldn't be called if there is an orderBy on the collectPhase";
-        CollectPhase normalizedCollectNode = collectPhase.normalize(shardNormalizer);
+        CollectPhase normalizedCollectNode = collectPhase.normalize(globalShardNormalizer);
 
         if (normalizedCollectNode.whereClause().noMatch()) {
-            RowReceiver downstream = projectorChain.newShardDownstreamProjector(projectorVisitor);
+            RowReceiver downstream = projectorChain.newShardDownstreamProjector(globalProjectorVisitor);
             return RowsCollector.empty(downstream);
         }
 
         assert normalizedCollectNode.maxRowGranularity() == RowGranularity.DOC : "granularity must be DOC";
         if (isBlobShard) {
-            RowReceiver downstream = projectorChain.newShardDownstreamProjector(projectorVisitor);
+            RowReceiver downstream = projectorChain.newShardDownstreamProjector(globalProjectorVisitor);
             return getBlobIndexCollector(normalizedCollectNode, downstream);
         } else {
             return getLuceneIndexCollector(threadPool, normalizedCollectNode, projectorChain, jobCollectContext);
@@ -215,7 +225,7 @@ public class ShardCollectService {
                     executor,
                     jobCollectContext.keepAliveListener(),
                     jobCollectContext.queryPhaseRamAccountingContext(),
-                    projectorChain.newShardDownstreamProjector(projectorVisitor),
+                    projectorChain.newShardDownstreamProjector(globalProjectorVisitor),
                     docCtx.topLevelInputs(),
                     docCtx.docLevelExpressions()
             );
@@ -232,6 +242,11 @@ public class ShardCollectService {
     public OrderedDocCollector getOrderedCollector(CollectPhase collectPhase,
                                                 SharedShardContext sharedShardContext,
                                                 JobCollectContext jobCollectContext) {
+        EvaluatingNormalizer shardNormalizer = new EvaluatingNormalizer(
+                functions,
+                RowGranularity.SHARD,
+                shardResolver
+        );
         collectPhase = collectPhase.normalize(shardNormalizer);
 
         CrateSearchContext searchContext = null;
