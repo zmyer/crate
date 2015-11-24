@@ -8,6 +8,8 @@ import io.crate.metadata.expressions.RowCollectExpressionFactory;
 import io.crate.metadata.shard.unassigned.UnassignedShard;
 import io.crate.metadata.sys.SysNodesTableInfo;
 import io.crate.metadata.sys.SysShardsTableInfo;
+import io.crate.operation.reference.RowCollectNestedObjectExpression;
+import io.crate.operation.reference.sys.shard.RowCollectShardRecoveryExpression;
 import org.apache.lucene.util.BytesRef;
 
 import java.util.Map;
@@ -131,16 +133,12 @@ public class UnassignedShardsExpressionFactories {
                 })
                 .put(SysShardsTableInfo.Columns.RECOVERY, new RowCollectExpressionFactory() {
                     @Override
-                    public RowContextCollectorExpression create() {
-                        return new RowContextCollectorExpression() {
+                    public RowCollectNestedObjectExpression create() {
+                        return new RowCollectShardRecoveryExpression<UnassignedShard>() {
                             @Override
-                            public Object value() {
-                                return null;
-                            }
-
-                            @Override
-                            public ReferenceImplementation getChildImplementation(String name) {
-                                return this;
+                            public void setNextRow(UnassignedShard unassignedShard) {
+                                super.setNextRow(unassignedShard);
+                                setNextRecoveryState(unassignedShard.recoveryState());
                             }
                         };
                     }

@@ -42,6 +42,7 @@ import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.routing.ShardRoutingState;
 import org.elasticsearch.discovery.DiscoveryService;
 import org.elasticsearch.index.shard.ShardId;
+import org.elasticsearch.indices.IndicesService;
 import org.junit.Test;
 import org.mockito.Answers;
 
@@ -81,7 +82,7 @@ public class SystemCollectSourceTest {
         );
         collectPhase.orderBy(new OrderBy(Collections.<Symbol>singletonList(shardId), new boolean[] { false }, new Boolean[] { null }));
         Iterable<Row> rows = collectSource.toRowsIterable(collectPhase, Collections.singletonList(
-                new UnassignedShard(new ShardId("foo", 1), mock(ClusterService.class), true, ShardRoutingState.UNASSIGNED)));
+                new UnassignedShard(new ShardId("foo", 1), mock(IndicesService.class), mock(ClusterService.class), true, ShardRoutingState.UNASSIGNED)));
         Row next = rows.iterator().next();
         assertThat(next.size(), is(1));
     }

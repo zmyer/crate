@@ -333,6 +333,6 @@ public class ShardCollectSource implements CollectSource {
     }
 
     private UnassignedShard toUnassignedShard(ShardId shardId) {
-        return new UnassignedShard(shardId, clusterService, false, ShardRoutingState.UNASSIGNED);
+        return new UnassignedShard(shardId, indicesService, clusterService, false, ShardRoutingState.UNASSIGNED);
     }
 }

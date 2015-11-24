@@ -22,47 +22,52 @@
 
 package io.crate.operation.reference.sys.shard;
 
-import io.crate.metadata.SimpleObjectExpression;
-import io.crate.operation.reference.NestedObjectExpression;
+import io.crate.metadata.RowContextCollectorExpression;
+import io.crate.operation.reference.RowCollectNestedObjectExpression;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.lucene.BytesRefs;
-import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.indices.recovery.RecoveryState;
 
-public class ShardRecoveryExpression extends NestedObjectExpression {
+import java.util.Map;
 
-     public static final String TOTAL_TIME = "total_time";
-     public static final String STAGE = "stage";
-     public static final String TYPE = "type";
-     public static final String SIZE = "size";
-     public static final String FILES = "files";
+public class RowCollectShardRecoveryExpression<TRow> extends RowCollectNestedObjectExpression<TRow> {
 
+    private RecoveryState recoveryState;
 
-    public ShardRecoveryExpression(IndexShard indexShard) {
-        addChildImplementations(indexShard.recoveryState());
+    @Override
+    public Map<String, Object> value() {
+        return (recoveryState == null) ? null : super.value();
     }
 
     private void addChildImplementations(final RecoveryState recoveryState) {
-        childImplementations.put(TOTAL_TIME, new SimpleObjectExpression<Long>() {
+        childImplementations.put(ShardRecoveryExpression.TOTAL_TIME, new RowContextCollectorExpression<TRow, Long>() {
             @Override
             public Long value() {
                 return recoveryState.getTimer().time();
             }
         });
-        childImplementations.put(STAGE, new SimpleObjectExpression<BytesRef>() {
+        childImplementations.put(ShardRecoveryExpression.STAGE, new RowContextCollectorExpression<TRow, BytesRef>() {
             @Override
             public BytesRef value() {
                 return BytesRefs.toBytesRef(recoveryState.getStage().name());
             }
         });
-        childImplementations.put(TYPE, new SimpleObjectExpression<BytesRef>() {
+        childImplementations.put(ShardRecoveryExpression.TYPE, new RowContextCollectorExpression<TRow, BytesRef>() {
             @Override
             public BytesRef value() {
-                return BytesRefs.toBytesRef(recoveryState.getType().name());
+                return recoveryState != null ? BytesRefs.toBytesRef(recoveryState.getType().name()) : null;
             }
         });
-        childImplementations.put(SIZE, new ShardRecoverySizeExpression(recoveryState));
-        childImplementations.put(FILES, new ShardRecoveryFilesExpression(recoveryState));
+        childImplementations.put(ShardRecoveryExpression.SIZE, new ShardRecoverySizeExpression(recoveryState));
+        childImplementations.put(ShardRecoveryExpression.FILES, new ShardRecoveryFilesExpression(recoveryState));
+    }
+
+    public void setNextRecoveryState(RecoveryState state) {
+        recoveryState = state;
+        childImplementations.clear();
+        if (state != null) {
+            addChildImplementations(state);
+        }
     }
 
 }

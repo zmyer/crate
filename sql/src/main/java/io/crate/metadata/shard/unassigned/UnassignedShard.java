@@ -7,7 +7,10 @@ import io.crate.metadata.blob.BlobSchemaInfo;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.routing.ShardRoutingState;
+import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.index.shard.ShardId;
+import org.elasticsearch.indices.IndicesService;
+import org.elasticsearch.indices.recovery.RecoveryState;
 
 import java.util.regex.Matcher;
 
@@ -25,6 +28,8 @@ import java.util.regex.Matcher;
  * This is only for "select ... from sys.shards" queries.
  */
 public class UnassignedShard {
+
+    private final IndexShard indexShard;
 
     public static boolean isUnassigned(int shardId) {
         return shardId < 0;
@@ -67,6 +72,7 @@ public class UnassignedShard {
     private Boolean orphanedPartition = false;
 
     public UnassignedShard(ShardId shardId,
+                           IndicesService indicesService,
                            ClusterService clusterService,
                            Boolean primary,
                            ShardRoutingState state) {
@@ -96,6 +102,7 @@ public class UnassignedShard {
             }
         }
 
+        this.indexShard = indicesService.indexServiceSafe(index).shard(shardId.id());
         this.tableName = tableName;
         partitionIdent = ident;
         this.primary = primary;
@@ -129,5 +136,13 @@ public class UnassignedShard {
 
     public Boolean orphanedPartition() {
         return orphanedPartition;
+    }
+
+    public RecoveryState recoveryState() {
+        if (indexShard != null) {
+            return indexShard.recoveryState();
+        } else {
+            return null;
+        }
     }
 }

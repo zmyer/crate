@@ -29,10 +29,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public abstract class RowCollectNestedObjectExpression<R> extends NestedObjectExpression implements RowCollectExpression<R, Map<String,Object>> {
-    protected R row;
+public abstract class RowCollectNestedObjectExpression<TRow> extends NestedObjectExpression implements RowCollectExpression<TRow, Map<String,Object>> {
 
-    public void setNextRow(R row) {
+    protected TRow row;
+
+    public void setNextRow(TRow row) {
         this.row = row;
     }
 
