@@ -344,4 +344,56 @@ public class CopyIntegrationTest extends SQLTransportIntegrationTest {
         assertThat((long) response.rows()[0][0], is(1L));
 
     }
+
+    @Test
+    public void testCopyFromGeneratedColumnIsNotCreated() throws Exception {
+        execute("create table gen_quotes (" +
+                "  id long," +
+                "  quote string," +
+                "  gen_col AS substr(quote, 1, 4)" +
+                ") with (number_of_replicas=0)");
+        ensureYellow();
+        String uriPath = Joiner.on("/").join(copyFilePath, "test_copy_from.json");
+        execute("copy gen_quotes from ? with (shared=true)", $(uriPath));
+        assertEquals(3L, response.rowCount());
+        execute("refresh table gen_quotes");
+        execute("select * from gen_quotes order by id");
+        assertThat(TestingHelpers.printedTable(response.rows()), is(
+                "NULL| 1| Don't pañic.\n" +
+                "NULL| 2| Would it save you a lot of time if I just gave up and went mad now?\n" +
+                "NULL| 3| Time is an illusion. Lunchtime doubly so.\n"));
+    }
+
+    @Test
+    public void testCopyFromGeneratedColumnProvided() throws Exception {
+        execute("create table gen_quotes (" +
+                "  id long," +
+                "  quote string," +
+                "  gen_col AS substr(quote, 1, 4)" +
+                ") with (number_of_replicas=0)");
+        ensureYellow();
+        execute("INSERT INTO gen_quotes (id, quote) VALUES (?, ?)",
+                $$(
+                        $(1, "Don't pañic."),
+                        $(2, "Would it save you a lot of time if I just gave up and went mad now?"),
+                        $(3, "Time is an illusion. Lunchtime doubly so.")
+                ));
+        execute("refresh table gen_quotes");
+
+        String uri = Paths.get(folder.getRoot().toURI()).toString();
+        SQLResponse copyToResponse = execute("copy gen_quotes to directory ? with (shared=true)", new Object[] { uri });
+        assertThat(copyToResponse.rowCount(), is(3L));
+
+        execute("copy gen_quotes from ? with (shared=true)", $(uri + "/gen_quotes_*"));
+        assertEquals(3L, response.rowCount());
+        execute("refresh table gen_quotes");
+        execute("select * from gen_quotes order by id");
+        assertThat(TestingHelpers.printedTable(response.rows()), is(
+                "Don'| 1| Don't pañic.\n" +
+                "Don'| 1| Don't pañic.\n" +
+                "Woul| 2| Would it save you a lot of time if I just gave up and went mad now?\n" +
+                "Woul| 2| Would it save you a lot of time if I just gave up and went mad now?\n" +
+                "Time| 3| Time is an illusion. Lunchtime doubly so.\n" +
+                "Time| 3| Time is an illusion. Lunchtime doubly so.\n"));
+    }
 }

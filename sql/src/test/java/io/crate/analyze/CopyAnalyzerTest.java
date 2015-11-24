@@ -25,19 +25,23 @@ import io.crate.analyze.symbol.Literal;
 import io.crate.exceptions.PartitionUnknownException;
 import io.crate.exceptions.SchemaUnknownException;
 import io.crate.exceptions.TableUnknownException;
-import io.crate.metadata.MetaDataModule;
-import io.crate.metadata.PartitionName;
-import io.crate.metadata.Schemas;
+import io.crate.metadata.*;
+import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.sys.MetaDataSysModule;
 import io.crate.metadata.table.SchemaInfo;
+import io.crate.metadata.table.TestingTableInfo;
 import io.crate.operation.operator.OperatorModule;
+import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.testing.MockedClusterServiceModule;
+import io.crate.types.DataTypes;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.lucene.BytesRefs;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.mockito.Mock;
 
 import java.util.Arrays;
 import java.util.List;
@@ -46,7 +50,6 @@ import static io.crate.testing.TestingHelpers.isLiteral;
 import static io.crate.testing.TestingHelpers.isReference;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.core.IsEqual.equalTo;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class CopyAnalyzerTest extends BaseAnalyzerTest {
@@ -54,11 +57,13 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
 
+    @Mock
+    private static SchemaInfo schemaInfo;
+
     static class TestMetaDataModule extends MetaDataModule {
         @Override
         protected void bindSchemas() {
             super.bindSchemas();
-            SchemaInfo schemaInfo = mock(SchemaInfo.class);
             when(schemaInfo.name()).thenReturn(Schemas.DEFAULT_SCHEMA_NAME);
             when(schemaInfo.getTableInfo(USER_TABLE_IDENT.name())).thenReturn(USER_TABLE_INFO);
             when(schemaInfo.getTableInfo(TEST_PARTITIONED_TABLE_IDENT.name())).thenReturn(TEST_PARTITIONED_TABLE_INFO);
@@ -71,11 +76,21 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
         List<Module> modules = super.getModules();
         modules.addAll(Arrays.<Module>asList(
                 new MockedClusterServiceModule(),
+                new ScalarFunctionModule(),
                 new TestMetaDataModule(),
                 new MetaDataSysModule(),
                 new OperatorModule())
         );
         return modules;
+    }
+
+    @Before
+    public void prepare() throws Exception {
+        DocTableInfo generatedTableInfo = TestingTableInfo.builder(new TableIdent(null, "generated"), new Routing())
+                .add("ts", DataTypes.TIMESTAMP)
+                .addGeneratedColumn("gencol", DataTypes.TIMESTAMP, "date_trunc('day', ts)", true)
+                .build(injector.getInstance(Functions.class));
+        when(schemaInfo.getTableInfo(generatedTableInfo.ident().name())).thenReturn(generatedTableInfo);
     }
 
     @Test
@@ -127,6 +142,13 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
         assertThat(analysis.table().ident(), is(USER_TABLE_IDENT));
         Object value = ((Literal) analysis.uri()).value();
         assertThat(BytesRefs.toString(value), is(path));
+    }
+
+    @Test
+    public void testCopyFromPartitionedWithGeneratedColumn() throws Exception {
+        CopyAnalyzedStatement analysis = (CopyAnalyzedStatement) analyze("copy \"generated\" partition(gencol='1970-01-01') from '/some/distant/file.ext'");
+        assertThat(analysis.table().ident().fqn(), is("doc.generated"));
+        assertThat(analysis.partitionIdent(), is("04130"));
     }
 
     @Test
@@ -204,9 +226,6 @@ public class CopyAnalyzerTest extends BaseAnalyzerTest {
         expectedException.expectMessage("No partition for table 'doc.parted' with ident '04130' exists");
         analyze("copy parted partition (date=0) to '/tmp/blah.txt'");
     }
-
-
-
 
     @Test
     public void testCopyFromWithReferenceAssignedToProperty() throws Exception {
