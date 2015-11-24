@@ -7,6 +7,7 @@ import io.crate.metadata.blob.BlobSchemaInfo;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.routing.ShardRoutingState;
+import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.index.shard.ShardId;
 import org.elasticsearch.indices.IndicesService;
@@ -28,8 +29,6 @@ import java.util.regex.Matcher;
  * This is only for "select ... from sys.shards" queries.
  */
 public class UnassignedShard {
-
-    private final IndexShard indexShard;
 
     public static boolean isUnassigned(int shardId) {
         return shardId < 0;
@@ -59,6 +58,8 @@ public class UnassignedShard {
         return shard;
     }
 
+    private final String index;
+    private final IndicesService indicesService;
     private final String schemaName;
     private final String tableName;
     private final Boolean primary;
@@ -76,7 +77,7 @@ public class UnassignedShard {
                            ClusterService clusterService,
                            Boolean primary,
                            ShardRoutingState state) {
-        String index = shardId.index().name();
+        index = shardId.index().name();
         boolean isBlobIndex = BlobIndices.isBlobIndex(index);
         String tableName;
         String ident = "";
@@ -102,7 +103,7 @@ public class UnassignedShard {
             }
         }
 
-        this.indexShard = indicesService.indexServiceSafe(index).shard(shardId.id());
+        this.indicesService = indicesService;
         this.tableName = tableName;
         partitionIdent = ident;
         this.primary = primary;
@@ -139,8 +140,14 @@ public class UnassignedShard {
     }
 
     public RecoveryState recoveryState() {
-        if (indexShard != null) {
-            return indexShard.recoveryState();
+        IndexService indexService = indicesService.indexService(index);
+        if (indexService != null) {
+            IndexShard indexShard = indexService.shard(id);
+            if (indexShard != null) {
+                return indexShard.recoveryState();
+            } else {
+                return null;
+            }
         } else {
             return null;
         }

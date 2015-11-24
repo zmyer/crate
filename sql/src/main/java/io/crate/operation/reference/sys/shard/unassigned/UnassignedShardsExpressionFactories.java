@@ -134,13 +134,7 @@ public class UnassignedShardsExpressionFactories {
                 .put(SysShardsTableInfo.Columns.RECOVERY, new RowCollectExpressionFactory() {
                     @Override
                     public RowCollectNestedObjectExpression create() {
-                        return new RowCollectShardRecoveryExpression<UnassignedShard>() {
-                            @Override
-                            public void setNextRow(UnassignedShard unassignedShard) {
-                                super.setNextRow(unassignedShard);
-                                setNextRecoveryState(unassignedShard.recoveryState());
-                            }
-                        };
+                        return new RowCollectShardRecoveryExpression() {};
                     }
                 })
                 .put(SysNodesTableInfo.SYS_COL_IDENT, new RowCollectExpressionFactory() {

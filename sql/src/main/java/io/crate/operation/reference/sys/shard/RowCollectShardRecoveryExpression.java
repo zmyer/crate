@@ -24,6 +24,8 @@ package io.crate.operation.reference.sys.shard;
 
 import io.crate.metadata.ReferenceImplementation;
 import io.crate.metadata.RowContextCollectorExpression;
+import io.crate.metadata.SimpleObjectExpression;
+import io.crate.metadata.shard.unassigned.UnassignedShard;
 import io.crate.operation.reference.RowCollectNestedObjectExpression;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.lucene.BytesRefs;
@@ -31,7 +33,7 @@ import org.elasticsearch.indices.recovery.RecoveryState;
 
 import java.util.Map;
 
-public class RowCollectShardRecoveryExpression<TRow> extends RowCollectNestedObjectExpression<TRow> {
+public class RowCollectShardRecoveryExpression extends RowCollectNestedObjectExpression<UnassignedShard> {
 
     private RecoveryState recoveryState;
 
@@ -46,33 +48,35 @@ public class RowCollectShardRecoveryExpression<TRow> extends RowCollectNestedObj
     }
 
     private void addChildImplementations(final RecoveryState recoveryState) {
-        childImplementations.put(ShardRecoveryExpression.TOTAL_TIME, new RowContextCollectorExpression<TRow, Long>() {
+        childImplementations.put(ShardRecoveryExpression.TOTAL_TIME, new SimpleObjectExpression<Long>() {
             @Override
             public Long value() {
                 return recoveryState.getTimer().time();
             }
         });
-        childImplementations.put(ShardRecoveryExpression.STAGE, new RowContextCollectorExpression<TRow, BytesRef>() {
+        childImplementations.put(ShardRecoveryExpression.STAGE, new SimpleObjectExpression<BytesRef>() {
             @Override
             public BytesRef value() {
                 return BytesRefs.toBytesRef(recoveryState.getStage().name());
             }
         });
-        childImplementations.put(ShardRecoveryExpression.TYPE, new RowContextCollectorExpression<TRow, BytesRef>() {
+        childImplementations.put(ShardRecoveryExpression.TYPE, new SimpleObjectExpression<BytesRef>() {
             @Override
             public BytesRef value() {
-                return recoveryState != null ? BytesRefs.toBytesRef(recoveryState.getType().name()) : null;
+                return BytesRefs.toBytesRef(recoveryState.getType().name());
             }
         });
         childImplementations.put(ShardRecoveryExpression.SIZE, new ShardRecoverySizeExpression(recoveryState));
         childImplementations.put(ShardRecoveryExpression.FILES, new ShardRecoveryFilesExpression(recoveryState));
     }
 
-    public void setNextRecoveryState(RecoveryState state) {
-        recoveryState = state;
+    @Override
+    public void setNextRow(UnassignedShard unassignedShard) {
+        super.setNextRow(unassignedShard);
         childImplementations.clear();
-        if (state != null) {
-            addChildImplementations(state);
+        recoveryState = unassignedShard.recoveryState();
+        if (recoveryState != null) {
+            addChildImplementations(recoveryState);
         }
     }
 
