@@ -22,6 +22,7 @@
 
 package io.crate.operation.reference.sys.shard;
 
+import io.crate.metadata.ReferenceImplementation;
 import io.crate.metadata.RowContextCollectorExpression;
 import io.crate.operation.reference.RowCollectNestedObjectExpression;
 import org.apache.lucene.util.BytesRef;
@@ -37,6 +38,11 @@ public class RowCollectShardRecoveryExpression<TRow> extends RowCollectNestedObj
     @Override
     public Map<String, Object> value() {
         return (recoveryState == null) ? null : super.value();
+    }
+
+    @Override
+    public ReferenceImplementation getChildImplementation(String name) {
+        return (recoveryState == null) ? this : super.getChildImplementation(name);
     }
 
     private void addChildImplementations(final RecoveryState recoveryState) {
