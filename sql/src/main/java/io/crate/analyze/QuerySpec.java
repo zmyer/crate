@@ -49,6 +49,19 @@ public class QuerySpec {
         return groupBy;
     }
 
+    public static QuerySpec copyOf(QuerySpec other) {
+        QuerySpec copy = new QuerySpec();
+        copy.groupBy = other.groupBy;
+        copy.orderBy = other.orderBy;
+        copy.having = other.having;
+        copy.outputs = other.outputs;
+        copy.where = other.where;
+        copy.limit = other.limit;
+        copy.offset = other.offset;
+        copy.hasAggregates = other.hasAggregates;
+        return copy;
+    }
+
     public QuerySpec groupBy(@Nullable List<Symbol> groupBy) {
         assert groupBy == null || groupBy.size() > 0 : "groupBy must not be empty";
         this.groupBy = Optional.fromNullable(groupBy);

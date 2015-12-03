@@ -23,7 +23,6 @@ package io.crate.planner.consumer;
 
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.crate.analyze.InsertFromSubQueryAnalyzedStatement;
 import io.crate.analyze.relations.AnalyzedRelation;
 import io.crate.analyze.relations.AnalyzedRelationVisitor;
@@ -106,8 +105,8 @@ public class InsertFromSubQueryConsumer implements Consumer {
                         plannerContext.nextExecutionPhaseId(),
                         ImmutableList.<Projection>of(aggregationProjection),
                         plannedSubQuery.resultPhase().executionNodes().size(),
-                        Symbols.extractTypes(indexWriterProjection.outputs()));
-                mergeNode.executionNodes(Sets.newHashSet(plannerContext.clusterService().localNode().id()));
+                        Symbols.extractTypes(indexWriterProjection.outputs()),
+                        plannerContext.handlerExecutionNodes());
             }
             return new InsertFromSubQuery(plannedSubQuery.plan(), mergeNode, plannerContext.jobId());
         }

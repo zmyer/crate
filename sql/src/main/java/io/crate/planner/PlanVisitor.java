@@ -21,6 +21,7 @@
 
 package io.crate.planner;
 
+import io.crate.analyze.relations.PlannedAnalyzedRelation;
 import io.crate.planner.node.ddl.GenericDDLPlan;
 import io.crate.planner.node.dml.CopyTo;
 import io.crate.planner.node.dml.InsertFromSubQuery;
@@ -41,6 +42,10 @@ public class PlanVisitor<C, R> {
         return null;
     }
 
+    protected R visitPlannedAnalyzedRelation(PlannedAnalyzedRelation plannedAnalyzedRelation, C context){
+        return visitPlan(plannedAnalyzedRelation.plan(), context);
+    }
+
     public R visitIterablePlan(IterablePlan plan, C context) {
         return visitPlan(plan, context);
     }
@@ -49,36 +54,28 @@ public class PlanVisitor<C, R> {
         return visitPlan(plan, context);
     }
 
-    public R visitGlobalAggregate(GlobalAggregate plan, C context) {
-        return visitCollectAndMerge(plan, context);
-    }
-
-    public R visitNonDistributedGroupBy(NonDistributedGroupBy node, C context) {
-        return visitCollectAndMerge(node, context);
-    }
-
     public R visitUpsert(Upsert node, C context) {
-        return visitPlan(node, context);
+        return visitPlannedAnalyzedRelation(node, context);
     }
 
     public R visitDistributedGroupBy(DistributedGroupBy node, C context) {
-        return visitPlan(node, context);
+        return visitPlannedAnalyzedRelation(node, context);
     }
 
     public R visitInsertByQuery(InsertFromSubQuery node, C context) {
-        return visitPlan(node, context);
+        return visitPlannedAnalyzedRelation(node, context);
     }
 
     public R visitCollectAndMerge(CollectAndMerge plan, C context) {
-        return visitPlan(plan, context);
+        return visitPlannedAnalyzedRelation(plan, context);
     }
 
     public R visitQueryThenFetch(QueryThenFetch plan, C context) {
         return visitPlan(plan, context);
     }
 
-    public R visitCountPlan(CountPlan countPlan, C context) {
-        return visitPlan(countPlan, context);
+    public R visitCountPlan(CountPlan plan, C context) {
+        return visitPlannedAnalyzedRelation(plan, context);
     }
 
     public R visitKillPlan(KillPlan killPlan, C context) {
@@ -94,7 +91,11 @@ public class PlanVisitor<C, R> {
     }
 
     public R visitNestedLoop(NestedLoop plan, C context) {
-        return visitPlan(plan, context);
+        return visitPlannedAnalyzedRelation(plan, context);
+    }
+
+    public R visitMergedPlan(MergedPlan mergedPlan, C context) {
+        return visitPlan(mergedPlan, context);
     }
 
     public R visitCopyTo(CopyTo plan, C context) {

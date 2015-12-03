@@ -339,23 +339,8 @@ public class LuceneDocCollectorTest extends SQLTransportIntegrationTest {
     }
 
     @Test
-    public void testOrderForNonSelected() throws Exception {
-        CrateCollector docCollector = createDocCollector("select \"countryName\" from countries order by population desc nulls first", rowReceiver);
-        docCollector.doCollect();
-
-        assertThat(rowReceiver.rows.size(), is(NUMBER_OF_DOCS));
-        assertThat(rowReceiver.rows.get(0).length, is(2));
-        assertThat(((BytesRef) rowReceiver.rows.get(NUMBER_OF_DOCS - 6)[0]).utf8ToString(), is("USA") );
-        assertThat(rowReceiver.rows.get(NUMBER_OF_DOCS - 5)[0], is(nullValue()));
-        assertThat(rowReceiver.rows.get(NUMBER_OF_DOCS - 4)[0], is(nullValue()));
-        assertThat(rowReceiver.rows.get(NUMBER_OF_DOCS - 3)[0], is(nullValue()));
-        assertThat(((BytesRef) rowReceiver.rows.get(NUMBER_OF_DOCS - 2)[0]).utf8ToString(), is("Austria"));
-        assertThat(((BytesRef) rowReceiver.rows.get(NUMBER_OF_DOCS - 1)[0]).utf8ToString(), is("Germany"));
-    }
-
-    @Test
     public void testOrderByScalar() throws Exception {
-        CrateCollector docCollector = createDocCollector("select population from countries order by population * -1", rowReceiver);
+        CrateCollector docCollector = createDocCollector("select population, population * -1 from countries order by 2", rowReceiver);
         docCollector.doCollect();
         assertThat(rowReceiver.rows.size(), is(NUMBER_OF_DOCS));
         assertThat(((Integer) rowReceiver.rows.get(NUMBER_OF_DOCS - 2)[0]), is(1) );

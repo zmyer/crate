@@ -71,8 +71,9 @@ public class MergeNodeTest extends CrateUnitTest {
                 UUID.randomUUID(), 0, "merge", 2,
                 Arrays.<DataType>asList(DataTypes.UNDEFINED, DataTypes.STRING),
                 projections,
-                DistributionInfo.DEFAULT_BROADCAST);
-        node.executionNodes(Sets.newHashSet("node1", "node2"));
+                DistributionInfo.DEFAULT_BROADCAST,
+                Sets.newHashSet("node1", "node2")
+        );
 
         BytesStreamOutput output = new BytesStreamOutput();
         node.writeTo(output);

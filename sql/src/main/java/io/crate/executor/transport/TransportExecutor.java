@@ -538,6 +538,13 @@ public class TransportExecutor implements Executor {
         }
 
         @Override
+        public Void visitMergedPlan(MergedPlan plan, NodeOperationTreeContext context) {
+            context.addPhase(plan.localMerge());
+            process(plan.subPlan(), context);
+            return null;
+        }
+
+        @Override
         public Void visitNestedLoop(NestedLoop plan, NodeOperationTreeContext context) {
             context.addPhase(plan.localMerge());
             context.addPhase(plan.nestedLoopPhase());

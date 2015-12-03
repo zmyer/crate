@@ -77,12 +77,14 @@ public class MergePhase extends AbstractDQLPlanPhase implements UpstreamPhase {
                       int numUpstreams,
                       Collection<? extends DataType> inputTypes,
                       List<Projection> projections,
-                      DistributionInfo distributionInfo
+                      DistributionInfo distributionInfo,
+                      Collection<String> executionNodes
                       ) {
         super(jobId, executionNodeId, name, projections);
         this.inputTypes = inputTypes;
         this.numUpstreams = numUpstreams;
         this.distributionInfo = distributionInfo;
+        this.executionNodes = executionNodes;
         if (projections.isEmpty()) {
             outputTypes = Lists.newArrayList(inputTypes);
         } else {
@@ -94,7 +96,8 @@ public class MergePhase extends AbstractDQLPlanPhase implements UpstreamPhase {
                                         int executionPhaseId,
                                         List<Projection> projections,
                                         int numUpstreams,
-                                        Collection<? extends DataType> inputTypes) {
+                                        Collection<? extends DataType> inputTypes,
+                                        Collection<String> executionNodes) {
         return new MergePhase(
                 jobId,
                 executionPhaseId,
@@ -102,7 +105,8 @@ public class MergePhase extends AbstractDQLPlanPhase implements UpstreamPhase {
                 numUpstreams,
                 inputTypes,
                 projections,
-                DistributionInfo.DEFAULT_SAME_NODE
+                DistributionInfo.DEFAULT_SAME_NODE,
+                executionNodes
         );
     }
 
@@ -113,7 +117,8 @@ public class MergePhase extends AbstractDQLPlanPhase implements UpstreamPhase {
                                          @Nullable List<Symbol> orderBySymbolOverwrite,
                                          List<Projection> projections,
                                          int numUpstreams,
-                                         Collection<? extends DataType> inputTypes) {
+                                         Collection<? extends DataType> inputTypes,
+                                         Collection<String> executionNodes) {
 
         int[] orderByIndices = OrderByPositionVisitor.orderByPositions(
                 MoreObjects.firstNonNull(orderBySymbolOverwrite, orderBy.orderBySymbols()),
@@ -129,7 +134,8 @@ public class MergePhase extends AbstractDQLPlanPhase implements UpstreamPhase {
                 numUpstreams,
                 inputTypes,
                 projections,
-                DistributionInfo.DEFAULT_SAME_NODE
+                DistributionInfo.DEFAULT_SAME_NODE,
+                executionNodes
         );
         mergeNode.sortedInputOutput = true;
         mergeNode.orderByIndices = orderByIndices;
@@ -162,9 +168,9 @@ public class MergePhase extends AbstractDQLPlanPhase implements UpstreamPhase {
         this.distributionInfo = distributionInfo;
     }
 
-    public void executionNodes(Collection<String> executionNodes) {
-        this.executionNodes = executionNodes;
-    }
+//    public void executionNodes(Collection<String> executionNodes) {
+//        this.executionNodes = executionNodes;
+//    }
 
     public int numUpstreams() {
         return numUpstreams;

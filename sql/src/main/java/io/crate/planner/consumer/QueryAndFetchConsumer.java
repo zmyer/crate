@@ -119,6 +119,7 @@ public class QueryAndFetchConsumer implements Consumer {
             MergePhase mergeNode = null;
             Optional<OrderBy> orderBy = querySpec.orderBy();
             Planner.Context plannerContext = context.plannerContext();
+            assert !context.isRoot();
             if (querySpec.isLimited() || orderBy.isPresent()) {
                 /**
                  * select id, name, order by id, date
@@ -130,25 +131,25 @@ public class QueryAndFetchConsumer implements Consumer {
                  */
 
                 List<Symbol> toCollect;
-                List<Symbol> orderByInputColumns = null;
-                if (orderBy.isPresent()) {
-                    List<Symbol> orderBySymbols = orderBy.get().orderBySymbols();
-                    toCollect = new ArrayList<>(outputSymbols.size() + orderBySymbols.size());
-                    toCollect.addAll(outputSymbols);
-                    // note: can only de-dup order by symbols due to non-deterministic functions like select random(), random()
-                    for (Symbol orderBySymbol : orderBySymbols) {
-                        if (!toCollect.contains(orderBySymbol)) {
-                            toCollect.add(orderBySymbol);
-                        }
-                    }
-                    orderByInputColumns = new ArrayList<>();
-                    for (Symbol symbol : orderBySymbols) {
-                        orderByInputColumns.add(new InputColumn(toCollect.indexOf(symbol), symbol.valueType()));
-                    }
-                } else {
+//                List<Symbol> orderByInputColumns = null;
+//                if (orderBy.isPresent()) {
+//                    List<Symbol> orderBySymbols = orderBy.get().orderBySymbols();
+//                    toCollect = new ArrayList<>(outputSymbols.size() + orderBySymbols.size());
+//                    toCollect.addAll(outputSymbols);
+//                    // note: can only de-dup order by symbols due to non-deterministic functions like select random(), random()
+//                    for (Symbol orderBySymbol : orderBySymbols) {
+//                        if (!toCollect.contains(orderBySymbol)) {
+//                            toCollect.add(orderBySymbol);
+//                        }
+//                    }
+//                    orderByInputColumns = new ArrayList<>();
+//                    for (Symbol symbol : orderBySymbols) {
+//                        orderByInputColumns.add(new InputColumn(toCollect.indexOf(symbol), symbol.valueType()));
+//                    }
+//                } else {
                     toCollect = new ArrayList<>(outputSymbols.size());
                     toCollect.addAll(outputSymbols);
-                }
+//                }
 
                 List<Symbol> allOutputs = toInputColumns(toCollect);
                 List<Symbol> finalOutputs = toInputColumns(outputSymbols);
@@ -156,7 +157,7 @@ public class QueryAndFetchConsumer implements Consumer {
 
                 List<Projection> projections = ImmutableList.of();
                 Integer nodePageSizeHint = null;
-                if (context.rootRelation() == table || querySpec.limit().isPresent()) {
+                if (querySpec.limit().isPresent()) {
                     int limit = querySpec.limit().or(Constants.DEFAULT_SELECT_LIMIT);
                     TopNProjection topNProjection = new TopNProjection(querySpec.offset() + limit, 0);
                     topNProjection.outputs(allOutputs);
@@ -173,33 +174,34 @@ public class QueryAndFetchConsumer implements Consumer {
                 collectPhase.nodePageSizeHint(nodePageSizeHint);
 
                 // MERGE
-                if (context.rootRelation() == table) {
-                    TopNProjection tnp = new TopNProjection(querySpec.limit().or(Constants.DEFAULT_SELECT_LIMIT), querySpec.offset());
-                    tnp.outputs(finalOutputs);
-                    if (!orderBy.isPresent()) {
-                        // no sorting needed
-                        mergeNode = MergePhase.localMerge(
-                                plannerContext.jobId(),
-                                plannerContext.nextExecutionPhaseId(),
-                                ImmutableList.<Projection>of(tnp),
-                                collectPhase.executionNodes().size(),
-                                collectPhase.outputTypes()
-                        );
-                    } else {
-                        // no order by needed in TopN as we already sorted on collector
-                        // and we merge sorted with SortedBucketMerger
-                        mergeNode = MergePhase.sortedMerge(
-                                plannerContext.jobId(),
-                                plannerContext.nextExecutionPhaseId(),
-                                orderBy.get(),
-                                allOutputs,
-                                orderByInputColumns,
-                                ImmutableList.<Projection>of(tnp),
-                                collectPhase.executionNodes().size(),
-                                collectPhase.outputTypes()
-                        );
-                    }
-                }
+
+//                if (context.rootRelation() == table) {
+//                    TopNProjection tnp = new TopNProjection(querySpec.limit().or(Constants.DEFAULT_SELECT_LIMIT), querySpec.offset());
+//                    tnp.outputs(finalOutputs);
+//                    if (!orderBy.isPresent()) {
+//                        // no sorting needed
+//                        mergeNode = MergePhase.localMerge(
+//                                plannerContext.jobId(),
+//                                plannerContext.nextExecutionPhaseId(),
+//                                ImmutableList.<Projection>of(tnp),
+//                                collectPhase.executionNodes().size(),
+//                                collectPhase.outputTypes()
+//                        );
+//                    } else {
+//                        // no order by needed in TopN as we already sorted on collector
+//                        // and we merge sorted with SortedBucketMerger
+//                        mergeNode = MergePhase.sortedMerge(
+//                                plannerContext.jobId(),
+//                                plannerContext.nextExecutionPhaseId(),
+//                                orderBy.get(),
+//                                allOutputs,
+//                                orderByInputColumns,
+//                                ImmutableList.<Projection>of(tnp),
+//                                collectPhase.executionNodes().size(),
+//                                collectPhase.outputTypes()
+//                        );
+//                    }
+//                }
             } else {
                 collectPhase = CollectPhase.forQueriedTable(
                         plannerContext,
@@ -207,23 +209,23 @@ public class QueryAndFetchConsumer implements Consumer {
                         outputSymbols,
                         ImmutableList.<Projection>of()
                 );
-                if (context.rootRelation() == table) {
-                    mergeNode = MergePhase.localMerge(
-                            plannerContext.jobId(),
-                            plannerContext.nextExecutionPhaseId(),
-                            ImmutableList.<Projection>of(),
-                            collectPhase.executionNodes().size(),
-                            collectPhase.outputTypes()
-                    );
-                }
+//                if (context.rootRelation() == table) {
+//                    mergeNode = MergePhase.localMerge(
+//                            plannerContext.jobId(),
+//                            plannerContext.nextExecutionPhaseId(),
+//                            ImmutableList.<Projection>of(),
+//                            collectPhase.executionNodes().size(),
+//                            collectPhase.outputTypes()
+//                    );
+//                }
             }
 
             if (context.requiredPageSize() != null) {
                 collectPhase.pageSizeHint(context.requiredPageSize());
             }
-            SimpleSelect.enablePagingIfApplicable(
-                    collectPhase, mergeNode, querySpec.limit().orNull(), querySpec.offset(), plannerContext.clusterService().localNode().id());
-            return new CollectAndMerge(collectPhase, mergeNode, plannerContext.jobId());
+//            SimpleSelect.enablePagingIfApplicable(
+//                    collectPhase, mergeNode, querySpec.limit().orNull(), querySpec.offset(), plannerContext.clusterService().localNode().id());
+            return new CollectAndMerge(collectPhase, null);
         }
 
         private static List<Symbol> toInputColumns(List<Symbol> symbols) {

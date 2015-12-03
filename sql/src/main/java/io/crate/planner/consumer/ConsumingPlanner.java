@@ -43,7 +43,6 @@ public class ConsumingPlanner {
                             ReduceOnCollectorGroupByConsumer reduceOnCollectorGroupByConsumer,
                             DistributedGroupByConsumer distributedGroupByConsumer,
                             GlobalAggregateConsumer globalAggregateConsumer,
-                            QueryThenFetchConsumer queryThenFetchConsumer,
                             NestedLoopConsumer nestedLoopConsumer,
                             QueryAndFetchConsumer queryAndFetchConsumer) {
         consumers.add(nonDistributedGroupByConsumer);
@@ -52,7 +51,6 @@ public class ConsumingPlanner {
         consumers.add(new CountConsumer());
         consumers.add(globalAggregateConsumer);
         consumers.add(new ESGetConsumer());
-        consumers.add(queryThenFetchConsumer);
         consumers.add(new InsertFromSubQueryConsumer());
         consumers.add(queryAndFetchConsumer);
         consumers.add(new ManyTableConsumer(this));

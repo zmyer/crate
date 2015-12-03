@@ -48,11 +48,13 @@ public class NestedLoopPhaseTest extends CrateUnitTest {
         MergePhase mp1 = new MergePhase(jobId, 2, "merge", 1,
                 ImmutableList.<DataType>of(DataTypes.STRING),
                 ImmutableList.<Projection>of(),
-                DistributionInfo.DEFAULT_BROADCAST);
+                DistributionInfo.DEFAULT_BROADCAST,
+                null);
         MergePhase mp2 = new MergePhase(jobId, 3, "merge", 1,
                 ImmutableList.<DataType>of(DataTypes.STRING),
                 ImmutableList.<Projection>of(),
-                DistributionInfo.DEFAULT_BROADCAST);
+                DistributionInfo.DEFAULT_BROADCAST,
+                null);
         NestedLoopPhase node = new NestedLoopPhase(jobId, 1, "nestedLoop", ImmutableList.<Projection>of(topNProjection),
                 mp1,
                 mp2,

@@ -26,6 +26,7 @@ import com.carrotsearch.hppc.IntSet;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.crate.analyze.*;
 import io.crate.analyze.relations.AnalyzedRelation;
@@ -66,6 +67,7 @@ import java.util.*;
 public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
 
     private final ConsumingPlanner consumingPlanner;
+    private final SelectStatementPlanner selectStatementPlanner;
     private final ClusterService clusterService;
     private final UpdateConsumer updateConsumer;
     private final CopyStatementPlanner copyStatementPlanner;
@@ -180,6 +182,14 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
             return clusterService;
         }
 
+        public Collection<String> handlerExecutionNodes(){
+            return ImmutableSet.of(clusterService.localNode().id());
+        }
+
+        public ConsumingPlanner consumingPlanner() {
+            return consumingPlanner;
+        }
+
         public PlannedAnalyzedRelation planSubRelation(AnalyzedRelation relation, ConsumerContext consumerContext) {
             assert consumingPlanner != null;
             boolean isRoot = consumerContext.isRoot();
@@ -280,11 +290,13 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
     public Planner(ClusterService clusterService,
                    ConsumingPlanner consumingPlanner,
                    UpdateConsumer updateConsumer,
-                   CopyStatementPlanner copyStatementPlanner) {
+                   CopyStatementPlanner copyStatementPlanner,
+                   SelectStatementPlanner selectStatementPlanner) {
         this.clusterService = clusterService;
         this.updateConsumer = updateConsumer;
         this.consumingPlanner = consumingPlanner;
         this.copyStatementPlanner = copyStatementPlanner;
+        this.selectStatementPlanner = selectStatementPlanner;
     }
 
     /**
@@ -305,7 +317,7 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
 
     @Override
     protected Plan visitSelectStatement(SelectAnalyzedStatement statement, Context context) {
-        return consumingPlanner.plan(statement.relation(), context);
+        return selectStatementPlanner.plan(statement, context);
     }
 
     @Override

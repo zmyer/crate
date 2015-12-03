@@ -205,8 +205,7 @@ public class NestedLoopConsumerTest extends CrateUnitTest {
         assertThat(topN.offset(), is(0));
         assertThat(topN.outputs().size(), is(3));
 
-        assertThat(plan.resultPhase(), instanceOf(MergePhase.class));
-        MergePhase localMergePhase = (MergePhase) plan.resultPhase();
+        MergePhase localMergePhase = plan.localMerge();
         assertThat(localMergePhase.projections(),
                 Matchers.contains(instanceOf(TopNProjection.class), instanceOf(FetchProjection.class)));
 

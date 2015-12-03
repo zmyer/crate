@@ -21,6 +21,7 @@
 
 package io.crate.operation;
 
+import com.carrotsearch.ant.tasks.junit4.dependencies.com.google.common.collect.ImmutableSet;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -129,7 +130,8 @@ public class PageDownstreamFactoryTest extends CrateUnitTest {
 
         MergePhase mergeNode = new MergePhase(UUID.randomUUID(), 0, "merge", 2,
                 ImmutableList.<DataType>of(DataTypes.INTEGER, DataTypes.DOUBLE),
-                Arrays.asList(groupProjection, topNProjection), DistributionInfo.DEFAULT_BROADCAST);
+                Arrays.asList(groupProjection, topNProjection), DistributionInfo.DEFAULT_BROADCAST,
+                ImmutableSet.<String>of());
 
         Object[][] objs = new Object[20][];
         for (int i = 0; i < objs.length; i++) {
@@ -182,7 +184,8 @@ public class PageDownstreamFactoryTest extends CrateUnitTest {
     public void testMergeMultipleResults() throws Exception {
         MergePhase mergeNode = new MergePhase(UUID.randomUUID(), 0, "merge", 2,
                 ImmutableList.<DataType>of(DataTypes.INTEGER, DataTypes.DOUBLE),
-                Arrays.<Projection>asList(groupProjection), DistributionInfo.DEFAULT_BROADCAST);
+                Arrays.<Projection>asList(groupProjection), DistributionInfo.DEFAULT_BROADCAST,
+                ImmutableList.<String>of());
         final PageDownstreamFactory pageDownstreamFactory = new PageDownstreamFactory(
                 mock(ClusterService.class),
                 threadPool,

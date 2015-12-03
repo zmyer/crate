@@ -24,27 +24,24 @@ package io.crate.planner.node.dql;
 
 import io.crate.planner.Plan;
 import io.crate.planner.PlanVisitor;
-import io.crate.planner.node.fetch.FetchPhase;
 
-import javax.annotation.Nullable;
 import java.util.UUID;
 
-public class QueryThenFetch implements Plan {
+public class MergedPlan implements Plan {
 
-    private final FetchPhase fetchPhase;
     private final Plan subPlan;
     private final MergePhase localMerge;
     private final UUID id;
 
-    public QueryThenFetch(Plan subPlan, FetchPhase fetchPhase, @Nullable MergePhase localMerge, UUID id) {
+    public MergedPlan(Plan subPlan, MergePhase localMerge, UUID id) {
         this.subPlan = subPlan;
-        this.fetchPhase = fetchPhase;
         this.localMerge = localMerge;
         this.id = id;
     }
 
-    public FetchPhase fetchPhase() {
-        return fetchPhase;
+    @Override
+    public UUID jobId() {
+        return id;
     }
 
     public MergePhase localMerge() {
@@ -57,12 +54,7 @@ public class QueryThenFetch implements Plan {
 
     @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context) {
-        return visitor.visitQueryThenFetch(this, context);
-    }
-
-    @Override
-    public UUID jobId() {
-        return id;
+        return visitor.visitMergedPlan(this, context);
     }
 
 }

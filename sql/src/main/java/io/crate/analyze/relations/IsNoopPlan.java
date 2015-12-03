@@ -20,49 +20,42 @@
  * agreement.
  */
 
-package io.crate.planner.node.dql;
+package io.crate.analyze.relations;
 
+import com.google.common.base.Predicate;
+import io.crate.planner.NoopPlan;
 import io.crate.planner.Plan;
 import io.crate.planner.PlanVisitor;
-import io.crate.planner.node.fetch.FetchPhase;
 
-import javax.annotation.Nullable;
-import java.util.UUID;
+/**
+ * This predicate returns true if the given does not require any operations
+ */
+public class IsNoopPlan extends PlanVisitor<Void, Boolean> implements Predicate<Plan> {
 
-public class QueryThenFetch implements Plan {
+    public static final Predicate<Plan> INSTANCE = new IsNoopPlan();
 
-    private final FetchPhase fetchPhase;
-    private final Plan subPlan;
-    private final MergePhase localMerge;
-    private final UUID id;
-
-    public QueryThenFetch(Plan subPlan, FetchPhase fetchPhase, @Nullable MergePhase localMerge, UUID id) {
-        this.subPlan = subPlan;
-        this.fetchPhase = fetchPhase;
-        this.localMerge = localMerge;
-        this.id = id;
+    private IsNoopPlan() {
     }
 
-    public FetchPhase fetchPhase() {
-        return fetchPhase;
-    }
+    private static final PlanVisitor<Void, Boolean> visitor = new PlanVisitor<Void, Boolean>() {
+        @Override
+        protected Boolean visitPlan(Plan plan, Void context) {
+            return false;
+        }
 
-    public MergePhase localMerge() {
-        return localMerge;
-    }
+        @Override
+        protected Boolean visitPlannedAnalyzedRelation(PlannedAnalyzedRelation plannedAnalyzedRelation, Void context) {
+            return plannedAnalyzedRelation.resultPhase().executionNodes().isEmpty();
+        }
 
-    public Plan subPlan() {
-        return subPlan;
-    }
+        @Override
+        public Boolean visitNoopPlan(NoopPlan plan, Void context) {
+            return true;
+        }
+    };
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context) {
-        return visitor.visitQueryThenFetch(this, context);
+    public boolean apply(Plan plan) {
+        return visitor.process(plan, null);
     }
-
-    @Override
-    public UUID jobId() {
-        return id;
-    }
-
 }
