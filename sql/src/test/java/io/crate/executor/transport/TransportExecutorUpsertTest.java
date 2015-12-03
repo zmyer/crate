@@ -332,7 +332,8 @@ public class TransportExecutorUpsertTest extends BaseTransportExecutorTest {
                 plannerContext.nextExecutionPhaseId(),
                 ImmutableList.<Projection>of(CountAggregation.PARTIAL_COUNT_AGGREGATION_PROJECTION),
                 collectPhase1.executionNodes().size(),
-                collectPhase1.outputTypes());
+                collectPhase1.outputTypes(),
+                null);
         childNodes.add(new CollectAndMerge(collectPhase1, mergeNode1));
 
         // 2nd collect and merge nodes
@@ -358,7 +359,8 @@ public class TransportExecutorUpsertTest extends BaseTransportExecutorTest {
                 plannerContext.nextExecutionPhaseId(),
                 ImmutableList.<Projection>of(CountAggregation.PARTIAL_COUNT_AGGREGATION_PROJECTION),
                 collectPhase2.executionNodes().size(),
-                collectPhase2.outputTypes());
+                collectPhase2.outputTypes(),
+                null);
         childNodes.add(new CollectAndMerge(collectPhase2, mergeNode2));
 
         Upsert plan = new Upsert(childNodes, plannerContext.jobId());

@@ -181,7 +181,7 @@ public class CopyStatementPlanner {
                 context.nextExecutionPhaseId(),
                 ImmutableList.<Projection>of(CountAggregation.PARTIAL_COUNT_AGGREGATION_PROJECTION),
                 collectPhase.executionNodes().size(),
-                collectPhase.outputTypes()));
+                collectPhase.outputTypes(), context.handlerExecutionNodes()));
     }
 
     public Plan planCopyTo(CopyToAnalyzedStatement statement, Planner.Context context) {
@@ -213,7 +213,7 @@ public class CopyStatementPlanner {
                 context.nextExecutionPhaseId(),
                 ImmutableList.<Projection>of(CountAggregation.PARTIAL_COUNT_AGGREGATION_PROJECTION),
                 plannedSubQuery.resultPhase().executionNodes().size(),
-                Symbols.extractTypes(projection.outputs()));
+                Symbols.extractTypes(projection.outputs()), context.handlerExecutionNodes());
 
         return new CopyTo(context.jobId(), plannedSubQuery.plan(), mergePhase);
     }

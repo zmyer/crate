@@ -44,10 +44,6 @@ public class ESGetConsumer implements Consumer {
 
         @Override
         public PlannedAnalyzedRelation visitQueriedDocTable(QueriedDocTable table, ConsumerContext context) {
-            if (context.rootRelation() != table) {
-                return null;
-            }
-
             if (table.querySpec().hasAggregates()
                     || table.querySpec().groupBy().isPresent()
                     || !table.querySpec().where().docKeys().isPresent()) {

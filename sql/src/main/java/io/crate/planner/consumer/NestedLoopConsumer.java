@@ -329,7 +329,8 @@ public class NestedLoopConsumer implements Consumer {
                         orderBy.orderBySymbols(),
                         ImmutableList.<Projection>of(),
                         upstreamPhase.executionNodes().size(),
-                        Symbols.extractTypes(previousOutputs)
+                        Symbols.extractTypes(previousOutputs),
+                        executionNodes
                 );
             } else {
                 mergePhase = MergePhase.localMerge(
@@ -337,10 +338,10 @@ public class NestedLoopConsumer implements Consumer {
                         context.plannerContext().nextExecutionPhaseId(),
                         ImmutableList.<Projection>of(),
                         upstreamPhase.executionNodes().size(),
-                        Symbols.extractTypes(previousOutputs)
+                        Symbols.extractTypes(previousOutputs),
+                        executionNodes
                 );
             }
-            mergePhase.executionNodes(executionNodes);
             return mergePhase;
         }
     }

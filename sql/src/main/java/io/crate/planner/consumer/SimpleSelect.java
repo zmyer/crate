@@ -23,7 +23,6 @@
 package io.crate.planner.consumer;
 
 
-import com.google.common.collect.ImmutableList;
 import io.crate.operation.Paging;
 import io.crate.planner.node.dql.CollectPhase;
 import io.crate.planner.node.dql.MergePhase;
@@ -40,7 +39,7 @@ public class SimpleSelect {
         if (mergePhase == null || limit == null || (limit + offset) < Paging.PAGE_SIZE) {
             return;
         }
-        mergePhase.executionNodes(ImmutableList.of(localNodeId));
+        //mergePhase.executionNodes(ImmutableList.of(localNodeId));
 
         if (collectPhase.nodePageSizeHint() != null) {
             // in the directResponse case nodePageSizeHint has probably be set to limit

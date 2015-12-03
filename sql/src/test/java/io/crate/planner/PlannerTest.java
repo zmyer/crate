@@ -154,6 +154,7 @@ public class PlannerTest extends CrateUnitTest {
         protected void configure() {
             bind(RepositoryService.class).toInstance(mock(RepositoryService.class));
             bind(TableStatsService.class).toInstance(mock(TableStatsService.class));
+
             bind(ThreadPool.class).toInstance(threadPool);
             clusterService = mock(ClusterService.class);
             DiscoveryNode localNode = mock(DiscoveryNode.class);
@@ -456,8 +457,8 @@ public class PlannerTest extends CrateUnitTest {
 
     @Test
     public void testGroupByWithAggregationAndLimit() throws Exception {
-        DistributedGroupBy distributedGroupBy = plan(
-                "select count(*), name from users group by name limit 1 offset 1");
+        DistributedGroupBy distributedGroupBy = (DistributedGroupBy) ((MergedPlan) plan(
+                "select count(*), name from users group by name limit 1 offset 1")).subPlan();
 
         // distributed merge
         MergePhase mergeNode = distributedGroupBy.reducerMergeNode();
@@ -864,8 +865,8 @@ public class PlannerTest extends CrateUnitTest {
 
     @Test
     public void testNonDistributedGroupByAggregationsWrappedInScalar() throws Exception {
-        DistributedGroupBy planNode = plan(
-                "select (count(*) + 1), id from empty_parted group by id");
+        MergedPlan mergedPlan = plan("select (count(*) + 1), id from empty_parted group by id");
+        DistributedGroupBy planNode = (DistributedGroupBy) mergedPlan.subPlan();
         CollectPhase collectPhase = planNode.collectNode();
         assertThat(collectPhase.projections().size(), is(1));
         assertThat(collectPhase.projections().get(0), instanceOf(GroupProjection.class));
@@ -874,7 +875,7 @@ public class PlannerTest extends CrateUnitTest {
         assertThat(topNProjection.limit(), is(Constants.DEFAULT_SELECT_LIMIT));
         assertThat(topNProjection.offset(), is(0));
 
-        MergePhase mergeNode = planNode.localMergeNode();
+        MergePhase mergeNode = mergedPlan.localMerge();
         assertThat(mergeNode.projections().size(), is(1));
         assertThat(mergeNode.projections().get(0), instanceOf(TopNProjection.class));
     }
@@ -899,7 +900,7 @@ public class PlannerTest extends CrateUnitTest {
     @Test
     public void testHandlerSideRouting() throws Exception {
         // just testing the dispatching here.. making sure it is not a ESSearchNode
-        CollectAndMerge plan = plan("select * from sys.cluster");
+        plan("select * from sys.cluster");
     }
 
     @Test
@@ -1127,7 +1128,7 @@ public class PlannerTest extends CrateUnitTest {
 
     @Test
     public void testShardSelect() throws Exception {
-        CollectAndMerge planNode = plan("select id from sys.shards");
+        CollectAndMerge planNode = (CollectAndMerge) ((MergedPlan) plan("select id from sys.shards")).subPlan();
         CollectPhase collectPhase = planNode.collectPhase();
         assertTrue(collectPhase.isRouted());
         assertThat(collectPhase.maxRowGranularity(), is(RowGranularity.SHARD));
@@ -1262,7 +1263,10 @@ public class PlannerTest extends CrateUnitTest {
     public void testInsertFromSubQueryDistributedGroupByWithLimit() throws Exception {
         expectedException.expect(UnsupportedFeatureException.class);
         expectedException.expectMessage("Using limit, offset or order by is not supported on insert using a sub-query");
-
+        IterablePlan plan = plan("insert into users (id, name) (select name, count(*) from users group by name order by name limit 10)");
+        Iterator<PlanNode> iterator = plan.iterator();
+        PlanNode planNode = iterator.next();
+        assertThat(planNode, instanceOf(CollectPhase.class));
         plan("insert into users (id, name) (select name, count(*) from users group by name order by name limit 10)");
     }
 
@@ -1448,7 +1452,6 @@ public class PlannerTest extends CrateUnitTest {
     public void testInsertFromSubQueryReduceOnCollectorGroupBy() throws Exception {
         InsertFromSubQuery planNode = plan(
                 "insert into users (id, name) (select id, arbitrary(name) from users group by id)");
-        assertThat(planNode.innerPlan(), instanceOf(CollectAndMerge.class));
         CollectAndMerge nonDistributedGroupBy = (CollectAndMerge)planNode.innerPlan();
 
         CollectPhase collectPhase = nonDistributedGroupBy.collectPhase();
@@ -1474,9 +1477,6 @@ public class PlannerTest extends CrateUnitTest {
     public void testInsertFromSubQueryReduceOnCollectorGroupByWithCast() throws Exception {
         InsertFromSubQuery planNode = plan(
                 "insert into users (id, name) (select id, count(*) from users group by id)");
-        assertThat(planNode.innerPlan(), instanceOf(CollectAndMerge.class));
-
-        assertThat(planNode.innerPlan(), instanceOf(CollectAndMerge.class));
         CollectAndMerge nonDistributedGroupBy = (CollectAndMerge)planNode.innerPlan();
 
         CollectPhase collectPhase = nonDistributedGroupBy.collectPhase();
@@ -2007,8 +2007,6 @@ public class PlannerTest extends CrateUnitTest {
         assertThat(plannerContext.nextExecutionPhaseId(), is(1));
     }
 
-
-    @SuppressWarnings("ConstantConditions")
     @Test
     public void testLimitThatIsBiggerThanPageSizeCausesQTFPUshPlan() throws Exception {
         QueryThenFetch plan = plan("select * from users limit 2147483647 ");

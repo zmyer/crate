@@ -87,7 +87,8 @@ public class CountConsumer implements Consumer {
                     countNode.executionNodes().size(),
                     Collections.singletonList(DataTypes.LONG),
                     Collections.<Projection>singletonList(CountAggregation.PARTIAL_COUNT_AGGREGATION_PROJECTION),
-                    DistributionInfo.DEFAULT_SAME_NODE
+                    DistributionInfo.DEFAULT_SAME_NODE,
+                    plannerContext.handlerExecutionNodes()
             );
             return new CountPlan(countNode, mergeNode, context.plannerContext().jobId());
         }

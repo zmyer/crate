@@ -37,6 +37,7 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.test.junit.annotations.TestLogging;
 import org.hamcrest.Matchers;
 import org.junit.Rule;
 import org.junit.Test;
@@ -51,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.core.Is.is;
 
+@TestLogging("_root:ERROR")
 public class TransportSQLActionTest extends SQLTransportIntegrationTest {
 
     private Setup setup = new Setup(sqlExecutor);
@@ -941,6 +943,18 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
                 new Object[]{"don't panic"});
         assertEquals(1L, response.rowCount());
         assertEquals("hello", response.rows()[0][0]);
+    }
+
+    @Test
+    public void testOrderForNonSelected() throws Exception {
+        execute("create table t (a int, b int) with (number_of_replicas = 0)");
+        ensureYellow();
+        execute("insert into t values (10, 1), (9, 2)");
+        refresh();
+        execute("select a from t order by b");
+        assertEquals(2L, response.rowCount());
+        assertEquals(10, response.rows()[0][0]);
+        assertThat(response.rows()[0].length, is(1));
     }
 
     @Test
@@ -1883,7 +1897,7 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
                 is("End of the Galaxy| 0.7260999\nAltair| 0.2895972\nNorth West Ripple| 0.25339755\nOuter Eastern Rim| 0.2246257\n"));
 
         execute("select name, _score from locations where match((kind, name_description_ft), 'galaxy') " +
-                "using best_fields with (fuzziness=0.5) order by _score desc");
+                "using best_fields with (fuzziness=0.5) order by _score desc, name desc");
         assertThat(TestingHelpers.printedTable(response.rows()),
                 is("Outer Eastern Rim| 1.4109559\nEnd of the Galaxy| 1.4109559\nNorth West Ripple| 1.2808706\nGalactic Sector QQ7 Active J Gamma| 1.2808706\nAltair| 0.3842612\nAlgol| 0.25617412\n"));
 
@@ -1953,8 +1967,8 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
         assertEquals(_doc2.get("id"), "3");
 
         execute("select name, kind from locations where id in (2,3) order by id");
-        assertEquals(TestingHelpers.printedTable(response.rows()), "Outer Eastern Rim| Galaxy\n" +
-                "Galactic Sector QQ7 Active J Gamma| Galaxy\n");
+        assertThat(TestingHelpers.printedTable(response.rows()), is("Outer Eastern Rim| Galaxy\n" +
+                "Galactic Sector QQ7 Active J Gamma| Galaxy\n"));
 
         execute("select name, kind, _id from locations where id in (2,3) order by id");
         assertEquals(TestingHelpers.printedTable(response.rows()), "Outer Eastern Rim| Galaxy| 2\n" +

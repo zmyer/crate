@@ -52,6 +52,7 @@ import org.elasticsearch.common.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 
+
 @Singleton
 public class NonDistributedGroupByConsumer implements Consumer {
 
@@ -194,7 +195,8 @@ public class NonDistributedGroupByConsumer implements Consumer {
                     context.plannerContext().nextExecutionPhaseId(),
                     projections,
                     collectPhase.executionNodes().size(),
-                    collectPhase.outputTypes());
+                    collectPhase.outputTypes(),
+                    context.plannerContext().handlerExecutionNodes());
             return new CollectAndMerge(collectPhase, localMergeNode);
         }
     }

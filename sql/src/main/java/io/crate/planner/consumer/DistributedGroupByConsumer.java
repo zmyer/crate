@@ -19,12 +19,14 @@
  * software solely pursuant to the terms of the relevant commercial agreement.
  */
 
+
+
+
 package io.crate.planner.consumer;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.crate.Constants;
 import io.crate.analyze.HavingClause;
 import io.crate.analyze.QuerySpec;
@@ -47,7 +49,6 @@ import io.crate.planner.node.dql.GroupByConsumer;
 import io.crate.planner.node.dql.MergePhase;
 import io.crate.planner.projection.GroupProjection;
 import io.crate.planner.projection.Projection;
-import io.crate.planner.projection.TopNProjection;
 import io.crate.planner.projection.builder.ProjectionBuilder;
 import io.crate.planner.projection.builder.SplitPoints;
 import org.elasticsearch.common.inject.Inject;
@@ -151,15 +152,15 @@ public class DistributedGroupByConsumer implements Consumer {
                 }
             }
 
-            boolean isRootRelation = context.rootRelation() == table;
-            if (isRootRelation) {
-                reducerProjections.add(ProjectionBuilder.topNProjection(
+            //boolean isRootRelation = context.rootRelation() == table;
+            boolean isRootRelation = context.isRoot();
+            assert isRootRelation == false;
+            reducerProjections.add(ProjectionBuilder.topNProjection(
                         collectOutputs,
                         querySpec.orderBy().orNull(),
                         0,
                         querySpec.limit().or(Constants.DEFAULT_SELECT_LIMIT) + querySpec.offset(),
                         querySpec.outputs()));
-            }
 
             MergePhase mergePhase = new MergePhase(
                     plannerContext.jobId(),
@@ -168,33 +169,34 @@ public class DistributedGroupByConsumer implements Consumer {
                     collectNode.executionNodes().size(),
                     collectNode.outputTypes(),
                     reducerProjections,
-                    DistributionInfo.DEFAULT_BROADCAST
+                    DistributionInfo.DEFAULT_BROADCAST,
+                    ImmutableSet.copyOf(collectNode.executionNodes())
             );
-            mergePhase.executionNodes(ImmutableSet.copyOf(collectNode.executionNodes()));
             // end: Reducer
 
-            MergePhase localMergeNode = null;
-            String localNodeId = plannerContext.clusterService().state().nodes().localNodeId();
-            if(isRootRelation) {
-                TopNProjection topN = ProjectionBuilder.topNProjection(
-                        querySpec.outputs(),
-                        querySpec.orderBy().orNull(),
-                        querySpec.offset(),
-                        querySpec.limit().or(Constants.DEFAULT_SELECT_LIMIT),
-                        null);
-                localMergeNode = MergePhase.localMerge(
-                        plannerContext.jobId(),
-                        plannerContext.nextExecutionPhaseId(),
-                        ImmutableList.<Projection>of(topN),
-                        mergePhase.executionNodes().size(),
-                        mergePhase.outputTypes());
-                localMergeNode.executionNodes(Sets.newHashSet(localNodeId));
-            }
+//<<<<<<< a9b4e3095bda668cc11e2c9223a34fb7a0af7b1e
+//            MergePhase localMergeNode = null;
+//            String localNodeId = plannerContext.clusterService().state().nodes().localNodeId();
+//            if(isRootRelation) {
+//                TopNProjection topN = ProjectionBuilder.topNProjection(
+//                        querySpec.outputs(),
+//                        querySpec.orderBy().orNull(),
+//                        querySpec.offset(),
+//                        querySpec.limit().or(Constants.DEFAULT_SELECT_LIMIT),
+//                        null);
+//                localMergeNode = MergePhase.localMerge(
+//                        plannerContext.jobId(),
+//                        plannerContext.nextExecutionPhaseId(),
+//                        ImmutableList.<Projection>of(topN),
+//                        mergePhase.executionNodes().size(),
+//                        mergePhase.outputTypes());
+//                localMergeNode.executionNodes(Sets.newHashSet(localNodeId));
+//            }
 
             return new DistributedGroupBy(
                     collectNode,
                     mergePhase,
-                    localMergeNode,
+                    null,
                     plannerContext.jobId()
             );
         }

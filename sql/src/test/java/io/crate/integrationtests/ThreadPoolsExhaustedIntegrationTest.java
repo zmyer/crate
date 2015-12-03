@@ -29,6 +29,7 @@ import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ElasticsearchIntegrationTest;
 import org.hamcrest.Matchers;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ public class ThreadPoolsExhaustedIntegrationTest extends SQLTransportIntegration
     }
 
     @Test
+    @Ignore
     public void testRegularSelectWithFewAvailableThreadsShouldNeverGetStuck() throws Exception {
         execute("create table t (x int) with (number_of_replicas = 0)");
         ensureYellow();

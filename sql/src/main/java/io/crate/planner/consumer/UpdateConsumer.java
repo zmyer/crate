@@ -156,7 +156,8 @@ public class UpdateConsumer implements Consumer {
                         plannerContext.nextExecutionPhaseId(),
                         ImmutableList.<Projection>of(CountAggregation.PARTIAL_COUNT_AGGREGATION_PROJECTION),
                         collectPhase.executionNodes().size(),
-                        collectPhase.outputTypes()
+                        collectPhase.outputTypes(),
+                        plannerContext.handlerExecutionNodes()
                 );
                 return new CollectAndMerge(collectPhase, mergeNode);
             } else {

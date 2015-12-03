@@ -201,7 +201,8 @@ public class ReduceOnCollectorGroupByConsumer implements Consumer {
                         null,
                         handlerProjections,
                         collectPhase.executionNodes().size(),
-                        collectPhase.outputTypes()
+                        collectPhase.outputTypes(),
+                        context.plannerContext().handlerExecutionNodes()
                 );
             } else {
                 handlerProjections.add(
@@ -219,7 +220,8 @@ public class ReduceOnCollectorGroupByConsumer implements Consumer {
                         context.plannerContext().nextExecutionPhaseId(),
                         handlerProjections,
                         collectPhase.executionNodes().size(),
-                        collectPhase.outputTypes()
+                        collectPhase.outputTypes(),
+                        context.plannerContext().handlerExecutionNodes()
                 );
             }
             return new CollectAndMerge(collectPhase, localMerge);
