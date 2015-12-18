@@ -22,7 +22,6 @@
 package io.crate.operation.collect.sources;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.crate.analyze.symbol.ValueSymbolVisitor;
 import io.crate.metadata.Functions;
 import io.crate.operation.collect.CrateCollector;
@@ -41,17 +40,20 @@ import org.elasticsearch.common.inject.Singleton;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 
 @Singleton
 public class FileCollectSource implements CollectSource {
 
     private final ClusterService clusterService;
     private final FileCollectInputSymbolVisitor fileInputSymbolVisitor;
+    private final Map<String, FileInputFactory> fileInputFactories;
 
     @Inject
-    public FileCollectSource(Functions functions, ClusterService clusterService) {
-        fileInputSymbolVisitor = new FileCollectInputSymbolVisitor(functions, FileLineReferenceResolver.INSTANCE);
+    public FileCollectSource(Functions functions, ClusterService clusterService, Map<String, FileInputFactory> fileInputFactories) {
+        this.fileInputSymbolVisitor = new FileCollectInputSymbolVisitor(functions, FileLineReferenceResolver.INSTANCE);
         this.clusterService = clusterService;
+        this.fileInputFactories = fileInputFactories;
     }
 
     @Override
@@ -77,7 +79,7 @@ public class FileCollectSource implements CollectSource {
                     downstream,
                     fileUriCollectPhase.fileFormat(),
                     fileUriCollectPhase.compression(),
-                    ImmutableMap.<String, FileInputFactory>of(),
+                    fileInputFactories,
                     fileUriCollectPhase.sharedStorage(),
                     jobCollectContext.keepAliveListener(),
                     readers.length,

@@ -23,7 +23,6 @@ package io.crate.operation.projectors.writer;
 
 import io.crate.planner.projection.WriterProjection;
 import org.elasticsearch.common.Preconditions;
-import org.elasticsearch.common.settings.Settings;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -33,6 +32,8 @@ import java.net.URI;
 import java.util.zip.GZIPOutputStream;
 
 public class OutputFile extends Output {
+
+    public static final String SCHEMA_NAME = "file";
 
     private final String path;
     private final boolean overwrite;

@@ -25,7 +25,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.crate.jobs.KeepAliveListener;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
@@ -44,7 +43,6 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
@@ -132,7 +130,8 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
         this.compressed = compression != null && compression.equalsIgnoreCase("gzip");
         this.row = new InputRow(inputs);
         this.collectorExpressions = collectorExpressions;
-        this.fileInputFactoryMap = new HashMap<>(ImmutableMap.of(
+        this.fileInputFactoryMap = additionalFileInputFactories;
+                /*new HashMap<>(ImmutableMap.of(
                 "s3", new FileInputFactory() {
                     @Override
                     public FileInput create() throws IOException {
@@ -146,8 +145,7 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
                         return new LocalFsFileInput();
                     }
                 }
-        ));
-        this.fileInputFactoryMap.putAll(additionalFileInputFactories);
+        ));*/
         this.shared = shared;
         this.numReaders = numReaders;
         this.readerNumber = readerNumber;
