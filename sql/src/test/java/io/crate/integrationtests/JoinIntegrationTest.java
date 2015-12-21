@@ -487,4 +487,22 @@ public class JoinIntegrationTest extends SQLTransportIntegrationTest {
                    "3| 4| 2\n"));
     }
 
+    @Test
+    public void testMultiTableJoinOrderByLeftAfterPD() throws Exception {
+        execute("create table t1 (id int primary key, x int)");
+        execute("create table t2 (id int primary key, y int)");
+        execute("create table t3 (id int primary key, z int)");
+        ensureYellow();
+        execute("insert into t1 (id, x) values (1, 1), (2,3)");
+        execute("insert into t2 (id, y) values (1, 4)");
+        execute("insert into t3 (id, z) values (1, 1), (2, 2)");
+        execute("refresh table t1, t2, t3");
+        execute("select x,y,z from t1,t2,t3 order by x+y, x+z desc");
+        assertThat(TestingHelpers.printedTable(response.rows()),
+                is("1| 4| 2\n" +
+                   "1| 4| 1\n" +
+                   "3| 4| 2\n" +
+                   "3| 4| 1\n"));
+    }
+
 }
