@@ -187,11 +187,17 @@ public class ManyTableConsumer implements Consumer {
             Set<QualifiedName> names = Sets.newHashSet(leftName, rightName);
             Predicate<Symbol> predicate = new SubSetOfQualifiedNamesPredicate(names);
 
+
             QuerySpec newQuerySpec = rootQuerySpec.subset(predicate);
             if (splitQuery.containsKey(names)) {
                 Symbol symbol = splitQuery.remove(names);
                 newQuerySpec.where(new WhereClause(symbol));
             }
+
+            if (remainingOrderBy.isPresent()) {
+                remainingOrderBy = Optional.fromNullable(remainingOrderBy.get().subset(predicate));
+            }
+
             TwoTableJoin join = new TwoTableJoin(
                     newQuerySpec,
                     leftName,
@@ -287,11 +293,6 @@ public class ManyTableConsumer implements Consumer {
             if (mss.sources().size() == 2) {
                 replaceFieldsWithRelationColumns(mss);
                 return planSubRelation(context, twoTableJoin(mss));
-            }
-            if (mss.remainingOrderBy().isPresent()) {
-                context.validationException(new ValidationException(
-                        "Joining more than 2 tables with a join condition is not possible"));
-                return null;
             }
             replaceFieldsWithRelationColumns(mss);
             return planSubRelation(context, buildTwoTableJoinTree(mss));

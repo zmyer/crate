@@ -49,6 +49,7 @@ import java.util.Set;
 
 import static io.crate.testing.TestingHelpers.isSQL;
 import static io.crate.testing.TestingHelpers.newMockedThreadPool;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
 public class ManyTableConsumerTest {
@@ -123,6 +124,17 @@ public class ManyTableConsumerTest {
                       "AND (RELCOL(join.doc.t3.doc.t1, 2) = RELCOL(doc.t2, 0)))"),
                 isSQL("((RELCOL(join.doc.t3.doc.t1, 2) = RELCOL(doc.t2, 0)) " +
                       "AND (RELCOL(doc.t2, 0) = RELCOL(join.doc.t3.doc.t1, 0)))")));
+    }
+
+    @Test
+    public void testOrderBySplitting() throws Exception {
+        MultiSourceSelect mss = analyze("select * from t1, t2, t3 " +
+                                        "order by t1.a || t2.b");
+        TwoTableJoin root = ManyTableConsumer.buildTwoTableJoinTree(mss);
+        assertThat(root.remainingOrderBy().isPresent(), is(false));
+
+        TwoTableJoin t2AndT1 = ((TwoTableJoin) root.left().relation());
+        assertThat(t2AndT1.remainingOrderBy().get(), isSQL("concat(RELCOL(doc.t1, 0), RELCOL(doc.t2, 0))"));
     }
 
     @Test
