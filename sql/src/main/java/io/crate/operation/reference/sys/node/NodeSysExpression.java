@@ -24,21 +24,19 @@ package io.crate.operation.reference.sys.node;
 import io.crate.metadata.ReferenceImplementation;
 import io.crate.metadata.sys.SysNodesTableInfo;
 import io.crate.operation.reference.NestedObjectExpression;
-import io.crate.operation.reference.sys.node.fs.NodeFsExpression;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.discovery.Discovery;
-import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.monitor.jvm.JvmService;
 import org.elasticsearch.monitor.network.NetworkService;
 import org.elasticsearch.monitor.os.OsService;
 import org.elasticsearch.monitor.os.OsStats;
-import org.elasticsearch.monitor.sigar.SigarService;
 import org.elasticsearch.node.service.NodeService;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 
 public class NodeSysExpression extends NestedObjectExpression {
 
@@ -55,20 +53,20 @@ public class NodeSysExpression extends NestedObjectExpression {
 
     @Inject
     public NodeSysExpression(ClusterService clusterService,
-                             SigarService sigarService,
                              OsService osService,
                              NodeService nodeService,
                              JvmService jvmService,
                              NetworkService networkService,
-                             NodeEnvironment nodeEnvironment,
                              Discovery discovery,
                              ThreadPool threadPool) {
         this.nodeService = nodeService;
         this.osService = osService;
         this.jvmService = jvmService;
         this.networkService = networkService;
-        childImplementations.put(SysNodesTableInfo.SYS_COL_FS,
-                new NodeFsExpression(sigarService, nodeEnvironment));
+        if (!childImplementations.containsKey(SysNodesTableInfo.SYS_COL_FS)) {
+            childImplementations.put(SysNodesTableInfo.SYS_COL_FS,
+                    new NodeDefaultExpression());
+        }
         childImplementations.put(SysNodesTableInfo.SYS_COL_HOSTNAME,
                 new NodeHostnameExpression(clusterService));
         childImplementations.put(SysNodesTableInfo.SYS_COL_REST_URL,
@@ -85,6 +83,10 @@ public class NodeSysExpression extends NestedObjectExpression {
                 new NodeThreadPoolsExpression(threadPool));
         childImplementations.put(SysNodesTableInfo.SYS_COL_OS_INFO,
                 new NodeOsInfoExpression(osService.info()));
+    }
+
+    public Map<String, ReferenceImplementation> childImplementations() {
+        return childImplementations;
     }
 
     @Override

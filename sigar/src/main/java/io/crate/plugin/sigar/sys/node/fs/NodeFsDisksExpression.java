@@ -19,16 +19,17 @@
  * software solely pursuant to the terms of the relevant commercial agreement.
  */
 
-package io.crate.operation.reference.sys.node.fs;
+package io.crate.plugin.sigar.sys.node.fs;
 
 import com.google.common.collect.ImmutableList;
 import io.crate.operation.reference.NestedObjectExpression;
 import io.crate.operation.reference.sys.SysNodeObjectReference;
 import io.crate.operation.reference.sys.SysObjectArrayReference;
+import io.crate.operation.reference.sys.node.fs.FileSystems;
+import io.crate.plugin.sigar.SigarService;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
-import org.elasticsearch.monitor.sigar.SigarService;
 import org.hyperic.sigar.FileSystem;
 import org.hyperic.sigar.FileSystemUsage;
 import org.hyperic.sigar.SigarException;
@@ -36,7 +37,6 @@ import org.hyperic.sigar.SigarPermissionDeniedException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class NodeFsDisksExpression extends SysObjectArrayReference {
 

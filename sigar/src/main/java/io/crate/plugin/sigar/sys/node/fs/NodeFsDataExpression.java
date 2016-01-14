@@ -19,16 +19,17 @@
  * software solely pursuant to the terms of the relevant commercial agreement.
  */
 
-package io.crate.operation.reference.sys.node.fs;
+package io.crate.plugin.sigar.sys.node.fs;
 
 import io.crate.operation.reference.NestedObjectExpression;
 import io.crate.operation.reference.sys.SysNodeObjectReference;
 import io.crate.operation.reference.sys.SysStaticObjectArrayReference;
+import io.crate.operation.reference.sys.node.fs.FileSystems;
+import io.crate.plugin.sigar.SigarService;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.env.NodeEnvironment;
-import org.elasticsearch.monitor.sigar.SigarService;
 import org.hyperic.sigar.FileSystem;
 
 import java.nio.file.Path;
