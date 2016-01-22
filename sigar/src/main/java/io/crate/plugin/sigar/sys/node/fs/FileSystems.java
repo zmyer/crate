@@ -19,26 +19,24 @@
  * software solely pursuant to the terms of the relevant commercial agreement.
  */
 
-package io.crate.operation.reference.sys.node.fs;
+package io.crate.plugin.sigar.sys.node.fs;
 
 import com.carrotsearch.hppc.IntHashSet;
 import com.carrotsearch.hppc.IntSet;
 import com.google.common.base.Predicate;
-// import org.hyperic.sigar.FileSystem;
+import org.hyperic.sigar.FileSystem;
 
 import javax.annotation.Nullable;
 
 public class FileSystems {
 
-    // TODO: FIX ME! sigar removed
-    /* private final static IntSet SUPPORTED_FS_TYPES = IntHashSet.from(
-            FileSystem.TYPE_LOCAL_DISK, FileSystem.TYPE_NETWORK, FileSystem.TYPE_RAM_DISK); */
-    private final static IntSet SUPPORTED_FS_TYPES = null;
+    private final static IntSet SUPPORTED_FS_TYPES = IntHashSet.from(
+            FileSystem.TYPE_LOCAL_DISK, FileSystem.TYPE_NETWORK, FileSystem.TYPE_RAM_DISK);
 
-    /* public final static Predicate<FileSystem> SUPPORTED_FS_TYPE = new Predicate<FileSystem>() {
+    public final static Predicate<FileSystem> SUPPORTED_FS_TYPE = new Predicate<FileSystem>() {
         @Override
         public boolean apply(@Nullable FileSystem input) {
             return (input != null && SUPPORTED_FS_TYPES.contains(input.getType()));
         }
-    };*/
+    };
 }
