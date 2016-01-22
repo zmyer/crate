@@ -35,6 +35,7 @@ evaluationDependsOn(':blob')
 evaluationDependsOn(':udc')
 evaluationDependsOn(':client')
 evaluationDependsOn(':dns-discovery')
+evaluationDependsOn(':sigar')
 
 dependencies {
     compile project(':core')
@@ -45,6 +46,7 @@ dependencies {
     compile project(':udc')
     compile project(':client')
     compile project(':dns-discovery')
+    compile project(':sigar')
 
     testCompile ('com.carrotsearch.randomizedtesting:randomizedtesting-runner:2.1.16') {
         exclude group: 'junit', module: 'junit'
@@ -174,7 +176,7 @@ install {
         mavenInstaller {
             pom.whenConfigured {
                 pom -> pom.dependencies.clear()
-                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' }.each {
+                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' && it.name != 'sigar' }.each {
                     if (it.hasProperty('install')) {
                         pom.dependencies.addAll(it.install.repositories.mavenInstaller.pom.getEffectivePom().dependencies.findAll { it.groupId != 'io.crate'})
                     }
@@ -219,7 +221,7 @@ uploadArchives {
             }
             pom.whenConfigured {
                 pom -> pom.dependencies.clear()
-                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' }.each {
+                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' && it.name != 'sigar' }.each {
                     if (it.hasProperty('install')) {
                         pom.dependencies.addAll(it.install.repositories.mavenInstaller.pom.getEffectivePom().dependencies.findAll { it.groupId != 'io.crate'})
                     }
@@ -400,12 +402,18 @@ task downloadPlugins << {
         into 'plugins/hdfs'
     }
 
+    copy {
+        from(project(':sigar').tasks.jar.archivePath)
+        into 'plugins/sigar'
+    }
 }
 
 downloadPlugins.outputs.dir files(
     "$projectDir/plugins/crate-admin",
     "$projectDir/plugins/hdfs",
+    "$projectDir/plugins/sigar"
 )
+downloadPlugins.dependsOn(':sigar:jar')
 
 task downloadCrash << {
     def dest = download(
