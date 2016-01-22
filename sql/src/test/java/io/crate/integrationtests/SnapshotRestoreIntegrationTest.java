@@ -36,6 +36,7 @@ import org.junit.rules.TemporaryFolder;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static org.hamcrest.Matchers.is;
 
 
@@ -162,9 +163,8 @@ public class SnapshotRestoreIntegrationTest extends SQLTransportIntegrationTest 
         assertBusy(new Runnable() {
             @Override
             public void run() {
-                // TODO: FIX ME! $ not available anymore
-                SQLRequest request = null; /*new SQLRequest(
-                        "select count(*) from sys.snapshots where state = 'SUCCESS' and name = ?", $(snapshotName));*/
+                SQLRequest request = new SQLRequest(
+                        "select count(*) from sys.snapshots where state = 'SUCCESS' and name = ?", $(snapshotName));
                 for (TransportSQLAction transportSQLAction : internalCluster().getInstances(TransportSQLAction.class)) {
                     SQLResponse response = transportSQLAction.execute(request).actionGet(5, TimeUnit.SECONDS);
                     assertThat(((long) response.rows()[0][0]), is(1L));
