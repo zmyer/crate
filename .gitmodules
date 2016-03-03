@@ -4,3 +4,6 @@
 [submodule "aws/upstream"]
 	path = aws/upstream
 	url = https://github.com/crate/elasticsearch-cloud-aws.git
+[submodule "commoncrawl"]
+	path = commoncrawl
+	url = git@github.com:crate/p-azure

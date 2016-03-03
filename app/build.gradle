@@ -35,6 +35,7 @@ evaluationDependsOn(':blob')
 evaluationDependsOn(':udc')
 evaluationDependsOn(':dns-discovery')
 evaluationDependsOn(':aws')
+evaluationDependsOn(':commoncrawl')
 
 dependencies {
     compile project(':core')
@@ -45,6 +46,7 @@ dependencies {
     compile project(':udc')
     compile project(':dns-discovery')
     compile project(':aws')
+    compile project(':commoncrawl')
 
     testCompile ('com.carrotsearch.randomizedtesting:randomizedtesting-runner:2.1.10') {
         exclude group: 'junit', module: 'junit'
@@ -177,7 +179,7 @@ install {
         mavenInstaller {
             pom.whenConfigured {
                 pom -> pom.dependencies.clear()
-                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' }.each {
+                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' && it.name != 'commoncrawl'}.each {
                     if (it.hasProperty('install')) {
                         pom.dependencies.addAll(it.install.repositories.mavenInstaller.pom.getEffectivePom().dependencies.findAll { it.groupId != 'io.crate'})
                     }
@@ -222,7 +224,7 @@ uploadArchives {
             }
             pom.whenConfigured {
                 pom -> pom.dependencies.clear()
-                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' }.each {
+                project.parent.subprojects.findAll{ it.name != 'app' && it.name != 'aws' && it.name != 'commoncrawl'}.each {
                     if (it.hasProperty('install')) {
                         pom.dependencies.addAll(it.install.repositories.mavenInstaller.pom.getEffectivePom().dependencies.findAll { it.groupId != 'io.crate'})
                     }
@@ -408,14 +410,21 @@ task downloadPlugins << {
         from(project(':aws').tasks.jar.archivePath)
         into 'plugins/aws'
     }
+
+    // copy common crawl
+    copy {
+        from(project(':commoncrawl').tasks.jar.archivePath)
+        into 'plugins/commoncrawl'
+    }
 }
 
 downloadPlugins.outputs.dir files(
     "$projectDir/plugins/crate-admin",
     "$projectDir/plugins/hdfs",
-    "$projectDir/plugins/aws"
+    "$projectDir/plugins/aws",
+    "$projectDir/plugins/commoncrawl"
 )
-downloadPlugins.dependsOn(':aws:jar')
+downloadPlugins.dependsOn(':aws:jar', ':commoncrawl:jar')
 
 task downloadCrash << {
     def dest = download(
