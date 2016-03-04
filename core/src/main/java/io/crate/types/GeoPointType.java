@@ -122,6 +122,11 @@ public class GeoPointType extends DataType<Double[]> implements Streamer<Double[
     }
 
     @Override
+    public int precedence() {
+        return 10;
+    }
+
+    @Override
     public DataType<?> create() {
         return INSTANCE;
     }

@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 public class DataTypesTest extends CrateUnitTest {
@@ -223,5 +224,18 @@ public class DataTypesTest extends CrateUnitTest {
     @Test(expected = ClassCastException.class)
     public void testConvertBooleanToByte() {
         DataTypes.BYTE.value(true);
+    }
+
+    @Test
+    public void testIntStringPrecedence() throws Exception {
+        assertThat(DataTypes.precedence(DataTypes.STRING, DataTypes.INTEGER), is((DataType) DataTypes.INTEGER));
+    }
+
+    @Test
+    public void testArrayPrecedence() throws Exception {
+        DataType stringArray = new ArrayType(DataTypes.STRING);
+        DataType intArray = new ArrayType(DataTypes.INTEGER);
+
+        assertThat(DataTypes.precedence(stringArray, intArray), is(intArray));
     }
 }

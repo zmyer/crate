@@ -76,6 +76,11 @@ public class TimestampType extends LongType implements Streamer<Long>, DataTypeF
     }
 
     @Override
+    public int precedence() {
+        return 7;
+    }
+
+    @Override
     public DataType<?> create() {
         return TimestampType.INSTANCE;
     }

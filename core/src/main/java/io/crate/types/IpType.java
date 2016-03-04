@@ -69,6 +69,11 @@ public class IpType extends StringType {
     }
 
     @Override
+    public int precedence() {
+        return 7;
+    }
+
+    @Override
     public String getName() {
         return "ip";
     }

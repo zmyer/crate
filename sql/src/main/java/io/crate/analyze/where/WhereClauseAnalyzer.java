@@ -28,6 +28,7 @@ import io.crate.analyze.relations.DocTableRelation;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.Symbols;
+import io.crate.lucene.CastUnwrap;
 import io.crate.metadata.*;
 import io.crate.metadata.doc.DocSysColumns;
 import io.crate.metadata.doc.DocTableInfo;
@@ -77,7 +78,7 @@ public class WhereClauseAnalyzer {
         } else {
             pkCols = tableInfo.primaryKey();
         }
-        List<List<Symbol>> pkValues = eqExtractor.extractExactMatches(pkCols, whereClause.query());
+        List<List<Symbol>> pkValues = eqExtractor.extractExactMatches(pkCols, CastUnwrap.unwrapCast(whereClause.query()));
 
         if (pkValues != null) {
             int clusterdIdx = -1;

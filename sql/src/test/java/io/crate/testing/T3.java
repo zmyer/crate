@@ -46,19 +46,19 @@ public class T3 {
 
     public static final DocTableInfo T1_INFO = new TestingTableInfo.Builder(new TableIdent(null, "t1"), null)
             .add("a", DataTypes.STRING)
-            .add("x", DataTypes.INTEGER)
+            .add("x", DataTypes.LONG)
             .build();
     public static final DocTableRelation TR_1 = new DocTableRelation(T1_INFO);
 
     public static final DocTableInfo T2_INFO = new TestingTableInfo.Builder(new TableIdent(null, "t2"), null)
             .add("b", DataTypes.STRING)
-            .add("y", DataTypes.INTEGER)
+            .add("y", DataTypes.LONG)
             .build();
     public static final DocTableRelation TR_2 = new DocTableRelation(T2_INFO);
 
     public static final TableInfo T3_INFO = new TestingTableInfo.Builder(new TableIdent(null, "t3"), null)
             .add("c", DataTypes.STRING)
-            .add("z", DataTypes.INTEGER)
+            .add("z", DataTypes.LONG)
             .build();
     public static final TableRelation TR_3 = new TableRelation(T3_INFO);
 

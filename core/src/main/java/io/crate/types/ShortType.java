@@ -77,6 +77,11 @@ public class ShortType extends DataType<Short> implements DataTypeFactory, Strea
     }
 
     @Override
+    public int precedence() {
+        return 4;
+    }
+
+    @Override
     public DataType<?> create() {
         return INSTANCE;
     }

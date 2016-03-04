@@ -22,14 +22,26 @@
 package io.crate.operation.operator.any;
 
 import io.crate.analyze.symbol.Function;
+import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionImplementation;
 import io.crate.metadata.FunctionInfo;
 import io.crate.operation.operator.OperatorModule;
 import io.crate.sql.tree.ComparisonExpression;
+import io.crate.types.DataType;
+import io.crate.types.DataTypes;
+import io.crate.types.SetType;
+
+import java.util.Arrays;
 
 public class AnyEqOperator extends AnyOperator<AnyEqOperator> {
 
     public static final String NAME = OPERATOR_PREFIX + ComparisonExpression.Type.EQUAL.getValue();
+
+    public static FunctionInfo createInfo(DataType elementType) {
+        return new FunctionInfo(
+                new FunctionIdent(NAME, Arrays.asList(elementType, new SetType(elementType))),
+                DataTypes.BOOLEAN);
+    }
 
     static class AnyEqResolver extends AnyResolver {
 

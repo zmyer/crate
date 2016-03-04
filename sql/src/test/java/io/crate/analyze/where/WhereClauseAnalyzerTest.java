@@ -257,9 +257,9 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
         });
         DocTableRelation tableRelation = statement.analyzedRelation();
         WhereClauseAnalyzer whereClauseAnalyzer = new WhereClauseAnalyzer(ctxMetaData, tableRelation);
-        assertThat(whereClauseAnalyzer.analyze(statement.whereClauses().get(0)).docKeys().get(), contains(isDocKey("1")));
-        assertThat(whereClauseAnalyzer.analyze(statement.whereClauses().get(1)).docKeys().get(), contains(isDocKey("2")));
-        assertThat(whereClauseAnalyzer.analyze(statement.whereClauses().get(2)).docKeys().get(), contains(isDocKey("3")));
+        assertThat(whereClauseAnalyzer.analyze(statement.whereClauses().get(0)).docKeys().get(), contains(isDocKey(1)));
+        assertThat(whereClauseAnalyzer.analyze(statement.whereClauses().get(1)).docKeys().get(), contains(isDocKey(2)));
+        assertThat(whereClauseAnalyzer.analyze(statement.whereClauses().get(2)).docKeys().get(), contains(isDocKey(3)));
     }
 
     @Test
@@ -286,7 +286,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     @Test
     public void testSelectPartitionedByPK() throws Exception {
         WhereClause whereClause = analyzeSelectWhere("select id from parted_pk where id = 1 and date = 1395874800000");
-        assertThat(whereClause.docKeys().get(), contains(isDocKey(1, 1395874800000L)));
+        assertThat(whereClause.docKeys().get(), contains(isDocKey(1L, 1395874800000L)));
         // not partitions if docKeys are there
         assertThat(whereClause.partitions(), empty());
 
@@ -335,15 +335,15 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     @Test
     public void testClusteredBy() throws Exception {
         WhereClause whereClause = analyzeSelectWhere("select name from users where id=1");
-        assertThat(whereClause.clusteredBy().get(), contains(isLiteral("1")));
-        assertThat(whereClause.docKeys().get().getOnlyKey(), isDocKey("1"));
+        assertThat(whereClause.clusteredBy().get(), contains(isLiteral(1L)));
+        assertThat(whereClause.docKeys().get().getOnlyKey(), isDocKey(1L));
 
         whereClause = analyzeSelectWhere("select name from users where id=1 or id=2");
 
         assertThat(whereClause.docKeys().get().size(), is(2));
-        assertThat(whereClause.docKeys().get(), containsInAnyOrder(isDocKey("1"), isDocKey("2")));
+        assertThat(whereClause.docKeys().get(), containsInAnyOrder(isDocKey(1L), isDocKey(2L)));
 
-        assertThat(whereClause.clusteredBy().get(), containsInAnyOrder(isLiteral("1"), isLiteral("2")));
+        assertThat(whereClause.clusteredBy().get(), containsInAnyOrder(isLiteral(1L), isLiteral(2L)));
     }
 
 
@@ -393,13 +393,13 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     public void testPrimaryKeyAndVersion() throws Exception {
         WhereClause whereClause = analyzeSelectWhere(
                 "select name from users where id = 2 and \"_version\" = 1");
-        assertThat(whereClause.docKeys().get().getOnlyKey(), isDocKey("2", 1L));
+        assertThat(whereClause.docKeys().get().getOnlyKey(), isDocKey(2L, 1L));
     }
 
     @Test
     public void testMultiplePrimaryKeys() throws Exception {
         WhereClause whereClause = analyzeSelectWhere(
-                "select name from users where id = 2 or id = 1");
+                "select name from users where id = '2' or id = '1'");
         assertThat(whereClause.docKeys().get(), containsInAnyOrder(isDocKey("1"), isDocKey("2")));
         assertThat(whereClause.clusteredBy().get(), containsInAnyOrder(isLiteral("1"), isLiteral("2")));
     }
@@ -425,7 +425,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
                         "or (i1=1 and i2=5 and i3=6 and i4=4)");
 
         assertThat(whereClause.docKeys().get(), containsInAnyOrder(
-                isDocKey(1, 2, 3, 4), isDocKey(1, 5, 6, 4)
+                isDocKey(1L, 2L, 3L, 4L), isDocKey(1L, 5L, 6L, 4L)
         ));
         assertFalse(whereClause.clusteredBy().isPresent());
 
@@ -471,12 +471,12 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     public void test4ColPrimaryKey() throws Exception {
         WhereClause whereClause = analyzeSelectWhere(
                 "select * from pk4 where i1=10 and i2=20 and i3=30 and i4=40");
-        assertThat(whereClause.docKeys().get(), contains(isDocKey(10, 20, 30, 40)));
+        assertThat(whereClause.docKeys().get(), contains(isDocKey(10L, 20L, 30L, 40L)));
         assertFalse(whereClause.noMatch());
 
         whereClause = analyzeSelectWhere(
                 "select * from pk4 where i1=10 and i2=20 and i3=30 and i4=40 and i1=10");
-        assertThat(whereClause.docKeys().get(), contains(isDocKey(10, 20, 30, 40)));
+        assertThat(whereClause.docKeys().get(), contains(isDocKey(10L, 20L, 30L, 40L)));
         assertFalse(whereClause.noMatch());
 
 
@@ -517,7 +517,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
         WhereClause whereClause = analyzeSelectWhere("select * from pk4 where i1=10 and i2=20 and" +
                 " i3 in (30, 31) and i4=40");
         assertThat(whereClause.docKeys().get(), containsInAnyOrder(
-                isDocKey(10, 20, 30, 40), isDocKey(10, 20, 31, 40)));
+                isDocKey(10L, 20L, 30L, 40L), isDocKey(10L, 20L, 31L, 40L)));
     }
 
     @Test
@@ -526,7 +526,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
                 "(i3=30 or i3=31) and i4=40");
         assertEquals(2, whereClause.docKeys().get().size());
         assertThat(whereClause.docKeys().get(), containsInAnyOrder(
-                isDocKey(10, 20, 30, 40), isDocKey(10, 20, 31, 40)));
+                isDocKey(10L, 20L, 30L, 40L), isDocKey(10L, 20L, 31L, 40L)));
     }
 
     @Test
@@ -673,7 +673,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
         String s = sb.toString();
 
         WhereClause whereClause = analyzeSelectWhere(s);
-        assertThat(whereClause.query(), isFunction(AnyEqOperator.NAME, ImmutableList.<DataType>of(DataTypes.INTEGER, new SetType(DataTypes.INTEGER))));
+        assertThat(whereClause.query(), isFunction(AnyEqOperator.NAME, ImmutableList.<DataType>of(DataTypes.LONG, new SetType(DataTypes.LONG))));
     }
 
     @Test
@@ -712,7 +712,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     @Test
     public void testNonPartitionedNotOptimized() throws Exception {
         WhereClause whereClause = analyzeSelectWhere("select * from generated_col where x = 1");
-        assertThat(whereClause.query(), isSQL("(doc.generated_col.x = 1)"));
+        assertThat(whereClause.query(), isSQL("(toLong(doc.generated_col.x) = 1)"));
     }
 
     @Test
@@ -747,7 +747,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     @Test
     public void testColumnReferencedTwiceInGeneratedColumnPartitioned() throws Exception {
         WhereClause whereClause = analyzeSelectWhere("select * from double_gen_parted where x = 4");
-        assertThat(whereClause.query(), isSQL("(doc.double_gen_parted.x = 4)"));
+        assertThat(whereClause.query(), isSQL("(toLong(doc.double_gen_parted.x) = 4)"));
         assertThat(whereClause.partitions().size(), is(1));
         assertThat(whereClause.partitions().get(0), is(".partitioned.double_gen_parted.0813a0hm"));
     }
@@ -755,7 +755,7 @@ public class WhereClauseAnalyzerTest extends CrateUnitTest {
     @Test
     public void testOptimizationNonRoundingFunctionGreater() throws Exception {
         WhereClause whereClause = analyzeSelectWhere("select * from double_gen_parted where x > 3");
-        assertThat(whereClause.query(), isSQL("(doc.double_gen_parted.x > 3)"));
+        assertThat(whereClause.query(), isSQL("(toLong(doc.double_gen_parted.x) > 3)"));
         assertThat(whereClause.partitions().size(), is(1));
         assertThat(whereClause.partitions().get(0), is(".partitioned.double_gen_parted.0813a0hm"));
     }

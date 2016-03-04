@@ -77,6 +77,11 @@ public class IntegerType extends DataType<Integer> implements Streamer<Integer>,
         return Integer.compare(val1, val2);
     }
 
+    @Override
+    public int precedence() {
+        return 5;
+    }
+
 
     @Override
     public Integer readValueFrom(StreamInput in) throws IOException {

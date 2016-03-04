@@ -97,6 +97,11 @@ public class DocKeys implements Iterable<DocKeys.DocKey> {
         public List<Symbol> values() {
             return key;
         }
+
+        @Override
+        public String toString() {
+            return key.toString();
+        }
     }
 
     public DocKeys(List<List<Symbol>> docKeys,

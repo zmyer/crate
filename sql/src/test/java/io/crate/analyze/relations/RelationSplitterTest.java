@@ -189,19 +189,19 @@ public class RelationSplitterTest extends CrateUnitTest {
         RelationSplitter splitter = split(querySpec);
 
         assertThat(querySpec, isSQL("SELECT true"));
-        assertThat(splitter.getSpec(T3.TR_1), isSQL("SELECT  WHERE (NOT ((doc.t1.a = '1') AND (doc.t1.x = 2)))"));
-        assertThat(splitter.getSpec(T3.TR_2), isSQL("SELECT  WHERE (true AND (doc.t2.b = '2'))"));
+        assertThat(splitter.getSpec(T3.TR_1), isSQL("SELECT  WHERE (NOT ((toLong(doc.t1.a) = 1) AND (doc.t1.x = 2)))"));
+        assertThat(splitter.getSpec(T3.TR_2), isSQL("SELECT  WHERE (true AND (toLong(doc.t2.b) = 2))"));
     }
 
     @Test
     public void testSplitNotMultiRelationInside() throws Exception {
-        QuerySpec querySpec = fromQuery("not (a = 1 and b = 2)");
-        assertThat(querySpec, isSQL("SELECT true WHERE (NOT ((doc.t1.a = '1') AND (doc.t2.b = '2')))"));
+        QuerySpec querySpec = fromQuery("not (x = 1 and y = 2)");
+        assertThat(querySpec, isSQL("SELECT true WHERE (NOT ((doc.t1.x = 1) AND (doc.t2.y = 2)))"));
         RelationSplitter splitter = split(querySpec);
 
-        assertThat(querySpec, isSQL("SELECT true WHERE (NOT ((doc.t1.a = '1') AND (doc.t2.b = '2')))"));
-        assertThat(splitter.getSpec(T3.TR_1), isSQL("SELECT doc.t1.a"));
-        assertThat(splitter.getSpec(T3.TR_2), isSQL("SELECT doc.t2.b"));
+        assertThat(querySpec, isSQL("SELECT true WHERE (NOT ((doc.t1.x = 1) AND (doc.t2.y = 2)))"));
+        assertThat(splitter.getSpec(T3.TR_1), isSQL("SELECT doc.t1.x"));
+        assertThat(splitter.getSpec(T3.TR_2), isSQL("SELECT doc.t2.y"));
     }
 
     @Test

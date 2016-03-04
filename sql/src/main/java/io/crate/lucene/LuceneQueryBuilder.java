@@ -256,7 +256,7 @@ public class LuceneQueryBuilder {
                 assert input != null;
                 assert input.arguments().size() == 2;
 
-                Symbol left = input.arguments().get(0);
+                Symbol left = CastUnwrap.unwrapCast(input.arguments().get(0));
                 Symbol right = input.arguments().get(1);
 
                 if (!(left instanceof Reference) || !(right.symbolType().isValueSymbol())) {

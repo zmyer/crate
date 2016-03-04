@@ -1,5 +1,8 @@
 package io.crate.operation.operator;
 
+import com.google.common.collect.ImmutableMap;
+import io.crate.analyze.symbol.Literal;
+import io.crate.operation.Input;
 import io.crate.operation.scalar.AbstractScalarFunctionsTest;
 import org.junit.Test;
 
@@ -71,5 +74,22 @@ public class EqOperatorTest extends AbstractScalarFunctionsTest {
 
         assertNormalize("1.2 = null", isLiteral(null));
         assertNormalize("'foo' = null", isLiteral(null));
+    }
+
+    @Test
+    public void testEqObjectWithDifferentNumericTypesButSameValue() throws Exception {
+        Input objInput = Literal.newLiteral(ImmutableMap.<String, Object>of("l", 1, "b", true));
+        assertEvaluate("obj = {l=1, b=true}", true, objInput);
+    }
+
+    @Test
+    public void testLong4EqInt4() throws Exception {
+        assertEvaluate("l = age", true, Literal.newLiteral(4L), Literal.newLiteral(4));
+    }
+
+    @Test
+    public void testDoubleEqLong() throws Exception {
+        assertNormalize("1.1 = 1", isLiteral(false));
+        assertNormalize("1 = 1.1", isLiteral(false));
     }
 }

@@ -87,6 +87,11 @@ public class SetType extends DataType implements CollectionType, Streamer<Set> {
     }
 
     @Override
+    public int precedence() {
+        return 0;
+    }
+
+    @Override
     public int compareTo(Object o) {
         if (!(o instanceof SetType)) return -1;
         return Integer.compare(innerType.id(), ((SetType)o).innerType().id());

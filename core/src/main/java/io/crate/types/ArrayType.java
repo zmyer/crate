@@ -105,6 +105,11 @@ public class ArrayType extends DataType implements CollectionType, Streamer<Obje
     }
 
     @Override
+    public int precedence() {
+        return 0;
+    }
+
+    @Override
     public int compareTo(Object o) {
         if (!(o instanceof ArrayType)) return -1;
         return Integer.compare(innerType.id(), ((ArrayType)o).innerType().id());

@@ -74,6 +74,11 @@ public class ByteType extends DataType<Byte> implements DataTypeFactory, Streame
     }
 
     @Override
+    public int precedence() {
+        return 3;
+    }
+
+    @Override
     public int compareTo(Object o) {
         return 0;
     }

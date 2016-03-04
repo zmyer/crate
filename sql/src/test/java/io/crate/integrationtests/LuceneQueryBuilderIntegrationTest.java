@@ -135,4 +135,14 @@ public class LuceneQueryBuilderIntegrationTest extends SQLTransportIntegrationTe
         assertThat(response.rowCount(), is(1L));
 
     }
+
+    @Test
+    public void testWhereIntColumnEqDoubleLiteral() throws Exception {
+        execute("create table t (x int)");
+        ensureYellow();
+        execute("insert into t (x) values (4)");
+        execute("refresh table t");
+        execute("select * from t where x = 4.4");
+        assertThat(response.rowCount(), is(0L));
+    }
 }

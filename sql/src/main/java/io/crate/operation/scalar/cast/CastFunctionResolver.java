@@ -24,6 +24,7 @@ package io.crate.operation.scalar.cast;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
@@ -33,6 +34,7 @@ import io.crate.types.DataTypes;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class CastFunctionResolver {
 
@@ -62,6 +64,31 @@ public class CastFunctionResolver {
         public static final String TO_GEO_POINT = "toGeoPoint";
         public static final String TO_GEO_SHAPE = "toGeoShape";
     }
+
+    public final static Set<String> CAST_FUNCTION_NAMES = ImmutableSet.<String>builder()
+            .add(FunctionNames.TO_STRING)
+            .add(FunctionNames.TO_INTEGER)
+            .add(FunctionNames.TO_LONG)
+            .add(FunctionNames.TO_TIMESTAMP)
+            .add(FunctionNames.TO_DOUBLE)
+            .add(FunctionNames.TO_BOOLEAN)
+            .add(FunctionNames.TO_FLOAT)
+            .add(FunctionNames.TO_BYTE)
+            .add(FunctionNames.TO_SHORT)
+            .add(FunctionNames.TO_IP)
+
+            .add(FunctionNames.TO_STRING_ARRAY)
+            .add(FunctionNames.TO_LONG_ARRAY)
+            .add(FunctionNames.TO_INTEGER_ARRAY)
+            .add(FunctionNames.TO_DOUBLE_ARRAY)
+            .add(FunctionNames.TO_BOOLEAN_ARRAY)
+            .add(FunctionNames.TO_BYTE_ARRAY)
+            .add(FunctionNames.TO_FLOAT_ARRAY)
+            .add(FunctionNames.TO_SHORT_ARRAY)
+            .add(FunctionNames.TO_IP_ARRAY)
+            .add(FunctionNames.TO_GEO_POINT)
+            .add(FunctionNames.TO_GEO_SHAPE)
+            .build();
 
     static final ImmutableMap<DataType, String> PRIMITIVE_FUNCTION_MAP = new ImmutableMap.Builder<DataType, String>()
             .put(DataTypes.STRING, FunctionNames.TO_STRING)
@@ -118,7 +145,7 @@ public class CastFunctionResolver {
         return FUNCTION_MAP.get(returnType) != null;
     }
 
-    private static Function<String, String> TO_TRY_CAST_MAP = new Function<String, String>() {
+    private final static Function<String, String> TO_TRY_CAST_MAP = new Function<String, String>() {
         @Override
         public String apply(String functionName) {
             return TRY_CAST_PREFIX + functionName;

@@ -100,6 +100,11 @@ public class GeoShapeType extends DataType<Map<String, Object>> implements Strea
     }
 
     @Override
+    public int precedence() {
+        return 11;
+    }
+
+    @Override
     public DataType<?> create() {
         return INSTANCE;
     }

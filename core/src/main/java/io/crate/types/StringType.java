@@ -86,6 +86,11 @@ public class StringType extends DataType<BytesRef> implements DataTypeFactory, S
     }
 
     @Override
+    public int precedence() {
+        return 1;
+    }
+
+    @Override
     public DataType<?> create() {
         return INSTANCE;
     }

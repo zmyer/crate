@@ -142,7 +142,7 @@ public class ExpressionAnalyzerTest extends CrateUnitTest {
     public void testInSelfJoinCaseFunctionsThatLookTheSameMustNotReuseFunctionAllocation() throws Exception {
         TableInfo tableInfo = mock(TableInfo.class);
         when(tableInfo.getReferenceInfo(new ColumnIdent("id"))).thenReturn(
-                new ReferenceInfo(new ReferenceIdent(new TableIdent("doc", "t"), "id"), RowGranularity.DOC, DataTypes.INTEGER));
+                new ReferenceInfo(new ReferenceIdent(new TableIdent("doc", "t"), "id"), RowGranularity.DOC, DataTypes.LONG));
         TableRelation tr1 = new TableRelation(tableInfo);
         TableRelation tr2 = new TableRelation(tableInfo);
 

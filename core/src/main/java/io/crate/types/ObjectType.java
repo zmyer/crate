@@ -64,6 +64,11 @@ public class ObjectType extends DataType<Map<String,Object>>
     }
 
     @Override
+    public int precedence() {
+        return 0;
+    }
+
+    @Override
     public DataType<?> create() {
         return INSTANCE;
     }

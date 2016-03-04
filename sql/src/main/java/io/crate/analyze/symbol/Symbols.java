@@ -26,6 +26,7 @@ import com.google.common.collect.Lists;
 import io.crate.Streamer;
 import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.GeneratedReferenceInfo;
+import io.crate.operation.Input;
 import io.crate.types.DataType;
 
 import javax.annotation.Nullable;
@@ -89,6 +90,14 @@ public class Symbols {
             }
         }
         return false;
+    }
+
+    public static Collection<Object> addValuesToCollection(Collection<Object> collection, DataType targetType, List<Symbol> symbols) {
+        for (Symbol symbol : symbols) {
+            assert symbol instanceof Input : "each symbol must be a literal to extract values";
+            collection.add(targetType.value(((Input) symbol).value()));
+        }
+        return collection;
     }
 
     private static class HasColumnVisitor extends SymbolVisitor<ColumnIdent, Boolean> {

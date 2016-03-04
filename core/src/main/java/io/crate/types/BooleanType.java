@@ -101,6 +101,11 @@ public class BooleanType extends DataType<Boolean> implements DataTypeFactory, S
     }
 
     @Override
+    public int precedence() {
+        return 2;
+    }
+
+    @Override
     public DataType<?> create() {
         return INSTANCE;
     }

@@ -28,8 +28,7 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 
-public class
-        LongType extends DataType<Long> implements FixedWidthType, Streamer<Long>, DataTypeFactory {
+public class LongType extends DataType<Long> implements FixedWidthType, Streamer<Long>, DataTypeFactory {
 
     public static final LongType INSTANCE = new LongType();
     public static final int ID = 10;
@@ -127,6 +126,11 @@ public class
     @Override
     public int compareValueTo(Long val1, Long val2) {
         return Long.compare(val1, val2);
+    }
+
+    @Override
+    public int precedence() {
+        return 6;
     }
 
     @Override

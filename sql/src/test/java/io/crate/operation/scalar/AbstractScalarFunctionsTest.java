@@ -172,6 +172,8 @@ public abstract class AbstractScalarFunctionsTest extends CrateUnitTest {
                 .add("name", DataTypes.STRING)
                 .add("tags", new ArrayType(DataTypes.STRING))
                 .add("age", DataTypes.INTEGER)
+                .add("l", DataTypes.LONG)
+                .add("obj", DataTypes.OBJECT)
                 .add("shape", DataTypes.GEO_SHAPE)
                 .build();
         TableRelation tableRelation = new TableRelation(tableInfo);

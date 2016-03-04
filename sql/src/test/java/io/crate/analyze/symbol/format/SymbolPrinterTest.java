@@ -303,7 +303,7 @@ public class SymbolPrinterTest extends CrateUnitTest {
         String printed = SymbolPrinter.INSTANCE.printFullQualified(comparisonOperator);
         assertThat(
                 printed,
-                is("((doc.formatter.bar = 1) AND (doc.formatter.foo = '2'))")
+                is("((doc.formatter.bar = 1) AND (toLong(doc.formatter.foo) = 2))")
         );
     }
 

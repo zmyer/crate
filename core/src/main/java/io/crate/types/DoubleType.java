@@ -73,6 +73,11 @@ public class DoubleType extends DataType<Double> implements FixedWidthType, Stre
     }
 
     @Override
+    public int precedence() {
+        return 9;
+    }
+
+    @Override
     public Double readValueFrom(StreamInput in) throws IOException {
         return in.readBoolean() ? null : in.readDouble();
     }

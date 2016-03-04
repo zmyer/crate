@@ -228,7 +228,7 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
         SelectAnalyzedStatement analyze = analyze("select * from sys.nodes where port['http'] = -400");
         Function whereClause = (Function) analyze.relation().querySpec().where().query();
         Symbol symbol = whereClause.arguments().get(1);
-        assertThat((Integer) ((Literal) symbol).value(), is(-400));
+        assertThat((Long) ((Literal) symbol).value(), is(-400L));
     }
 
     @Test
@@ -1328,13 +1328,9 @@ public class SelectStatementAnalyzerTest extends BaseAnalyzerTest {
     public void testGroupByHavingOtherColumnInAggregate() throws Exception {
         SelectAnalyzedStatement analysis = analyze("select sum(floats), name from users group by name having max(bytes) = 4");
         assertThat(analysis.relation().querySpec().having().get().query(), isFunction("op_="));
-        Function havingFunction = (Function) analysis.relation().querySpec().having().get().query();
-        assertThat(havingFunction.arguments().size(), is(2));
-        assertThat(havingFunction.arguments().get(0), isFunction("max"));
-        Function maxFunction = (Function) havingFunction.arguments().get(0);
 
-        assertThat(maxFunction.arguments().get(0), isReference("bytes"));
-        assertThat(havingFunction.arguments().get(1), isLiteral((byte) 4, DataTypes.BYTE));
+        assertThat(analysis.relation().querySpec().having().get().query(),
+                isSQL("(toLong(max(doc.users.bytes)) = 4)"));
     }
 
     @Test

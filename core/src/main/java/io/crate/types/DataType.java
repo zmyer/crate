@@ -41,6 +41,10 @@ public abstract class DataType<T> implements Comparable, Streamable {
 
     public abstract int compareValueTo(T val1, T val2);
 
+    public int precedence() {
+        return -1;
+    }
+
     /**
      * check whether a value of this type is convertible to <code>other</code>
      *

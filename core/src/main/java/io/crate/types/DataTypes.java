@@ -273,6 +273,28 @@ public class DataTypes {
             .put("object", DataTypes.OBJECT)
             .put("nested", DataTypes.OBJECT).build();
 
+
+    public static DataType precedence(DataType t1, DataType t2) {
+        if (t1 == t2) {
+            return t1;
+        }
+        if (t1 instanceof CollectionType) {
+            if (t2 instanceof CollectionType) {
+                DataType<?> t1Inner = ((CollectionType) t1).innerType();
+                DataType precedence = precedence(t1Inner, ((CollectionType) t2).innerType());
+                if (precedence == t1Inner) {
+                    return t1;
+                }
+                return t2;
+            }
+            return t1;
+        }
+        if (t1.precedence() > t2.precedence()) {
+            return t1;
+        }
+        return t2;
+    }
+
     @Nullable
     public static DataType ofMappingName(String name) {
         return MAPPING_NAMES_TO_TYPES.get(name);

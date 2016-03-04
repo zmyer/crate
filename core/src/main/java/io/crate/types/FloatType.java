@@ -77,6 +77,11 @@ public class FloatType extends DataType<Float> implements Streamer<Float>, DataT
     }
 
     @Override
+    public int precedence() {
+        return 8;
+    }
+
+    @Override
     public DataType<?> create() {
         return INSTANCE;
     }

@@ -46,6 +46,11 @@ public class EqOperator extends CmpOperator {
         module.registerDynamicOperatorFunction(NAME, dynamicResolver);
     }
 
+    public static FunctionInfo createInfo(DataType dataType) {
+        return new FunctionInfo(
+                new FunctionIdent(NAME, Arrays.asList(dataType, dataType)), DataTypes.BOOLEAN);
+    }
+
     @Override
     protected boolean compare(int comparisonResult) {
         return comparisonResult == 0;
