@@ -43,7 +43,7 @@ import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadF
 public class BulkRetryCoordinator {
 
     private static final ESLogger LOGGER = Loggers.getLogger(BulkRetryCoordinator.class);
-    private static final int DELAY_INCREMENT = 1;
+    private static final int DELAY_INCREMENT = 10;
 
     private final ReadWriteLock retryLock;
     private final AtomicInteger currentDelay;
@@ -61,19 +61,23 @@ public class BulkRetryCoordinator {
         return retryLock;
     }
 
-    public void retry(final ShardUpsertRequest request,
+    public void retry(final int retryCount,
+                      final ShardUpsertRequest request,
                       final BulkRequestExecutor executor,
                       boolean repeatingRetry,
-                      ActionListener<ShardUpsertResponse> listener) {
-        trace("doRetry");
-        final RetryBulkActionListener retryBulkActionListener = new RetryBulkActionListener(listener);
+                      final ActionListener<ShardUpsertResponse> listener) {
+        trace(String.format("doRetry %d", retryCount));
         if (repeatingRetry) {
             try {
-                Thread.sleep(currentDelay.getAndAdd(DELAY_INCREMENT));
+                int delay = currentDelay.getAndAdd(DELAY_INCREMENT);
+                LOGGER.trace("delay retry for [{}ms]", delay);
+                LOGGER.trace("thread [{}] delayed", Thread.currentThread().getName());
+                Thread.sleep(delay);
             } catch (InterruptedException e) {
                 Thread.interrupted();
+                return;
             }
-            executor.execute(request, retryBulkActionListener);
+            executor.execute(request, new RetryBulkActionListener(listener));
         } else {
             // new retries will be spawned in new thread because they can block
             retryExecutorService.schedule(
@@ -88,7 +92,7 @@ public class BulkRetryCoordinator {
                                 Thread.interrupted();
                             }
                             LOGGER.trace("retry thread [{}] executing", Thread.currentThread().getName());
-                            executor.execute(request, retryBulkActionListener);
+                            executor.execute(request, new RetryBulkActionListener(listener));
                         }
                     }, currentDelay.getAndAdd(DELAY_INCREMENT), TimeUnit.MILLISECONDS);
         }

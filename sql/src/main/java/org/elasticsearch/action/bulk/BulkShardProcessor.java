@@ -22,8 +22,7 @@
 package org.elasticsearch.action.bulk;
 
 import com.carrotsearch.hppc.cursors.IntCursor;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
+import com.google.common.base.*;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -294,7 +293,7 @@ public class BulkShardProcessor {
 
                     @Override
                     public void onFailure(Throwable e) {
-                        processFailure(e, shardId, request, com.google.common.base.Optional.<BulkRetryCoordinator>absent());
+                        processFailure(e, shardId, request, com.google.common.base.Optional.<BulkRetryCoordinator>absent(), 0);
                     }
                 });
                 it.remove();
@@ -449,7 +448,7 @@ public class BulkShardProcessor {
         trace("response executed.");
     }
 
-    private void processFailure(Throwable e, final ShardId shardId, final ShardUpsertRequest request, com.google.common.base.Optional<BulkRetryCoordinator> retryCoordinator) {
+    private void processFailure(Throwable e, final ShardId shardId, final ShardUpsertRequest request, com.google.common.base.Optional<BulkRetryCoordinator> retryCoordinator, final int retryCount) {
         trace("execute failure");
         e = Exceptions.unwrap(e);
         final BulkRetryCoordinator coordinator;
@@ -465,15 +464,17 @@ public class BulkShardProcessor {
         }
         if (e instanceof EsRejectedExecutionException) {
             LOGGER.trace("{}, retrying", e.getMessage());
-            coordinator.retry(request, requestExecutor, retryCoordinator.isPresent(), new ActionListener<ShardUpsertResponse>() {
+            coordinator.retry(retryCount, request, requestExecutor, retryCoordinator.isPresent(), new ActionListener<ShardUpsertResponse>() {
                 @Override
                 public void onResponse(ShardUpsertResponse response) {
+                    LOGGER.trace("processFailure: SUCCESS");
                     processResponse(response);
                 }
 
                 @Override
                 public void onFailure(Throwable e) {
-                    processFailure(e, shardId, request, com.google.common.base.Optional.of(coordinator));
+                    LOGGER.trace("processFailure: FAILURE");
+                    processFailure(e, shardId, request, com.google.common.base.Optional.of(coordinator), retryCount+1);
                 }
             });
         } else {
