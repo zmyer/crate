@@ -293,7 +293,13 @@ public class BulkShardProcessor {
 
                     @Override
                     public void onFailure(Throwable e) {
-                        processFailure(e, shardId, request, com.google.common.base.Optional.<BulkRetryCoordinator>absent(), 0);
+                        try {
+                            processFailure(e, shardId, request, com.google.common.base.Optional.<BulkRetryCoordinator>absent(), 0);
+                        } catch (StackOverflowError stackOverflowError) {
+                            LOGGER.error("onFailure", e);
+                            LOGGER.error("STACKOVERFLOW", stackOverflowError);
+                            setFailure(stackOverflowError);
+                        }
                     }
                 });
                 it.remove();

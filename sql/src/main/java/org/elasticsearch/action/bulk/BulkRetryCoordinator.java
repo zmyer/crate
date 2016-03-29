@@ -43,7 +43,7 @@ import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadF
 public class BulkRetryCoordinator {
 
     private static final ESLogger LOGGER = Loggers.getLogger(BulkRetryCoordinator.class);
-    private static final int DELAY_INCREMENT = 10;
+    private static final int DELAY_INCREMENT = 1;
 
     private final ReadWriteLock retryLock;
     private final AtomicInteger currentDelay;
