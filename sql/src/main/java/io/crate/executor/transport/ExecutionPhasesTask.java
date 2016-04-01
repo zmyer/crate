@@ -41,7 +41,6 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.indices.IndicesService;
 
 import javax.annotation.Nullable;
@@ -50,8 +49,7 @@ import java.util.*;
 
 public class ExecutionPhasesTask extends JobTask {
 
-    private static final ESLogger LOGGER = Loggers.getLogger(ExecutionPhasesTask.class);
-
+    private final ESLogger logger;
     private final TransportJobAction transportJobAction;
     private final List<NodeOperationTree> nodeOperationTrees;
     private final OperationType operationType;
@@ -73,6 +71,7 @@ public class ExecutionPhasesTask extends JobTask {
     }
 
     protected ExecutionPhasesTask(UUID jobId,
+                                  ESLogger logger,
                                   ClusterService clusterService,
                                   ContextPreparer contextPreparer,
                                   JobContextService jobContextService,
@@ -81,6 +80,7 @@ public class ExecutionPhasesTask extends JobTask {
                                   List<NodeOperationTree> nodeOperationTrees,
                                   OperationType operationType) {
         super(jobId);
+        this.logger = logger;
         this.clusterService = clusterService;
         this.contextPreparer = contextPreparer;
         this.jobContextService = jobContextService;
@@ -175,10 +175,10 @@ public class ExecutionPhasesTask extends JobTask {
 
             JobRequest request = new JobRequest(jobId(), nodeOperations);
             if (hasDirectResponse) {
-                transportJobAction.execute(serverNodeId, request, new DirectResponseListener(idx, pageDownstreamContexts));
+                transportJobAction.execute(serverNodeId, request, new DirectResponseListener(idx, pageDownstreamContexts, logger));
             } else {
                 transportJobAction.execute(serverNodeId, request,
-                        new FailureOnlyResponseListener(results));
+                        new FailureOnlyResponseListener(results, logger));
             }
             idx++;
         }
@@ -238,10 +238,12 @@ public class ExecutionPhasesTask extends JobTask {
 
         private final int bucketIdx;
         private final List<PageDownstreamContext> pageDownstreamContexts;
+        private final ESLogger logger;
 
-        public DirectResponseListener(int bucketIdx, List<PageDownstreamContext> pageDownstreamContexts) {
+        public DirectResponseListener(int bucketIdx, List<PageDownstreamContext> pageDownstreamContexts, ESLogger logger) {
             this.bucketIdx = bucketIdx;
             this.pageDownstreamContexts = pageDownstreamContexts;
+            this.logger = logger;
         }
 
         @Override
@@ -257,7 +259,7 @@ public class ExecutionPhasesTask extends JobTask {
                     @Override
                     public void needMore(boolean needMore) {
                         if (needMore) {
-                            LOGGER.warn("requested more data but directResponse doesn't support paging");
+                            logger.warn("requested more data but directResponse doesn't support paging");
                         }
                     }
 
@@ -280,9 +282,11 @@ public class ExecutionPhasesTask extends JobTask {
     private static class FailureOnlyResponseListener implements ActionListener<JobResponse> {
 
         private final List<SettableFuture<TaskResult>> results;
+        private final ESLogger logger;
 
-        public FailureOnlyResponseListener(List<SettableFuture<TaskResult>> results) {
+        public FailureOnlyResponseListener(List<SettableFuture<TaskResult>> results, ESLogger logger) {
             this.results = results;
+            this.logger = logger;
         }
 
         @Override
@@ -297,7 +301,7 @@ public class ExecutionPhasesTask extends JobTask {
         @Override
         public void onFailure(Throwable e) {
             // in the non-direct-response case the failure is pushed to downStreams
-            LOGGER.warn(e.getMessage(), e);
+            logger.warn(e.getMessage(), e);
         }
     }
 }

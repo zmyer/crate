@@ -9,6 +9,7 @@ import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.TestingHelpers;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.bulk.BulkRequestExecutor;
+import org.elasticsearch.common.logging.Loggers;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -33,7 +34,7 @@ public class UpsertByIdContextTest extends CrateUnitTest {
         ShardUpsertRequest request = mock(ShardUpsertRequest.class);
         UpsertByIdNode.Item item = mock(UpsertByIdNode.Item.class);
         future = SettableFuture.create();
-        context = new UpsertByIdContext(1, request, item, future, delegate);
+        context = new UpsertByIdContext(1, request, item, future, delegate, Loggers.getLogger(UpsertByIdContext.class));
     }
 
     @Test

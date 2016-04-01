@@ -45,6 +45,7 @@ import org.elasticsearch.action.bulk.BulkRetryCoordinatorPool;
 import org.elasticsearch.action.bulk.BulkShardProcessor;
 import org.elasticsearch.action.support.AutoCreateIndex;
 import org.elasticsearch.cluster.ClusterService;
+import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.shard.ShardId;
 import org.elasticsearch.indices.IndexAlreadyExistsException;
@@ -69,6 +70,7 @@ public class UpsertByIdTask extends JobTask {
     private final AutoCreateIndex autoCreateIndex;
     private final BulkRetryCoordinatorPool bulkRetryCoordinatorPool;
     private final JobContextService jobContextService;
+    private final ESLogger upsertByIdContextLogger;
 
     @Nullable
     private BulkShardProcessorContext bulkShardProcessorContext;
@@ -82,7 +84,8 @@ public class UpsertByIdTask extends JobTask {
                           TransportBulkCreateIndicesAction transportBulkCreateIndicesAction,
                           BulkRetryCoordinatorPool bulkRetryCoordinatorPool,
                           UpsertByIdNode node,
-                          JobContextService jobContextService) {
+                          JobContextService jobContextService,
+                          ESLogger contextLogger) {
         super(jobId);
         this.transportShardUpsertActionDelegate = transportShardUpsertActionDelegate;
         this.transportCreateIndexAction = transportCreateIndexAction;
@@ -91,6 +94,7 @@ public class UpsertByIdTask extends JobTask {
         this.node = node;
         this.bulkRetryCoordinatorPool = bulkRetryCoordinatorPool;
         this.jobContextService = jobContextService;
+        upsertByIdContextLogger = contextLogger;
         autoCreateIndex = new AutoCreateIndex(settings);
 
         if (node.items().size() == 1) {
@@ -161,7 +165,7 @@ public class UpsertByIdTask extends JobTask {
         upsertRequest.add(0, requestItem);
 
         UpsertByIdContext upsertByIdContext = new UpsertByIdContext(
-                node.executionPhaseId(), upsertRequest, item, futureResult, transportShardUpsertActionDelegate);
+                node.executionPhaseId(), upsertRequest, item, futureResult, transportShardUpsertActionDelegate, upsertByIdContextLogger);
         createJobExecutionContext(upsertByIdContext);
         try {
             jobExecutionContext.start();

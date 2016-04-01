@@ -37,6 +37,7 @@ import io.crate.executor.task.NoopTask;
 import io.crate.executor.transport.task.*;
 import io.crate.executor.transport.task.elasticsearch.*;
 import io.crate.jobs.JobContextService;
+import io.crate.jobs.UpsertByIdContext;
 import io.crate.metadata.Functions;
 import io.crate.metadata.NestedReferenceResolver;
 import io.crate.metadata.RowGranularity;
@@ -75,8 +76,9 @@ import java.util.*;
 
 public class TransportExecutor implements Executor {
 
-    private static final ESLogger LOGGER = Loggers.getLogger(TransportExecutor.class);
-
+    private final ESLogger logger;
+    private final ESLogger upsertByIdContextLogger;
+    private final ESLogger executionPhasesTaskLogger;
     private final Functions functions;
     private final TaskCollectingVisitor planVisitor;
     private DDLStatementDispatcher ddlAnalysisDispatcherProvider;
@@ -108,6 +110,9 @@ public class TransportExecutor implements Executor {
                              ClusterService clusterService,
                              IndicesService indicesService,
                              BulkRetryCoordinatorPool bulkRetryCoordinatorPool) {
+        logger = Loggers.getLogger(TransportExecutor.class, settings);
+        upsertByIdContextLogger = Loggers.getLogger(UpsertByIdContext.class, settings);
+        executionPhasesTaskLogger = Loggers.getLogger(ExecutionPhasesTask.class, settings);
         this.jobContextService = jobContextService;
         this.contextPreparer = contextPreparer;
         this.transportActionProvider = transportActionProvider;
@@ -207,9 +212,10 @@ public class TransportExecutor implements Executor {
         private ExecutionPhasesTask executionPhasesTask(Plan plan, UUID jobId, ExecutionPhasesTask.OperationType operationType) {
             List<NodeOperationTree> nodeOperationTrees = BULK_NODE_OPERATION_VISITOR.createNodeOperationTrees(
                     plan, clusterService.localNode().id());
-            LOGGER.debug("Created NodeOperationTrees from Plan: {}", nodeOperationTrees);
+            logger.debug("Created NodeOperationTrees from Plan: {}", nodeOperationTrees);
             return new ExecutionPhasesTask(
                     jobId,
+                    executionPhasesTaskLogger,
                     clusterService,
                     contextPreparer,
                     jobContextService,
@@ -296,7 +302,8 @@ public class TransportExecutor implements Executor {
                     transportActionProvider.transportBulkCreateIndicesAction(),
                     bulkRetryCoordinatorPool,
                     node,
-                    jobContextService));
+                    jobContextService,
+                    upsertByIdContextLogger));
         }
 
         @Override

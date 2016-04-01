@@ -27,6 +27,8 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.Callback;
 import org.elasticsearch.common.util.concurrent.ConcurrentCollections;
@@ -39,6 +41,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @Singleton
 public class JobContextService extends AbstractLifecycleComponent<JobContextService> {
 
+    private final ESLogger jobExecutionContextLogger;
     private final StatsTables statsTables;
     private final ConcurrentMap<UUID, JobExecutionContext> activeContexts =
             ConcurrentCollections.newConcurrentMapWithAggressiveConcurrency();
@@ -53,6 +56,7 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
     public JobContextService(Settings settings, StatsTables statsTables) {
         super(settings);
         this.statsTables = statsTables;
+        jobExecutionContextLogger = Loggers.getLogger(JobExecutionContext.class, settings);
     }
 
     @Override
@@ -88,7 +92,7 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
     }
 
     public JobExecutionContext.Builder newBuilder(UUID jobId) {
-        return new JobExecutionContext.Builder(jobId, statsTables);
+        return new JobExecutionContext.Builder(jobId, statsTables, jobExecutionContextLogger);
     }
 
     public JobExecutionContext createContext(JobExecutionContext.Builder contextBuilder) {

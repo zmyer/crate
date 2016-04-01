@@ -31,6 +31,7 @@ import io.crate.operation.projectors.RowReceiver;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.CollectingRowReceiver;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.search.internal.SearchContext;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
@@ -76,7 +77,8 @@ public class JobCollectContextTest extends CrateUnitTest {
                 localNodeId,
                 ramAccountingContext,
                 new CollectingRowReceiver(),
-                mock(SharedShardContexts.class));
+                mock(SharedShardContexts.class),
+                Loggers.getLogger(JobCollectContext.class));
     }
 
     @Test
@@ -121,7 +123,8 @@ public class JobCollectContextTest extends CrateUnitTest {
                 "localNodeId",
                 ramAccountingContext,
                 rowReceiver,
-                mock(SharedShardContexts.class));
+                mock(SharedShardContexts.class),
+                Loggers.getLogger(JobCollectContext.class));
 
         jobCtx.addSearchContext(1, mock1);
         CrateCollector collectorMock1 = mock(CrateCollector.class);

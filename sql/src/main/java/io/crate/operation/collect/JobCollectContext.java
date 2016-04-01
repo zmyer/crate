@@ -40,7 +40,6 @@ import io.crate.planner.node.dql.CollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import javax.annotation.Nonnull;
@@ -50,8 +49,6 @@ import java.util.Collection;
 import java.util.Locale;
 
 public class JobCollectContext extends AbstractExecutionSubContext implements ExecutionState {
-
-    private static final ESLogger LOGGER = Loggers.getLogger(JobCollectContext.class);
 
     private final CollectPhase collectPhase;
     private final MapSideDataCollectOperation collectOperation;
@@ -71,8 +68,9 @@ public class JobCollectContext extends AbstractExecutionSubContext implements Ex
                              String localNodeId,
                              RamAccountingContext queryPhaseRamAccountingContext,
                              final RowReceiver rowReceiver,
-                             SharedShardContexts sharedShardContexts) {
-        super(collectPhase.executionPhaseId(), LOGGER);
+                             SharedShardContexts sharedShardContexts,
+                             ESLogger logger) {
+        super(collectPhase.executionPhaseId(), logger);
         this.collectPhase = collectPhase;
         this.collectOperation = collectOperation;
         this.queryPhaseRamAccountingContext = queryPhaseRamAccountingContext;

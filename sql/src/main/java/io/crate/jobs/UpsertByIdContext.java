@@ -31,7 +31,6 @@ import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.bulk.BulkRequestExecutor;
 import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.index.engine.DocumentMissingException;
 import org.elasticsearch.index.engine.VersionConflictEngineException;
 import org.elasticsearch.indices.IndexMissingException;
@@ -40,8 +39,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class UpsertByIdContext extends AbstractExecutionSubContext {
-
-    private final static ESLogger LOGGER = Loggers.getLogger(UpsertByIdContext.class);
 
     private final ShardUpsertRequest request;
     private final UpsertByIdNode.Item item;
@@ -52,8 +49,9 @@ public class UpsertByIdContext extends AbstractExecutionSubContext {
                              ShardUpsertRequest request,
                              UpsertByIdNode.Item item,
                              SettableFuture<TaskResult> futureResult,
-                             BulkRequestExecutor transportShardUpsertActionDelegate) {
-        super(id, LOGGER);
+                             BulkRequestExecutor transportShardUpsertActionDelegate,
+                             ESLogger logger) {
+        super(id, logger);
         this.request = request;
         this.item = item;
         this.futureResult = futureResult;

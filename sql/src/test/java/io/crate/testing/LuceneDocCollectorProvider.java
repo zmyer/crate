@@ -40,11 +40,11 @@ import io.crate.planner.Planner;
 import io.crate.planner.consumer.ConsumerContext;
 import io.crate.planner.consumer.QueryAndFetchConsumer;
 import io.crate.planner.node.dql.CollectAndMerge;
-import io.crate.planner.node.dql.FileUriCollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.sql.parser.SqlParser;
 import org.elasticsearch.common.breaker.CircuitBreaker;
 import org.elasticsearch.common.breaker.NoopCircuitBreaker;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.test.InternalTestCluster;
 
@@ -84,7 +84,7 @@ public class LuceneDocCollectorProvider implements AutoCloseable {
         JobExecutionContext.Builder builder = jobContextService.newBuilder(collectPhase.jobId());
         JobCollectContext jobCollectContext = new JobCollectContext(
                 collectPhase, collectOperation,  cluster.clusterService().state().nodes().localNodeId(),
-                RAM_ACCOUNTING_CONTEXT, downstream, sharedShardContexts);
+                RAM_ACCOUNTING_CONTEXT, downstream, sharedShardContexts, Loggers.getLogger(JobCollectContext.class));
         collectContexts.add(jobCollectContext);
         builder.addSubContext(jobCollectContext);
         jobContextService.createContext(builder);

@@ -84,6 +84,7 @@ public class ContextPreparer extends AbstractComponent {
 
     private final MapSideDataCollectOperation collectOperation;
     private final ESLogger pageDownstreamContextLogger;
+    private final ESLogger collectContextLogger;
     private ClusterService clusterService;
     private CountOperation countOperation;
     private final ThreadPool threadPool;
@@ -103,6 +104,7 @@ public class ContextPreparer extends AbstractComponent {
                            RowDownstreamFactory rowDownstreamFactory) {
         super(settings);
         pageDownstreamContextLogger = Loggers.getLogger(PageDownstreamContext.class, settings);
+        collectContextLogger = Loggers.getLogger(JobCollectContext.class, settings);
         this.collectOperation = collectOperation;
         this.clusterService = clusterService;
         this.countOperation = countOperation;
@@ -490,7 +492,8 @@ public class ContextPreparer extends AbstractComponent {
                     clusterService.state().nodes().localNodeId(),
                     ramAccountingContext,
                     rowReceiver,
-                    context.sharedShardContexts
+                    context.sharedShardContexts,
+                    collectContextLogger
             );
         }
 
@@ -504,7 +507,8 @@ public class ContextPreparer extends AbstractComponent {
                     clusterService.state().nodes().localNodeId(),
                     ramAccountingContext,
                     rowReceiver,
-                    context.sharedShardContexts
+                    context.sharedShardContexts,
+                    collectContextLogger
             );
         }
 

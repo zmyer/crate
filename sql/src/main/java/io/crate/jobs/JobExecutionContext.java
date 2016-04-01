@@ -30,7 +30,6 @@ import io.crate.exceptions.ContextMissingException;
 import io.crate.exceptions.Exceptions;
 import io.crate.operation.collect.StatsTables;
 import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.util.Callback;
 
 import javax.annotation.Nonnull;
@@ -43,8 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class JobExecutionContext {
 
-    private static final ESLogger LOGGER = Loggers.getLogger(JobExecutionContext.class);
-
+    private final ESLogger logger;
     private final UUID jobId;
     private final ConcurrentMap<Integer, ExecutionSubContext> subContexts = new ConcurrentHashMap<>();
     private final AtomicInteger numSubContexts = new AtomicInteger();
@@ -61,10 +59,12 @@ public class JobExecutionContext {
         private final UUID jobId;
         private final StatsTables statsTables;
         private final LinkedHashMap<Integer, ExecutionSubContext> subContexts = new LinkedHashMap<>();
+        private final ESLogger logger;
 
-        Builder(UUID jobId, StatsTables statsTables) {
+        Builder(UUID jobId, StatsTables statsTables, ESLogger logger) {
             this.jobId = jobId;
             this.statsTables = statsTables;
+            this.logger = logger;
         }
 
         public void addAllSubContexts(Iterable<? extends ExecutionSubContext> subContexts) {
@@ -90,17 +90,19 @@ public class JobExecutionContext {
         }
 
         public JobExecutionContext build() {
-            return new JobExecutionContext(jobId, statsTables, subContexts);
+            return new JobExecutionContext(jobId, statsTables, subContexts, logger);
         }
     }
 
 
     private JobExecutionContext(UUID jobId,
                                 StatsTables statsTables,
-                                LinkedHashMap<Integer, ExecutionSubContext> subContexts) {
+                                LinkedHashMap<Integer, ExecutionSubContext> subContexts,
+                                ESLogger logger) {
         orderedContextIds = Lists.newArrayList(subContexts.keySet());
         this.jobId = jobId;
         this.statsTables = statsTables;
+        this.logger = logger;
 
         this.futures = new ArrayList<>(subContexts.size());
         for (Map.Entry<Integer, ExecutionSubContext> entry : subContexts.entrySet()) {
@@ -120,7 +122,7 @@ public class JobExecutionContext {
             SubExecutionContextFuture future = subContext.future();
             future.addCallback(new RemoveSubContextCallback(subContextId));
             futures.add(future);
-            LOGGER.trace("adding subContext {}, now there are {} subContexts", subContextId, currentSubContextSize);
+            logger.trace("adding subContext {}, now there are {} subContexts", subContextId, currentSubContextSize);
         } else {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH, "subContext %d is already present", subContextId));
         }
@@ -175,7 +177,7 @@ public class JobExecutionContext {
     public long kill() {
         long numKilled = 0L;
         if (!closed.getAndSet(true)) {
-            LOGGER.trace("kill called on JobExecutionContext {}", jobId);
+            logger.trace("kill called on JobExecutionContext={}, subContextCount={}", jobId);
 
             if (numSubContexts.get() == 0) {
                 callCloseCallback();
@@ -200,7 +202,7 @@ public class JobExecutionContext {
 
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            LOGGER.trace("close called on JobExecutionContext {}", jobId);
+            logger.trace("close called on JobExecutionContext={}", jobId);
             if (numSubContexts.get() == 0) {
                 callCloseCallback();
             } else {
@@ -264,7 +266,7 @@ public class JobExecutionContext {
             if (remove() == RemoveSubContextPosition.LAST){
                 return;
             }
-            LOGGER.trace("onFailure killing all other subContexts..");
+            logger.trace("onFailure killing all other subContexts, subContextCount={}...", subContexts.size());
             for (ExecutionSubContext subContext : subContexts.values()) {
                 subContext.kill(t);
             }
