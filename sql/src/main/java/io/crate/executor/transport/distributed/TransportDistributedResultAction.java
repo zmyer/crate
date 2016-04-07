@@ -107,7 +107,12 @@ public class TransportDistributedResultAction extends AbstractComponent implemen
                                final int retry) {
         JobExecutionContext context = jobContextService.getContextOrNull(request.jobId());
         if (context == null) {
-            retryOrFailureResponse(request, listener, retry);
+            if (request.throwable() != null) {
+                // failure before context creation, no need to retry, context will mostly never be created
+                listener.onFailure(request.throwable());
+            } else {
+                retryOrFailureResponse(request, listener, retry);
+            }
             return;
         }
 
