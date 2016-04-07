@@ -233,11 +233,11 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
         executePlan(analysis, plan, listener, request, attempt);
     }
 
-    private void executePlan(final Analysis analysis,
-                             final Plan plan,
-                             final ActionListener<TResponse> listener,
-                             final TRequest request,
-                             final int attempt) {
+    public void executePlan(final Analysis analysis,
+                            final Plan plan,
+                            final ActionListener<TResponse> listener,
+                            final TRequest request,
+                            final int attempt) {
         Executor executor = executorProvider.get();
         Job job = executor.newJob(plan);
 

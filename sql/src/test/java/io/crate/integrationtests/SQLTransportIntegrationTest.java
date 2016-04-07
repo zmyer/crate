@@ -26,9 +26,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.crate.action.sql.*;
 import io.crate.action.sql.parser.SQLXContentSourceContext;
 import io.crate.action.sql.parser.SQLXContentSourceParser;
+import io.crate.analyze.Analysis;
 import io.crate.analyze.Analyzer;
 import io.crate.analyze.ParameterContext;
 import io.crate.executor.Job;
@@ -49,6 +51,7 @@ import io.crate.planner.Planner;
 import io.crate.plugin.CrateCorePlugin;
 import io.crate.sql.parser.SqlParser;
 import io.crate.testing.SQLTransportExecutor;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.Client;
@@ -58,6 +61,7 @@ import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.cluster.metadata.MetaData;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.bytes.BytesArray;
+import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.ImmutableSettings;
@@ -268,11 +272,17 @@ public abstract class SQLTransportIntegrationTest extends ElasticsearchIntegrati
     }
 
     public Plan plan(String stmt) {
-        Analyzer analyzer = internalCluster().getInstance(Analyzer.class);
-        Planner planner = internalCluster().getInstance(Planner.class);
+        return analysisAndPlan(new SQLRequest(stmt), null).v1();
+    }
 
-        ParameterContext parameterContext = new ParameterContext(new Object[0], new Object[0][], null);
-        return planner.plan(analyzer.analyze(SqlParser.createStatement(stmt), parameterContext), UUID.randomUUID());
+    public Tuple<Plan, Analysis> analysisAndPlan(SQLRequest request, String nodeId) {
+        Analyzer analyzer = internalCluster().getInstance(Analyzer.class, nodeId);
+        Planner planner = internalCluster().getInstance(Planner.class, nodeId);
+
+        ParameterContext parameterContext = new ParameterContext(request.args(), new Object[0][], null);
+        Analysis analysis = analyzer.analyze(SqlParser.createStatement(request.stmt()), parameterContext);
+        Plan plan = planner.plan(analysis, UUID.randomUUID());
+        return new Tuple<>(plan, analysis);
     }
 
     public ListenableFuture<List<TaskResult>> execute(Plan plan) {
@@ -281,6 +291,24 @@ public abstract class SQLTransportIntegrationTest extends ElasticsearchIntegrati
         List<? extends ListenableFuture<TaskResult>> futures = transportExecutor.execute(job);
         return Futures.allAsList(futures);
     }
+
+    public ListenableFuture<SQLResponse> execute(Plan plan, Analysis analysis, SQLRequest request, String nodeId) {
+        TransportSQLAction transportSQLAction = internalCluster().getInstance(TransportSQLAction.class, nodeId);
+        final SettableFuture<SQLResponse> responseFuture = SettableFuture.<SQLResponse>create();
+        transportSQLAction.executePlan(analysis, plan, new ActionListener<SQLResponse>() {
+            @Override
+            public void onResponse(SQLResponse sqlResponse) {
+                responseFuture.set(sqlResponse);
+            }
+
+            @Override
+            public void onFailure(Throwable e) {
+                responseFuture.setException(e);
+            }
+        }, request, 0);
+        return responseFuture;
+    }
+
 
     /**
      * Execute an SQL Statement on a random node of the cluster
