@@ -158,7 +158,7 @@ public class CrateDocCollector implements CrateCollector {
 
     private void innerCollect(Collector collector, Weight weight, Iterator<AtomicReaderContext> leavesIt, @Nullable BulkScorer scorer) {
         try {
-            if (collectLeaves(collector, weight, leavesIt, scorer) == Result.FINISHED) {
+            if (collectLeaves(collector, weight, leavesIt, scorer) == Result.FINISHED || upstreamState.isKilled()) {
                 finishCollect();
             } else {
                 traceLog("paused collect");
@@ -183,6 +183,10 @@ public class CrateDocCollector implements CrateCollector {
     }
 
     private void finishCollect() {
+        if (upstreamState.isKilled()) {
+            fail(upstreamState.killedThrowable());
+            return;
+        }
         debugLog("finished collect");
         searchContext.searcher().finishStage(ContextIndexSearcher.Stage.MAIN_QUERY);
         searchContext.clearReleasables(SearchContext.Lifetime.PHASE);

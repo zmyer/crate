@@ -76,6 +76,11 @@ public class TopRowUpstream implements RowUpstream, ExecutionState {
         }
     }
 
+    @Nullable
+    public Throwable killedThrowable() {
+        return killedThrowable;
+    }
+
 
     /**
      * this methods checks if the downstream requested a pause.
