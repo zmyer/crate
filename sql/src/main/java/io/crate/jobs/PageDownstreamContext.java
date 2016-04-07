@@ -145,9 +145,11 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         synchronized (lock) {
             traceLog("method=failure", bucketIdx, throwable);
             if (allFuturesSet.get(bucketIdx)) {
-                pageDownstream.fail(new IllegalStateException(String.format(Locale.ENGLISH,
+                String msg = String.format(Locale.ENGLISH,
                         "Same bucket of a page set more than once. node=%s method=failure phaseId=%d bucket=%d",
-                        nodeName, id(), bucketIdx)));
+                        nodeName, id(), bucketIdx);
+                logger.debug(msg);
+                pageDownstream.fail(new IllegalStateException(msg, throwable));
                 return;
             }
             if (pageEmpty()) {
@@ -194,14 +196,17 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         } else {
             pageDownstream.fail(throwable);
         }
-
-        future.bytesUsed(ramAccountingContext.totalBytes());
-        ramAccountingContext.close();
     }
 
     @Override
     protected void innerKill(@Nonnull Throwable t) {
-        innerClose(t);
+        pageDownstream.fail(t);
+    }
+
+    @Override
+    protected void cleanup() {
+        future.bytesUsed(ramAccountingContext.totalBytes());
+        ramAccountingContext.close();
     }
 
     @Override
