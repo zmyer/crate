@@ -68,8 +68,6 @@ public class SubExecutionContextFuture implements ListenableFuture<SubExecutionC
     public boolean close(@Nullable Throwable t) {
         if (t == null) {
             return internalFuture.set(state);
-        } else if (t instanceof CancellationException){
-            return internalFuture.cancel(true);
         } else {
             return internalFuture.setException(t);
         }

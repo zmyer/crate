@@ -35,6 +35,7 @@ import org.elasticsearch.common.util.Callback;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -268,7 +269,14 @@ public class JobExecutionContext {
             }
             logger.trace("onFailure killing all other subContexts, subContextCount={}...", subContexts.size());
             for (ExecutionSubContext subContext : subContexts.values()) {
-                subContext.kill(t);
+                if (t instanceof CancellationException) {
+                    subContext.kill(t);
+                } else {
+                    // lets wrap the cause into an cancellation exception to prevent forwarding of this failure
+                    Throwable wrapper = new CancellationException();
+                    wrapper.initCause(t);
+                    subContext.kill(wrapper);
+                }
             }
         }
     }

@@ -28,6 +28,7 @@ import org.elasticsearch.transport.RemoteTransportException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
 public class Exceptions {
@@ -38,7 +39,8 @@ public class Exceptions {
         while (result instanceof RemoteTransportException ||
                 result instanceof UncheckedExecutionException ||
                 result instanceof UncategorizedExecutionException ||
-                result instanceof ExecutionException) {
+                result instanceof ExecutionException ||
+                result instanceof CancellationException) {
             Throwable cause = result.getCause();
             if (cause == null) {
                 return result;
