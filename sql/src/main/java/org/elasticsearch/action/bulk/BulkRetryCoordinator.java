@@ -21,6 +21,8 @@
 
 package org.elasticsearch.action.bulk;
 
+import com.google.common.util.concurrent.SettableFuture;
+import io.crate.action.ActionListeners;
 import io.crate.executor.transport.ShardRequest;
 import io.crate.executor.transport.ShardResponse;
 import org.elasticsearch.action.ActionListener;
@@ -29,10 +31,7 @@ import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 
 import java.util.Locale;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadFactory;
@@ -43,7 +42,8 @@ import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadF
 public class BulkRetryCoordinator {
 
     private static final ESLogger LOGGER = Loggers.getLogger(BulkRetryCoordinator.class);
-    private static final int DELAY_INCREMENT = 1;
+    private static final int RETRY_DELAY_INCREMENT = 100;
+    private static final int MAX_RETRY_DELAY = 1000;
 
     private final ReadWriteLock retryLock;
     private final AtomicInteger currentDelay;
@@ -61,19 +61,37 @@ public class BulkRetryCoordinator {
         return retryLock;
     }
 
-    public void retry(final ShardRequest request,
+    public void retry(final int retryCount,
+                      final ShardRequest request,
                       final BulkRequestExecutor executor,
                       boolean repeatingRetry,
                       ActionListener<ShardResponse> listener) {
-        trace("doRetry");
+        trace(String.format("doRetry: %d", retryCount));
         final RetryBulkActionListener retryBulkActionListener = new RetryBulkActionListener(listener);
         if (repeatingRetry) {
-            try {
-                Thread.sleep(currentDelay.getAndAdd(DELAY_INCREMENT));
-            } catch (InterruptedException e) {
-                Thread.interrupted();
+            ShardResponse response = null;
+            int counter = retryCount;
+            while (response == null) {
+                try {
+                    Thread.sleep(Math.min(MAX_RETRY_DELAY, currentDelay.getAndAdd(RETRY_DELAY_INCREMENT)));
+                } catch (InterruptedException e) {
+                    retryBulkActionListener.onFailure(e);
+                    return;
+                }
+                counter++;
+                SettableFuture<ShardResponse> future = SettableFuture.create();
+                executor.execute(request, ActionListeners.wrap(future));
+                try {
+                    response = future.get();
+                } catch (Throwable e) {
+                    LOGGER.debug("Failed to get shard response: [{}]", e.getMessage(), e.getCause());
+                    retryBulkActionListener.onFailure(e);
+                    return;
+                }
             }
-            executor.execute(request, retryBulkActionListener);
+            LOGGER.info("We got a shard response after {} retries: {}", counter, response);
+            // we got a response - pass it to the retryBulkActionListener!
+            retryBulkActionListener.onResponse(response);
         } else {
             // new retries will be spawned in new thread because they can block
             retryExecutorService.schedule(
@@ -90,7 +108,7 @@ public class BulkRetryCoordinator {
                             LOGGER.trace("retry thread [{}] executing", Thread.currentThread().getName());
                             executor.execute(request, retryBulkActionListener);
                         }
-                    }, currentDelay.getAndAdd(DELAY_INCREMENT), TimeUnit.MILLISECONDS);
+                    }, currentDelay.getAndAdd(RETRY_DELAY_INCREMENT), TimeUnit.MILLISECONDS);
         }
     }
 
@@ -126,15 +144,20 @@ public class BulkRetryCoordinator {
             this.listener = listener;
         }
 
-        @Override
-        public void onResponse(ShardResponse response) {
+        private void reset() {
             currentDelay.set(0);
             retryLock.releaseWriteLock();
+        }
+
+        @Override
+        public void onResponse(ShardResponse response) {
+            reset();
             listener.onResponse(response);
         }
 
         @Override
         public void onFailure(Throwable e) {
+            reset();
             listener.onFailure(e);
         }
     }

@@ -262,7 +262,7 @@ public class BulkShardProcessor<Request extends ShardRequest> {
 
                     @Override
                     public void onFailure(Throwable e) {
-                        processFailure(e, shardId, request, com.google.common.base.Optional.<BulkRetryCoordinator>absent());
+                        processFailure(0, e, shardId, request, com.google.common.base.Optional.<BulkRetryCoordinator>absent());
                     }
                 });
                 it.remove();
@@ -296,7 +296,7 @@ public class BulkShardProcessor<Request extends ShardRequest> {
 
 
         if (pendings.size() > 0 || indices.size() > 0) {
-            LOGGER.debug("create {} pending indices in bulk...", indices.size());
+            LOGGER.debug("create {} pending indices in bulk...", pendings.size());
             BulkCreateIndicesRequest bulkCreateIndicesRequest = new BulkCreateIndicesRequest(indices, jobId);
 
             final FutureCallback<Void> indicesCreatedCallback = new FutureCallback<Void>() {
@@ -339,7 +339,11 @@ public class BulkShardProcessor<Request extends ShardRequest> {
                 transportBulkCreateIndicesAction.execute(bulkCreateIndicesRequest, new ActionListener<BulkCreateIndicesResponse>() {
                     @Override
                     public void onResponse(BulkCreateIndicesResponse response) {
-                        indicesCreated.addAll(indices);
+                        if (response.isAcknowledged()) {
+                            indicesCreated.addAll(indices);
+                        } else {
+                            LOGGER.trace("BulkCreateIndicesRequest for indices {} not acknowledged!", indices);
+                        }
                         indicesCreatedCallback.onSuccess(null);
                     }
 
@@ -428,7 +432,7 @@ public class BulkShardProcessor<Request extends ShardRequest> {
         trace("response executed.");
     }
 
-    private void processFailure(Throwable e, final ShardId shardId, final Request request, com.google.common.base.Optional<BulkRetryCoordinator> retryCoordinator) {
+    private void processFailure(final int retryCount, Throwable e, final ShardId shardId, final Request request, com.google.common.base.Optional<BulkRetryCoordinator> retryCoordinator) {
         trace("execute failure");
         e = Exceptions.unwrap(e);
 
@@ -464,7 +468,7 @@ public class BulkShardProcessor<Request extends ShardRequest> {
         }
         if (e instanceof EsRejectedExecutionException) {
             LOGGER.trace("{}, retrying", e.getMessage());
-            coordinator.retry(request, requestExecutor, retryCoordinator.isPresent(), new ActionListener<ShardResponse>() {
+            coordinator.retry(retryCount, request, requestExecutor, retryCoordinator.isPresent(), new ActionListener<ShardResponse>() {
                 @Override
                 public void onResponse(ShardResponse response) {
                     processResponse(response);
@@ -472,7 +476,8 @@ public class BulkShardProcessor<Request extends ShardRequest> {
 
                 @Override
                 public void onFailure(Throwable e) {
-                    processFailure(e, shardId, request, com.google.common.base.Optional.of(coordinator));
+                    LOGGER.debug("RetryCoordinator.onFailure {}", retryCount);
+                    processFailure(retryCount+1, e, shardId, request, com.google.common.base.Optional.of(coordinator));
                 }
             });
         } else {

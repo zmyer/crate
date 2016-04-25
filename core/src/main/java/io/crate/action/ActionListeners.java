@@ -84,4 +84,26 @@ public class ActionListeners {
             future.setException(e);
         }
     }
+
+    public static <Response> ActionListener<Response> wrap(final SettableFuture<Response> future) {
+        return new SettableResponseActionListener<>(future);
+    }
+
+    private static class SettableResponseActionListener<Response> implements ActionListener<Response> {
+        private final SettableFuture<Response> future;
+
+        SettableResponseActionListener(SettableFuture<Response> future) {
+            this.future = future;
+        }
+
+        @Override
+        public void onResponse(Response response) {
+            future.set(response);
+        }
+
+        @Override
+        public void onFailure(Throwable e) {
+            future.set(null);
+        }
+    }
 }
