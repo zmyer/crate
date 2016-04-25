@@ -22,6 +22,7 @@
 package io.crate.jobs;
 
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.Streamer;
 import io.crate.breaker.RamAccountingContext;
@@ -201,8 +202,9 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     }
 
     @Override
-    protected void innerKill(@Nonnull Throwable t) {
+    protected ListenableFuture<?> innerKill(@Nonnull Throwable t) {
         innerClose(t);
+        return Futures.immediateFuture(null);
     }
 
     @Override

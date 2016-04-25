@@ -25,6 +25,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.breaker.SizeEstimator;
 import io.crate.breaker.SizeEstimatorFactory;
@@ -109,9 +110,9 @@ public class GroupingProjector extends AbstractProjector {
     }
 
     @Override
-    public void kill(Throwable throwable) {
+    public ListenableFuture<?> kill(Throwable throwable) {
         killed = true;
-        grouper.kill(throwable);
+        return grouper.kill(throwable);
     }
 
     @Override
@@ -155,7 +156,7 @@ public class GroupingProjector extends AbstractProjector {
     private interface Grouper extends AutoCloseable {
         boolean setNextRow(final Row row);
         void finish();
-        void kill(Throwable t);
+        ListenableFuture<?> kill(Throwable t);
     }
 
     private class SingleKeyGrouper implements Grouper {
@@ -242,12 +243,12 @@ public class GroupingProjector extends AbstractProjector {
         }
 
         @Override
-        public void kill(Throwable t) {
+        public ListenableFuture<?> kill(Throwable t) {
             IterableRowEmitter emitter = rowEmitter;
             if (emitter == null) {
-                downstream.kill(t);
+                return downstream.kill(t);
             } else {
-                emitter.kill(t);
+                return emitter.kill(t);
             }
         }
 
@@ -356,12 +357,12 @@ public class GroupingProjector extends AbstractProjector {
         }
 
         @Override
-        public void kill(Throwable t) {
+        public ListenableFuture<?> kill(Throwable t) {
             IterableRowEmitter emitter = rowEmitter;
             if (emitter == null) {
-                downstream.kill(t);
+                return downstream.kill(t);
             } else {
-                emitter.kill(t);
+                return emitter.kill(t);
             }
         }
 

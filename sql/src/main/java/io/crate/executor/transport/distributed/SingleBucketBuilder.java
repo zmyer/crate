@@ -75,8 +75,9 @@ public class SingleBucketBuilder implements RowReceiver {
     }
 
     @Override
-    public void kill(Throwable throwable) {
+    public ListenableFuture<?> kill(Throwable throwable) {
         bucketFuture.setException(throwable);
+        return bucketFuture;
     }
 
     @Override

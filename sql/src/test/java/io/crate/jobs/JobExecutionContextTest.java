@@ -22,6 +22,8 @@
 package io.crate.jobs;
 
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Streamer;
 import io.crate.action.job.SharedShardContexts;
 import io.crate.breaker.RamAccountingContext;
@@ -205,12 +207,13 @@ public class JobExecutionContextTest extends CrateUnitTest {
         }
 
         @Override
-        public void innerKill(@Nonnull Throwable throwable) {
+        public ListenableFuture<?> innerKill(@Nonnull Throwable throwable) {
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
                 throw Throwables.propagate(e);
             }
+            return Futures.immediateFuture(null);
         }
 
         @Override

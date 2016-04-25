@@ -21,10 +21,12 @@
 
 package io.crate.operation.collect;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
 import javax.annotation.Nullable;
 
 public interface CrateCollector {
 
     void doCollect();
-    void kill(@Nullable Throwable throwable);
+    ListenableFuture<?> kill(@Nullable Throwable throwable);
 }

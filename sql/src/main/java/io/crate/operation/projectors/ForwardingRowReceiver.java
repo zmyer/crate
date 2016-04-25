@@ -22,6 +22,7 @@
 
 package io.crate.operation.projectors;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 
@@ -66,7 +67,7 @@ public abstract class ForwardingRowReceiver implements RowReceiver {
     }
 
     @Override
-    public void kill(Throwable throwable) {
-        rowReceiver.kill(throwable);
+    public ListenableFuture<?> kill(Throwable throwable) {
+        return rowReceiver.kill(throwable);
     }
 }

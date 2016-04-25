@@ -190,8 +190,10 @@ public class ExecutionPhasesTask extends JobTask {
         }
 
         @Override
-        public void kill(Throwable throwable) {
+        public ListenableFuture<?> kill(Throwable throwable) {
             fail(throwable);
+            // TODO: wait for forwarded failure response
+            return Futures.immediateFuture(null);
         }
 
         @Override

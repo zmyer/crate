@@ -22,6 +22,9 @@
 
 package io.crate.jobs;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.exceptions.JobKilledException;
 import org.elasticsearch.common.logging.ESLogger;
 
@@ -101,7 +104,8 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
         close(null);
     }
 
-    protected void innerKill(@Nonnull Throwable t) {
+    protected ListenableFuture<?> innerKill(@Nonnull Throwable t) {
+        return Futures.immediateFuture(null);
     }
 
     @Override
@@ -111,14 +115,19 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
                 t = new CancellationException(JobKilledException.MESSAGE);
             }
             logger.trace("killing id={} ctx={} cause={}", id, this, t);
+            ListenableFuture<?> killFuture = null;
             try {
-                innerKill(t);
+                killFuture = innerKill(t);
             } catch (Throwable t2) {
                 logger.warn("killing due to exception, but killing also throws exception", t2);
             } finally {
                 cleanup();
             }
-            future.close(t);
+            if (killFuture == null) {
+                future.close(t);
+            } else {
+                Futures.addCallback(killFuture, new KillFutureCallback(future, t));
+            }
         }
     }
 
@@ -134,5 +143,26 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
      */
     protected void cleanup() {
 
+    }
+
+    private static class KillFutureCallback implements FutureCallback<Object> {
+
+        private final SubExecutionContextFuture future;
+        private final Throwable killCause;
+
+        public KillFutureCallback(SubExecutionContextFuture future, Throwable killCause) {
+            this.future = future;
+            this.killCause = killCause;
+        }
+
+        @Override
+        public void onSuccess(@Nullable Object result) {
+            future.close(killCause);
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            future.close(killCause);
+        }
     }
 }

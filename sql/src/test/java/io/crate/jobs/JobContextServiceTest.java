@@ -22,6 +22,8 @@
 package io.crate.jobs;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Streamer;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.operation.PageDownstream;
@@ -33,8 +35,6 @@ import org.elasticsearch.common.breaker.NoopCircuitBreaker;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -113,8 +113,9 @@ public class JobContextServiceTest extends CrateUnitTest {
         ExecutionSubContext dummyContext = new DummySubContext() {
 
             @Override
-            public void innerKill(@Nonnull Throwable throwable) {
+            public ListenableFuture<?> innerKill(@Nonnull Throwable throwable) {
                 killCalled.set(true);
+                return Futures.immediateFuture(null);
             }
         };
 
@@ -140,8 +141,9 @@ public class JobContextServiceTest extends CrateUnitTest {
         ExecutionSubContext dummyContext = new DummySubContext() {
 
             @Override
-            public void innerKill(@Nonnull Throwable throwable) {
+            public ListenableFuture<?> innerKill(@Nonnull Throwable throwable) {
                 killCalled.set(true);
+                return Futures.immediateFuture(null);
             }
         };
 
@@ -153,8 +155,9 @@ public class JobContextServiceTest extends CrateUnitTest {
         builder = jobContextService.newBuilder(UUID.randomUUID());
         builder.addSubContext(new DummySubContext() {
             @Override
-            public void innerKill(@Nonnull Throwable throwable) {
+            public ListenableFuture<?> innerKill(@Nonnull Throwable throwable) {
                 kill2Called.set(true);
+                return Futures.immediateFuture(null);
             }
         });
         jobContextService.createContext(builder);

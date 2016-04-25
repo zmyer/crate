@@ -24,6 +24,7 @@ package io.crate.operation.projectors;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.analyze.symbol.Assignments;
 import io.crate.analyze.symbol.Reference;
 import io.crate.analyze.symbol.Symbol;
@@ -140,10 +141,11 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
     }
 
     @Override
-    public void kill(Throwable throwable) {
-        super.kill(throwable);
+    public ListenableFuture<?> kill(Throwable throwable) {
+        ListenableFuture<?> future = super.kill(throwable);
         failed.set(true);
         bulkShardProcessor.kill(throwable);
+        return future;
     }
 
     @Override

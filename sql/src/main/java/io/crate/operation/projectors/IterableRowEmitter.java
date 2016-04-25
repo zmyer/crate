@@ -23,6 +23,7 @@
 package io.crate.operation.projectors;
 
 import com.google.common.base.Optional;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.crate.core.collections.Row;
 import io.crate.operation.collect.collectors.TopRowUpstream;
@@ -59,8 +60,8 @@ public class IterableRowEmitter implements Runnable {
         this(rowReceiver, rows, Optional.<Executor>absent());
     }
 
-    public void kill(Throwable t) {
-        rowReceiver.kill(t);
+    public ListenableFuture<?> kill(Throwable t) {
+        return rowReceiver.kill(t);
     }
 
     @Override

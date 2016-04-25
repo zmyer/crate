@@ -22,6 +22,7 @@
 package io.crate.operation;
 
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.core.collections.Row;
 import io.crate.executor.RowCountResult;
@@ -68,9 +69,10 @@ public class RowCountResultRowDownstream implements RowReceiver {
     }
 
     @Override
-    public void kill(Throwable throwable) {
+    public ListenableFuture<?> kill(Throwable throwable) {
         killed = true;
         result.setException(throwable);
+        return result;
     }
 
     @Override

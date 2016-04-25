@@ -24,6 +24,8 @@ package io.crate.jobs;
 
 import com.carrotsearch.ant.tasks.junit4.dependencies.com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.test.integration.CrateUnitTest;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -109,8 +111,9 @@ public abstract class AbstractExecutionSubContextTest extends CrateUnitTest {
         }
 
         @Override
-        protected void innerKill(@Nonnull Throwable t) {
+        protected ListenableFuture<?> innerKill(@Nonnull Throwable t) {
             numKill.incrementAndGet();
+            return Futures.immediateFuture(null);
         }
 
         @Override

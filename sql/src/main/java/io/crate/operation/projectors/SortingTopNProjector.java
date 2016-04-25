@@ -24,6 +24,7 @@ package io.crate.operation.projectors;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Constants;
 import io.crate.core.collections.ArrayBucket;
 import io.crate.core.collections.Row;
@@ -111,12 +112,12 @@ public class SortingTopNProjector extends AbstractProjector {
     }
 
     @Override
-    public void kill(Throwable throwable) {
+    public ListenableFuture<?> kill(Throwable throwable) {
         IterableRowEmitter emitter = rowEmitter;
         if (emitter == null) {
-            downstream.kill(throwable);
+            return downstream.kill(throwable);
         } else {
-            emitter.kill(throwable);
+            return emitter.kill(throwable);
         }
     }
 

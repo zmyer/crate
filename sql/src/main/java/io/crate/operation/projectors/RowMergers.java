@@ -23,6 +23,7 @@
 package io.crate.operation.projectors;
 
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.core.collections.ArrayRow;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowDownstream;
@@ -140,8 +141,8 @@ public class RowMergers {
         }
 
         @Override
-        public void kill(Throwable throwable) {
-            delegate.kill(throwable);
+        public ListenableFuture<?> kill(Throwable throwable) {
+            return delegate.kill(throwable);
         }
 
         @Override

@@ -23,6 +23,7 @@ package io.crate.jobs;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.operation.join.NestedLoopOperation;
 import io.crate.operation.projectors.FlatProjectorChain;
 import io.crate.operation.projectors.ListenableRowReceiver;
@@ -32,6 +33,8 @@ import org.elasticsearch.common.logging.Loggers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -129,16 +132,19 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
     }
 
     @Override
-    protected void innerKill(@Nullable Throwable t) {
-        killSubContext(t, leftPageDownstreamContext, leftRowReceiver);
-        killSubContext(t, rightPageDownstreamContext, rightRowReceiver);
+    protected ListenableFuture<?> innerKill(@Nullable Throwable t) {
+        List<ListenableFuture<?>> futures = new ArrayList<>(2);
+        futures.add(killSubContext(t, leftPageDownstreamContext, leftRowReceiver));
+        futures.add(killSubContext(t, rightPageDownstreamContext, rightRowReceiver));
+        return Futures.successfulAsList(futures);
     }
 
-    private static void killSubContext(Throwable t, @Nullable PageDownstreamContext subContext, ListenableRowReceiver rowReceiver) {
+    private static ListenableFuture<?> killSubContext(Throwable t, @Nullable PageDownstreamContext subContext, ListenableRowReceiver rowReceiver) {
         if (subContext == null) {
-            rowReceiver.kill(t);
+            return rowReceiver.kill(t);
         } else {
             subContext.kill(t);
+            return Futures.immediateFuture(null);
         }
     }
 

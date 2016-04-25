@@ -25,6 +25,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
 import io.crate.operation.RowUpstream;
@@ -207,8 +208,8 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
     }
 
     @Override
-    public void kill(@Nullable Throwable throwable) {
-        downstream.kill(throwable);
+    public ListenableFuture<?> kill(@Nullable Throwable throwable) {
+        return downstream.kill(throwable);
     }
 
     private boolean readLines(FileInput fileInput,

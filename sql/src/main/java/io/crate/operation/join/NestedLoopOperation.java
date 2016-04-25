@@ -160,9 +160,9 @@ public class NestedLoopOperation implements RowUpstream {
         }
 
         @Override
-        public void kill(Throwable throwable) {
+        public ListenableFuture<?> kill(Throwable throwable) {
             killBoth(throwable);
-            downstream.kill(throwable);
+            return downstream.kill(throwable);
         }
 
         @Override

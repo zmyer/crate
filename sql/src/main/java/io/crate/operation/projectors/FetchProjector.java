@@ -27,6 +27,7 @@ import com.carrotsearch.hppc.IntObjectMap;
 import com.carrotsearch.hppc.IntSet;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import com.carrotsearch.hppc.cursors.IntObjectCursor;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Streamer;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.Symbols;
@@ -314,8 +315,8 @@ public class FetchProjector extends AbstractProjector {
     }
 
     @Override
-    public void kill(Throwable throwable) {
-        downstream.kill(throwable);
+    public ListenableFuture<?> kill(Throwable throwable) {
+        return downstream.kill(throwable);
     }
 
     private static class IndexInfo {

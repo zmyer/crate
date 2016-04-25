@@ -22,6 +22,7 @@
 
 package io.crate.operation.projectors;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 
@@ -68,8 +69,9 @@ public interface RowReceiver {
      *
      * If a RowReceiver doesn't delegate the kill to another RowReceiver the rowReceiver has to return false on the
      * next setNextRow call in order to stop collect operations.
+     * Either return the future of another RowReceiver or a new one which will be called on {@link #finish()} or {@link #fail(Throwable)}.
      */
-    void kill(Throwable throwable);
+    ListenableFuture<?> kill(Throwable throwable);
 
     /**
      * prepares / starts the RowReceiver, after this call it must be ready to receive rows

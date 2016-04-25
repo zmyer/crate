@@ -23,6 +23,7 @@ package io.crate.jobs;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.operation.projectors.*;
 import io.crate.planner.projection.Projection;
@@ -74,8 +75,8 @@ public class ProjectorChainContext extends AbstractExecutionSubContext {
     }
 
     @Override
-    protected void innerKill(@Nonnull Throwable t) {
-        rowReceiver.kill(t);
+    protected ListenableFuture<?> innerKill(@Nonnull Throwable t) {
+        return rowReceiver.kill(t);
     }
 
     @Override

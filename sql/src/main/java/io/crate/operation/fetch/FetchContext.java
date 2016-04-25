@@ -23,6 +23,7 @@ package io.crate.operation.fetch;
 
 import com.carrotsearch.hppc.IntObjectHashMap;
 import com.carrotsearch.hppc.cursors.IntObjectCursor;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.action.job.SharedShardContext;
 import io.crate.action.job.SharedShardContexts;
 import io.crate.analyze.symbol.Reference;
@@ -143,8 +144,9 @@ public class FetchContext extends AbstractExecutionSubContext {
     }
 
     @Override
-    protected void innerKill(@Nullable Throwable t) {
+    protected ListenableFuture<?> innerKill(@Nullable Throwable t) {
         innerClose(t);
+        return super.innerKill(t);
     }
 
     @Override

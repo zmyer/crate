@@ -21,6 +21,7 @@
 
 package io.crate.jobs;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.executor.transport.ShardRequest;
 import org.elasticsearch.action.bulk.BulkShardProcessor;
 import org.elasticsearch.common.logging.ESLogger;
@@ -46,8 +47,9 @@ public class BulkShardProcessorContext extends AbstractExecutionSubContext {
     }
 
     @Override
-    protected void innerKill(@Nonnull Throwable t) {
+    protected ListenableFuture<?> innerKill(@Nonnull Throwable t) {
         bulkShardProcessor.kill(t);
+        return super.innerKill(t);
     }
 
     @Override

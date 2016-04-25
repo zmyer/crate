@@ -230,11 +230,11 @@ public class MultiShardScoreDocCollector implements CrateCollector {
     }
 
     @Override
-    public void kill(@Nullable Throwable throwable) {
+    public ListenableFuture<?> kill(@Nullable Throwable throwable) {
         if (rowEmitter == null) {
-            rowReceiver.kill(throwable);
+            return rowReceiver.kill(throwable);
         } else {
-            rowEmitter.kill(throwable);
+            return rowEmitter.kill(throwable);
         }
     }
 }

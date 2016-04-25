@@ -22,6 +22,7 @@
 
 package io.crate.operation.collect.collectors;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.action.sql.query.CrateSearchContext;
 import io.crate.breaker.CrateCircuitBreakerService;
 import io.crate.breaker.RamAccountingContext;
@@ -228,8 +229,8 @@ public class CrateDocCollector implements CrateCollector {
     }
 
     @Override
-    public void kill(@Nullable Throwable throwable) {
-        rowReceiver.kill(throwable);
+    public ListenableFuture<?> kill(@Nullable Throwable throwable) {
+        return rowReceiver.kill(throwable);
     }
 
     static class State {

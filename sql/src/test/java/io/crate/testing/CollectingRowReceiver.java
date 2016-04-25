@@ -23,6 +23,7 @@
 package io.crate.testing;
 
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.crate.core.collections.Bucket;
@@ -80,8 +81,9 @@ public class CollectingRowReceiver implements RowReceiver {
     }
 
     @Override
-    public void kill(Throwable throwable) {
-        resultFuture.setException(throwable);
+    public ListenableFuture<?> kill(Throwable throwable) {
+        fail(throwable);
+        return resultFuture;
     }
 
     @Override

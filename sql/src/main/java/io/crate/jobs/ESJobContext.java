@@ -21,6 +21,7 @@
 
 package io.crate.jobs;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.executor.TaskResult;
 import io.crate.operation.projectors.FlatProjectorChain;
@@ -80,10 +81,11 @@ public class ESJobContext extends AbstractExecutionSubContext {
     }
 
     @Override
-    protected void innerKill(@Nonnull Throwable t) {
+    protected ListenableFuture<?> innerKill(@Nonnull Throwable t) {
         for (Future<?> resultFuture : resultFutures) {
             resultFuture.cancel(true);
         }
+        return super.innerKill(t);
     }
 
     @Override

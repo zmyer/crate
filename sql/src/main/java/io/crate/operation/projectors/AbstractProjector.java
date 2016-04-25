@@ -22,6 +22,7 @@
 
 package io.crate.operation.projectors;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 
@@ -54,8 +55,8 @@ public abstract class AbstractProjector implements Projector {
     }
 
     @Override
-    public void kill(Throwable throwable) {
-        downstream.kill(throwable);
+    public ListenableFuture<?> kill(Throwable throwable) {
+        return downstream.kill(throwable);
     }
 
     @Override
@@ -119,7 +120,7 @@ public abstract class AbstractProjector implements Projector {
         }
 
         @Override
-        public void kill(Throwable throwable) {
+        public ListenableFuture<?> kill(Throwable throwable) {
             throw new IllegalStateException(STATE_ERROR);
         }
 

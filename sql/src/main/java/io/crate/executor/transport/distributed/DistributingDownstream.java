@@ -22,6 +22,8 @@
 package io.crate.executor.transport.distributed;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Streamer;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
@@ -167,9 +169,11 @@ public class DistributingDownstream implements RowReceiver {
     }
 
     @Override
-    public void kill(Throwable throwable) {
+    public ListenableFuture<?> kill(Throwable throwable) {
         killed = true;
         // downstream will also receive a kill request
+        // TODO: wait for forwarded failure response
+        return Futures.immediateFuture(null);
     }
 
     @Override

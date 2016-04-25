@@ -21,6 +21,7 @@
 
 package io.crate.jobs;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.executor.TaskResult;
 import io.crate.executor.transport.ShardResponse;
@@ -114,8 +115,9 @@ public class UpsertByIdContext extends AbstractExecutionSubContext {
 
 
     @Override
-    public void innerKill(@Nonnull Throwable throwable) {
+    public ListenableFuture<?> innerKill(@Nonnull Throwable throwable) {
         futureResult.cancel(true);
+        return futureResult;
     }
 
     @Override

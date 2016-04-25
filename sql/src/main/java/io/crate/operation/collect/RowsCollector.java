@@ -22,6 +22,7 @@
 package io.crate.operation.collect;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.core.collections.Row;
 import io.crate.operation.projectors.IterableRowEmitter;
 import io.crate.operation.projectors.RowReceiver;
@@ -50,7 +51,7 @@ public class RowsCollector implements CrateCollector {
     }
 
     @Override
-    public void kill(@Nullable Throwable throwable) {
-        emitter.kill(throwable);
+    public ListenableFuture<?> kill(@Nullable Throwable throwable) {
+        return emitter.kill(throwable);
     }
 }

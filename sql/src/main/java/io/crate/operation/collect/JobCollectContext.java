@@ -26,6 +26,7 @@ import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.crate.action.job.SharedShardContexts;
 import io.crate.action.sql.query.CrateSearchContext;
@@ -44,9 +45,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Locale;
+import java.util.*;
 
 public class JobCollectContext extends AbstractExecutionSubContext {
 
@@ -136,13 +135,15 @@ public class JobCollectContext extends AbstractExecutionSubContext {
     }
 
     @Override
-    public void innerKill(@Nonnull Throwable throwable) {
+    public ListenableFuture<?> innerKill(@Nonnull Throwable throwable) {
+        List<ListenableFuture<?>> futures = new ArrayList<>(collectors.size());
         if (collectors != null) {
             for (CrateCollector collector : collectors) {
-                collector.kill(throwable);
+                futures.add(collector.kill(throwable));
             }
         }
         future.bytesUsed(queryPhaseRamAccountingContext.totalBytes());
+        return Futures.successfulAsList(futures);
     }
 
     @Override
