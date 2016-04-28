@@ -23,6 +23,8 @@ package io.crate.jobs;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import io.crate.operation.OperationListener;
+import io.crate.operation.OperationObserver;
 import io.crate.operation.join.NestedLoopOperation;
 import io.crate.operation.projectors.FlatProjectorChain;
 import io.crate.operation.projectors.ListenableRowReceiver;
@@ -55,6 +57,7 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
     public NestedLoopContext(ESLogger logger,
                              NestedLoopPhase phase,
                              FlatProjectorChain flatProjectorChain,
+                             OperationObserver operationObserver,
                              NestedLoopOperation nestedLoopOperation,
                              @Nullable PageDownstreamContext leftPageDownstreamContext,
                              @Nullable PageDownstreamContext rightPageDownstreamContext) {
@@ -79,6 +82,14 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
         } else {
             rightPageDownstreamContext.future.addCallback(new RemoveContextCallback());
         }
+
+        operationObserver.addListener(new OperationListener() {
+            @Override
+            public void onDone(@Nullable Throwable t) {
+                close(t);
+                done(t);
+            }
+        });
     }
 
     @Override

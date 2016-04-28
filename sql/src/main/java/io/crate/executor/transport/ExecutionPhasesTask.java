@@ -33,13 +33,12 @@ import io.crate.core.collections.Bucket;
 import io.crate.exceptions.Exceptions;
 import io.crate.executor.JobTask;
 import io.crate.executor.TaskResult;
-import io.crate.executor.transport.kill.KillJobsRequest;
-import io.crate.executor.transport.kill.KillResponse;
 import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 import io.crate.jobs.*;
 import io.crate.operation.*;
 import io.crate.operation.projectors.ForwardingRowReceiver;
 import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.RowReceivers;
 import io.crate.planner.node.ExecutionPhase;
 import io.crate.planner.node.ExecutionPhases;
 import io.crate.planner.node.NodeOperationGrouper;
@@ -126,13 +125,13 @@ class ExecutionPhasesTask extends JobTask {
         Map<String, Collection<NodeOperation>> operationByServer = NodeOperationGrouper.groupByServer(nodeOperations);
         InitializationTracker initializationTracker = new InitializationTracker(operationByServer.size());
         List<Tuple<ExecutionPhase, RowReceiver>> handlerPhases = createHandlerPhases(initializationTracker);
-        try {
+        //try {
             setupContext(operationByServer, handlerPhases, initializationTracker);
-        } catch (Throwable throwable) {
-            for (SettableFuture<TaskResult> result : results) {
-                result.setException(throwable);
-            }
-        }
+        //} catch (Throwable throwable) {
+            //for (SettableFuture<TaskResult> result : results) {
+            //    result.setException(throwable);
+            //}
+        //}
     }
 
     private static class InitializationTracker {
@@ -163,21 +162,20 @@ class ExecutionPhasesTask extends JobTask {
         }
     }
 
-    private static class InterceptingRowReceiver extends ForwardingRowReceiver implements FutureCallback<Void> {
+    private static class InterceptingRowReceiver extends ForwardingRowReceiver implements FutureCallback<Void>, OperationObserver {
 
-        private final AtomicInteger upstreams = new AtomicInteger(2);
-        private final UUID jobId;
-        private final TransportKillJobsNodeAction transportKillJobsNodeAction;
+        private final AtomicInteger upstreamAndJobInitializedTracker = new AtomicInteger(2);
         private final AtomicBoolean rowReceiverDone = new AtomicBoolean(false);
+        private final OperationObserver operationObserver;
         private Throwable failure;
 
         InterceptingRowReceiver(UUID jobId,
                                 RowReceiver rowReceiver,
+                                OperationObserver operationObserver,
                                 InitializationTracker jobsInitialized,
                                 TransportKillJobsNodeAction transportKillJobsNodeAction) {
             super(rowReceiver);
-            this.jobId = jobId;
-            this.transportKillJobsNodeAction = transportKillJobsNodeAction;
+            this.operationObserver = operationObserver;
             Futures.addCallback(jobsInitialized.future, this);
         }
 
@@ -212,25 +210,25 @@ class ExecutionPhasesTask extends JobTask {
             if (throwable != null && (failure == null || failure instanceof InterruptedException)) {
                 failure = Exceptions.unwrap(throwable);
             }
-            if (upstreams.decrementAndGet() > 0) {
+            // We always wait for the upstream and for all jobs to be initialized before forwarding anything
+            if (upstreamAndJobInitializedTracker.decrementAndGet() > 0) {
                 return;
             }
             if (failure == null) {
                 super.finish();
             } else {
-                transportKillJobsNodeAction.executeKillOnAllNodes(
-                    new KillJobsRequest(Collections.singletonList(jobId)), new ActionListener<KillResponse>() {
-                        @Override
-                        public void onResponse(KillResponse killResponse) {
-                            InterceptingRowReceiver.super.fail(failure);
-                        }
-
-                        @Override
-                        public void onFailure(Throwable e) {
-                            InterceptingRowReceiver.super.fail(failure);
-                        }
-                    });
+                super.fail(failure);
             }
+        }
+
+        @Override
+        public boolean isSynchronous() {
+            return false;
+        }
+
+        @Override
+        public void addListener(OperationListener listener) {
+            operationObserver.addListener(listener);
         }
     }
 
@@ -241,18 +239,24 @@ class ExecutionPhasesTask extends JobTask {
             // bulk Operation with rowCountResult
             for (int i = 0; i < nodeOperationTrees.size(); i++) {
                 SettableFuture<TaskResult> result = results.get(i);
+                Tuple<RowReceiver, OperationObserver> observedRowReceiver = RowReceivers.observedRowReceiver(
+                    new RowCountResultRowDownstream(result));
                 RowReceiver receiver = new InterceptingRowReceiver(
                     jobId(),
-                    new RowCountResultRowDownstream(result),
+                    observedRowReceiver.v1(),
+                    observedRowReceiver.v2(),
                     initializationTracker,
                     transportKillJobsNodeAction);
                 handlerPhases.add(new Tuple<>(nodeOperationTrees.get(i).leaf(), receiver));
             }
         } else {
             SettableFuture<TaskResult> result = Iterables.getOnlyElement(results);
+            Tuple<RowReceiver, OperationObserver> observedRowReceiver = RowReceivers.observedRowReceiver(
+                new QueryResultRowDownstream(result));
             RowReceiver receiver = new InterceptingRowReceiver(
                 jobId(),
-                new QueryResultRowDownstream(result),
+                observedRowReceiver.v1(),
+                observedRowReceiver.v2(),
                 initializationTracker,
                 transportKillJobsNodeAction);
             handlerPhases.add(new Tuple<>(Iterables.getOnlyElement(nodeOperationTrees).leaf(), receiver));
@@ -262,7 +266,7 @@ class ExecutionPhasesTask extends JobTask {
 
     private void setupContext(Map<String, Collection<NodeOperation>> operationByServer,
                               List<Tuple<ExecutionPhase, RowReceiver>> handlerPhases,
-                              InitializationTracker initializationTracker) throws Throwable {
+                              InitializationTracker initializationTracker) {
 
         String localNodeId = clusterService.localNode().id();
         Collection<NodeOperation> localNodeOperations = operationByServer.remove(localNodeId);
@@ -274,7 +278,11 @@ class ExecutionPhasesTask extends JobTask {
         Tuple<List<ExecutionSubContext>, List<ListenableFuture<Bucket>>> onHandler =
             contextPreparer.prepareOnHandler(localNodeOperations, builder, handlerPhases, new SharedShardContexts(indicesService));
         JobExecutionContext localJobContext = jobContextService.createContext(builder);
-        localJobContext.start();
+        try {
+            localJobContext.start();
+        } catch (Throwable t) {
+            initializationTracker.jobInitialized(t);
+        }
 
         List<PageDownstreamContext> pageDownstreamContexts = getHandlerPageDownstreamContexts(onHandler);
         int bucketIdx = 0;

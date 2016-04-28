@@ -28,7 +28,6 @@ import io.crate.core.collections.Row1;
 import io.crate.core.collections.SingleRowBucket;
 import io.crate.operation.PageDownstream;
 import io.crate.operation.PageResultListener;
-import io.crate.operation.projectors.FlatProjectorChain;
 import io.crate.test.integration.CrateUnitTest;
 import org.elasticsearch.common.breaker.CircuitBreaker;
 import org.elasticsearch.common.breaker.NoopCircuitBreaker;
@@ -65,7 +64,7 @@ public class PageDownstreamContextTest extends CrateUnitTest {
         }).when(pageDownstream).fail((Throwable)notNull());
 
         PageDownstreamContext ctx = new PageDownstreamContext(Loggers.getLogger(PageDownstreamContext.class), "n1",
-                1, "dummy", pageDownstream, new Streamer[0], RAM_ACCOUNTING_CONTEXT, 3, mock(FlatProjectorChain.class));
+                1, "dummy", pageDownstream, new Streamer[0], RAM_ACCOUNTING_CONTEXT, 3, null, null);
 
         PageResultListener pageResultListener = mock(PageResultListener.class);
         ctx.setBucket(1, new SingleRowBucket(new Row1("foo")), false, pageResultListener);
@@ -81,7 +80,7 @@ public class PageDownstreamContextTest extends CrateUnitTest {
         PageDownstream downstream = mock(PageDownstream.class);
 
         PageDownstreamContext ctx = new PageDownstreamContext(Loggers.getLogger(PageDownstreamContext.class), "n1",
-                1, "dummy", downstream, new Streamer[0], RAM_ACCOUNTING_CONTEXT, 3, mock(FlatProjectorChain.class));
+                1, "dummy", downstream, new Streamer[0], RAM_ACCOUNTING_CONTEXT, 3, null, null);
         final AtomicReference<Throwable> throwable = new AtomicReference<>();
 
         ctx.future().addCallback(new FutureCallback<SubExecutionContextFuture.State>() {

@@ -23,6 +23,7 @@ package io.crate.operation.fetch;
 
 import com.carrotsearch.hppc.IntObjectHashMap;
 import com.carrotsearch.hppc.cursors.IntObjectCursor;
+import com.google.common.base.MoreObjects;
 import io.crate.action.job.SharedShardContext;
 import io.crate.action.job.SharedShardContexts;
 import io.crate.analyze.symbol.Reference;
@@ -148,6 +149,11 @@ public class FetchContext extends AbstractExecutionSubContext {
     }
 
     @Override
+    protected void cleanup() {
+        done(null);
+    }
+
+    @Override
     public String name() {
         return "fetchContext";
     }
@@ -175,4 +181,11 @@ public class FetchContext extends AbstractExecutionSubContext {
         return sharedShardContext.indexService();
     }
 
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+            .add("localNodeId", localNodeId)
+            .add("closed", future.closed())
+            .toString();
+    }
 }

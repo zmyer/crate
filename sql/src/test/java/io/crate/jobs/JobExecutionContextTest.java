@@ -31,9 +31,9 @@ import io.crate.operation.PageDownstream;
 import io.crate.operation.collect.JobCollectContext;
 import io.crate.operation.collect.MapSideDataCollectOperation;
 import io.crate.operation.collect.StatsTables;
-import io.crate.operation.projectors.RowReceiver;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.test.integration.CrateUnitTest;
+import io.crate.testing.CollectingRowReceiver;
 import io.crate.types.IntegerType;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -43,6 +43,7 @@ import org.junit.rules.ExpectedException;
 import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
@@ -60,7 +61,7 @@ public class JobExecutionContextTest extends CrateUnitTest {
     @Test
     public void testAddTheSameContextTwiceThrowsAnError() throws Exception {
         JobExecutionContext.Builder builder =
-                new JobExecutionContext.Builder(UUID.randomUUID(), mock(StatsTables.class));
+                new JobExecutionContext.Builder(UUID.randomUUID(), Loggers.getLogger(JobExecutionContext.class), mock(StatsTables.class));
         builder.addSubContext(new AbstractExecutionSubContextTest.TestingExecutionSubContext());
         expectedException.expect(IllegalArgumentException.class);
         expectedException.expectMessage("ExecutionSubContext for 0 already added");
@@ -70,7 +71,7 @@ public class JobExecutionContextTest extends CrateUnitTest {
     @Test
     public void testKillPropagatesToSubContexts() throws Exception {
         JobExecutionContext.Builder builder =
-                new JobExecutionContext.Builder(UUID.randomUUID(), mock(StatsTables.class));
+                new JobExecutionContext.Builder(UUID.randomUUID(), Loggers.getLogger(JobExecutionContext.class), mock(StatsTables.class));
 
 
         AbstractExecutionSubContextTest.TestingExecutionSubContext ctx1 = new AbstractExecutionSubContextTest.TestingExecutionSubContext(1);
@@ -91,7 +92,7 @@ public class JobExecutionContextTest extends CrateUnitTest {
     public void testErrorMessageIsIncludedInStatsTableOnFailure() throws Exception {
         StatsTables statsTables = mock(StatsTables.class);
         JobExecutionContext.Builder builder =
-                new JobExecutionContext.Builder(UUID.randomUUID(), statsTables);
+                new JobExecutionContext.Builder(UUID.randomUUID(), Loggers.getLogger(JobExecutionContext.class), statsTables);
 
         SubExecutionContextFuture future = new SubExecutionContextFuture();
         ExecutionSubContext executionSubContext = mock(ExecutionSubContext.class);
@@ -114,15 +115,17 @@ public class JobExecutionContextTest extends CrateUnitTest {
         when(collectPhase.maxRowGranularity()).thenReturn(RowGranularity.DOC);
 
         JobExecutionContext.Builder builder =
-                new JobExecutionContext.Builder(UUID.randomUUID(), mock(StatsTables.class));
+                new JobExecutionContext.Builder(UUID.randomUUID(), Loggers.getLogger(JobExecutionContext.class), mock(StatsTables.class));
+        CollectingRowReceiver rowReceiverAndObserver = new CollectingRowReceiver();
 
-        JobCollectContext jobCollectContext = new JobCollectContext(
+        JobCollectContext jobCollectContext = spy(new JobCollectContext(
                 collectPhase,
                 mock(MapSideDataCollectOperation.class),
                 localNodeId,
                 mock(RamAccountingContext.class),
-                mock(RowReceiver.class),
-                mock(SharedShardContexts.class));
+                rowReceiverAndObserver,
+                rowReceiverAndObserver,
+                mock(SharedShardContexts.class)));
         PageDownstreamContext pageDownstreamContext = spy(new PageDownstreamContext(
                 Loggers.getLogger(PageDownstreamContext.class),
                 "n1",
@@ -131,6 +134,7 @@ public class JobExecutionContextTest extends CrateUnitTest {
                 new Streamer[]{IntegerType.INSTANCE.streamer()},
                 mock(RamAccountingContext.class),
                 1,
+                null,
                 null));
 
         builder.addSubContext(jobCollectContext);
@@ -138,7 +142,8 @@ public class JobExecutionContextTest extends CrateUnitTest {
         JobExecutionContext jobExecutionContext = builder.build();
 
         Exception failure = new Exception("failure!");
-        jobCollectContext.closeDueToFailure(failure);
+        rowReceiverAndObserver.fail(failure);
+        //verify(jobCollectContext, times(1)).innerClose(failure);
         // other contexts must be killed with same failure
         verify(pageDownstreamContext, times(1)).innerKill(failure);
 
@@ -155,7 +160,7 @@ public class JobExecutionContextTest extends CrateUnitTest {
         subContexts.setAccessible(true);
 
         JobExecutionContext.Builder builder =
-                new JobExecutionContext.Builder(UUID.randomUUID(), mock(StatsTables.class));
+                new JobExecutionContext.Builder(UUID.randomUUID(), Loggers.getLogger(JobExecutionContext.class), mock(StatsTables.class));
         SlowKillExecutionSubContext slowKillExecutionSubContext = new SlowKillExecutionSubContext();
         builder.addSubContext(slowKillExecutionSubContext);
         final JobExecutionContext jobExecutionContext = builder.build();
@@ -211,6 +216,12 @@ public class JobExecutionContextTest extends CrateUnitTest {
             } catch (InterruptedException e) {
                 throw Throwables.propagate(e);
             }
+            done(throwable);
+        }
+
+        @Override
+        protected void innerClose(@Nullable Throwable t) {
+            done(t);
         }
 
         @Override

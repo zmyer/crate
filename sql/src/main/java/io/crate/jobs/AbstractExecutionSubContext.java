@@ -54,6 +54,7 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
                 innerPrepare();
             } catch (Throwable t) {
                 close(t);
+                done(t);
             }
         }
     }
@@ -87,10 +88,10 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
                 } else {
                     logger.warn("closing due to exception, but closing also throws exception", t2);
                 }
+                done(t);
             } finally {
                 cleanup();
             }
-            future.close(t);
             return true;
         }
         return false;
@@ -117,8 +118,12 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
             } finally {
                 cleanup();
             }
-            future.close(t);
         }
+    }
+
+    @Override
+    public void done(@Nullable Throwable throwable) {
+        future.close(throwable);
     }
 
     @Override

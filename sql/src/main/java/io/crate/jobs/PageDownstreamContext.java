@@ -27,9 +27,7 @@ import io.crate.Streamer;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.BucketPage;
-import io.crate.operation.PageConsumeListener;
-import io.crate.operation.PageDownstream;
-import io.crate.operation.PageResultListener;
+import io.crate.operation.*;
 import io.crate.operation.projectors.FlatProjectorChain;
 import org.elasticsearch.common.logging.ESLogger;
 
@@ -64,7 +62,8 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
                                  Streamer<?>[] streamer,
                                  RamAccountingContext ramAccountingContext,
                                  int numBuckets,
-                                 @Nullable FlatProjectorChain projectorChain) {
+                                 @Nullable FlatProjectorChain projectorChain,
+                                 @Nullable OperationObserver operationObserver) {
         super(id, logger);
         this.nodeName = nodeName;
         this.name = name;
@@ -77,6 +76,16 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         allFuturesSet = new BitSet(numBuckets);
         exhausted = new BitSet(numBuckets);
         initBucketFutures();
+
+        if (operationObserver != null) {
+            operationObserver.addListener(new OperationListener() {
+                @Override
+                public void onDone(@Nullable Throwable t) {
+                    close(t);
+                    done(t);
+                }
+            });
+        }
     }
 
     private void initBucketFutures() {
@@ -198,6 +207,10 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
 
         future.bytesUsed(ramAccountingContext.totalBytes());
         ramAccountingContext.close();
+
+        if (projectorChain == null) {
+            done(throwable);
+        }
     }
 
     @Override

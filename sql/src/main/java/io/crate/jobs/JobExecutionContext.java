@@ -30,7 +30,6 @@ import io.crate.exceptions.ContextMissingException;
 import io.crate.exceptions.Exceptions;
 import io.crate.operation.collect.StatsTables;
 import org.elasticsearch.common.logging.ESLogger;
-import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.util.Callback;
 
 import javax.annotation.Nonnull;
@@ -43,9 +42,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class JobExecutionContext {
 
-    private static final ESLogger LOGGER = Loggers.getLogger(JobExecutionContext.class);
-
     private final UUID jobId;
+    private final ESLogger logger;
     private final ConcurrentMap<Integer, ExecutionSubContext> subContexts = new ConcurrentHashMap<>();
     private final AtomicInteger numSubContexts = new AtomicInteger();
     private final List<Integer> orderedContextIds;
@@ -59,11 +57,13 @@ public class JobExecutionContext {
     public static class Builder {
 
         private final UUID jobId;
+        private final ESLogger logger;
         private final StatsTables statsTables;
         private final LinkedHashMap<Integer, ExecutionSubContext> subContexts = new LinkedHashMap<>();
 
-        Builder(UUID jobId, StatsTables statsTables) {
+        Builder(UUID jobId, ESLogger logger, StatsTables statsTables) {
             this.jobId = jobId;
+            this.logger = logger;
             this.statsTables = statsTables;
         }
 
@@ -90,16 +90,18 @@ public class JobExecutionContext {
         }
 
         JobExecutionContext build() {
-            return new JobExecutionContext(jobId, statsTables, subContexts);
+            return new JobExecutionContext(jobId, logger, statsTables, subContexts);
         }
     }
 
 
     private JobExecutionContext(UUID jobId,
+                                ESLogger logger,
                                 StatsTables statsTables,
                                 LinkedHashMap<Integer, ExecutionSubContext> subContexts) {
         orderedContextIds = Lists.newArrayList(subContexts.keySet());
         this.jobId = jobId;
+        this.logger = logger;
         this.statsTables = statsTables;
 
         this.futures = new ArrayList<>(subContexts.size());
@@ -120,7 +122,7 @@ public class JobExecutionContext {
             SubExecutionContextFuture future = subContext.future();
             future.addCallback(new RemoveSubContextCallback(subContextId));
             futures.add(future);
-            LOGGER.trace("adding subContext {}, now there are {} subContexts", subContextId, currentSubContextSize);
+            logger.trace("adding subContext {}, now there are {} subContexts", subContextId, currentSubContextSize);
         } else {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH, "subContext %d is already present", subContextId));
         }
@@ -175,7 +177,7 @@ public class JobExecutionContext {
     public long kill() {
         long numKilled = 0L;
         if (!closed.getAndSet(true)) {
-            LOGGER.trace("kill called on JobExecutionContext {}", jobId);
+            logger.trace("kill called on JobExecutionContext {}", jobId);
 
             if (numSubContexts.get() == 0) {
                 callCloseCallback();
@@ -246,7 +248,7 @@ public class JobExecutionContext {
             if (remove() == RemoveSubContextPosition.LAST){
                 return;
             }
-            LOGGER.trace("onFailure killing all other subContexts..");
+            logger.trace("onFailure killing all other subContexts..");
             for (ExecutionSubContext subContext : subContexts.values()) {
                 subContext.kill(t);
             }

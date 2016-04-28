@@ -36,18 +36,13 @@ import io.crate.core.collections.Bucket;
 import io.crate.executor.transport.distributed.SingleBucketBuilder;
 import io.crate.jobs.*;
 import io.crate.metadata.Routing;
-import io.crate.operation.NodeOperation;
-import io.crate.operation.PageDownstream;
-import io.crate.operation.PageDownstreamFactory;
-import io.crate.operation.Paging;
+import io.crate.operation.*;
 import io.crate.operation.collect.JobCollectContext;
 import io.crate.operation.collect.MapSideDataCollectOperation;
 import io.crate.operation.count.CountOperation;
 import io.crate.operation.fetch.FetchContext;
 import io.crate.operation.join.NestedLoopOperation;
-import io.crate.operation.projectors.FlatProjectorChain;
-import io.crate.operation.projectors.RowDownstreamFactory;
-import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.*;
 import io.crate.planner.distribution.DistributionType;
 import io.crate.planner.distribution.UpstreamPhase;
 import io.crate.planner.node.ExecutionPhase;
@@ -417,13 +412,16 @@ public class ContextPreparer extends AbstractComponent {
                 throw new IllegalArgumentException("The routing of the countNode doesn't contain the current nodeId");
             }
 
-            RowReceiver rowReceiver = context.getRowReceiver(phase, 0);
+            Tuple<RowReceiver, OperationObserver> observedRowReceiver =
+                RowReceivers.observedRowReceiver(context.getRowReceiver(phase, 0));
+
             return new CountContext(
-                    phase.executionPhaseId(),
-                    countOperation,
-                    rowReceiver,
-                    indexShardMap,
-                    phase.whereClause()
+                phase.executionPhaseId(),
+                countOperation,
+                observedRowReceiver.v1(),
+                observedRowReceiver.v2(),
+                indexShardMap,
+                phase.whereClause()
             );
         }
 
@@ -438,14 +436,16 @@ public class ContextPreparer extends AbstractComponent {
 
             if (upstreamOnSameNode) {
                 if (!phase.projections().isEmpty()) {
+                    Tuple<RowReceiver, OperationObserver> observedRowReceiver = RowReceivers.observedRowReceiver(rowReceiver);
                     ProjectorChainContext projectorChainContext = new ProjectorChainContext(
-                            phase.executionPhaseId(),
-                            phase.name(),
-                            context.jobId,
-                            pageDownstreamFactory.projectorFactory(),
-                            phase.projections(),
-                            rowReceiver,
-                            ramAccountingContext);
+                        phase.executionPhaseId(),
+                        phase.name(),
+                        context.jobId,
+                        pageDownstreamFactory.projectorFactory(),
+                        phase.projections(),
+                        observedRowReceiver.v1(),
+                        observedRowReceiver.v2(),
+                        ramAccountingContext);
                     context.registerRowReceiver(phase.executionPhaseId(), projectorChainContext.rowReceiver());
                     return projectorChainContext;
                 }
@@ -463,6 +463,12 @@ public class ContextPreparer extends AbstractComponent {
                             // no separate executor because TransportDistributedResultAction already runs in a threadPool
                             Optional.<Executor>absent());
 
+            OperationObserver operationObserver = null;
+            if (pageDownstreamProjectorChain.v2() != null) {
+                Tuple<RowReceiver, OperationObserver> observedRowReceiver =
+                    RowReceivers.observedRowReceiver(pageDownstreamProjectorChain.v2().firstProjector());
+                operationObserver = observedRowReceiver.v2();
+            }
 
             return new PageDownstreamContext(
                     pageDownstreamContextLogger,
@@ -473,7 +479,8 @@ public class ContextPreparer extends AbstractComponent {
                     DataTypes.getStreamer(phase.inputTypes()),
                     ramAccountingContext,
                     phase.numUpstreams(),
-                    pageDownstreamProjectorChain.v2());
+                    pageDownstreamProjectorChain.v2(),
+                    operationObserver);
         }
 
 
@@ -482,13 +489,15 @@ public class ContextPreparer extends AbstractComponent {
             RamAccountingContext ramAccountingContext = RamAccountingContext.forExecutionPhase(circuitBreaker, phase);
             RowReceiver rowReceiver = context.getRowReceiver(phase,
                     MoreObjects.firstNonNull(phase.nodePageSizeHint(), Paging.PAGE_SIZE));
+            Tuple<RowReceiver, OperationObserver> observedRowReceiver = RowReceivers.observedRowReceiver(rowReceiver);
             return new JobCollectContext(
-                    phase,
-                    collectOperation,
-                    clusterService.state().nodes().localNodeId(),
-                    ramAccountingContext,
-                    rowReceiver,
-                    context.sharedShardContexts
+                phase,
+                collectOperation,
+                clusterService.state().nodes().localNodeId(),
+                ramAccountingContext,
+                observedRowReceiver.v1(),
+                observedRowReceiver.v2(),
+                context.sharedShardContexts
             );
         }
 
@@ -496,13 +505,15 @@ public class ContextPreparer extends AbstractComponent {
         public ExecutionSubContext visitCollectPhase(CollectPhase phase, PreparerContext context) {
             RamAccountingContext ramAccountingContext = RamAccountingContext.forExecutionPhase(circuitBreaker, phase);
             RowReceiver rowReceiver = context.getRowReceiver(phase, Paging.PAGE_SIZE);
+            Tuple<RowReceiver, OperationObserver> observedRowReceiver = RowReceivers.observedRowReceiver(rowReceiver);
             return new JobCollectContext(
-                    phase,
-                    collectOperation,
-                    clusterService.state().nodes().localNodeId(),
-                    ramAccountingContext,
-                    rowReceiver,
-                    context.sharedShardContexts
+                phase,
+                collectOperation,
+                clusterService.state().nodes().localNodeId(),
+                ramAccountingContext,
+                observedRowReceiver.v1(),
+                observedRowReceiver.v2(),
+                context.sharedShardContexts
             );
         }
 
@@ -554,12 +565,19 @@ public class ContextPreparer extends AbstractComponent {
             } else {
                 flatProjectorChain = FlatProjectorChain.withReceivers(Collections.singletonList(downstreamRowReceiver));
             }
+            OperationObserver operationObserver = null;
+            if (flatProjectorChain != null) {
+                Tuple<RowReceiver, OperationObserver> observedRowReceiver =
+                    RowReceivers.observedRowReceiver(flatProjectorChain.firstProjector());
+                operationObserver = observedRowReceiver.v2();
+            }
 
             NestedLoopOperation nestedLoopOperation = new NestedLoopOperation(phase.executionPhaseId(), flatProjectorChain.firstProjector());
             return new NestedLoopContext(
                     nlContextLogger,
                     phase,
                     flatProjectorChain,
+                    operationObserver,
                     nestedLoopOperation,
                     pageDownstreamContextForNestedLoop(
                             phase.executionPhaseId(),
@@ -597,6 +615,13 @@ public class ContextPreparer extends AbstractComponent {
                     ramAccountingContext,
                     Optional.of(threadPool.executor(ThreadPool.Names.SEARCH))
             );
+            OperationObserver operationObserver = null;
+            if (pageDownstreamWithChain.v2() != null) {
+                Tuple<RowReceiver, OperationObserver> observedRowReceiver =
+                    RowReceivers.observedRowReceiver(pageDownstreamWithChain.v2().firstProjector());
+                operationObserver = observedRowReceiver.v2();
+            }
+
             return new PageDownstreamContext(
                     pageDownstreamContextLogger,
                     nodeName(),
@@ -606,7 +631,8 @@ public class ContextPreparer extends AbstractComponent {
                     StreamerVisitor.streamerFromOutputs(mergePhase),
                     ramAccountingContext,
                     mergePhase.numUpstreams(),
-                    pageDownstreamWithChain.v2()
+                    pageDownstreamWithChain.v2(),
+                    operationObserver
             );
         }
     }

@@ -25,10 +25,11 @@ import com.google.common.annotations.VisibleForTesting;
 import io.crate.Streamer;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
+import io.crate.operation.OperationListener;
+import io.crate.operation.OperationMultiListener;
+import io.crate.operation.OperationObserver;
 import io.crate.operation.RowUpstream;
-import io.crate.operation.projectors.Requirement;
-import io.crate.operation.projectors.Requirements;
-import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.*;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -39,7 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class DistributingDownstream implements RowReceiver {
+public class DistributingDownstream implements RowReceiver, OperationObserver {
 
     private static final ActionListener<DistributedResultResponse> NO_OP_ACTION_LISTENER = new ActionListener<DistributedResultResponse>() {
 
@@ -77,6 +78,8 @@ public class DistributingDownstream implements RowReceiver {
     private volatile boolean gatherMoreRows = true;
     private volatile boolean killed = false;
     private boolean hasUpstreamFinished = false;
+
+    private OperationListener listener = OperationListener.NO_OP;
 
     public DistributingDownstream(ESLogger logger,
                                   UUID jobId,
@@ -182,6 +185,7 @@ public class DistributingDownstream implements RowReceiver {
         }
         hasUpstreamFinished = true;
         final Throwable throwable = failure.get();
+
         if (throwable == null) {
             if (requestsPending.get() == 0) {
                 traceLog("all upstreams finished. Sending last requests");
@@ -196,11 +200,25 @@ public class DistributingDownstream implements RowReceiver {
                 downstream.forwardFailure(throwable);
             }
         }
+
+        if (!gatherMoreRows) {
+            listener.onDone(throwable);
+        }
     }
 
     @Override
     public void setUpstream(RowUpstream rowUpstream) {
         upstream = rowUpstream;
+    }
+
+    @Override
+    public void addListener(OperationListener listener) {
+        this.listener = OperationMultiListener.merge(this.listener, listener);
+    }
+
+    @Override
+    public boolean isSynchronous() {
+        return false;
     }
 
     private class Downstream implements ActionListener<DistributedResultResponse> {
@@ -264,6 +282,9 @@ public class DistributingDownstream implements RowReceiver {
                 return;
             }
             if (hasUpstreamFinished) {
+                if (gatherMoreRows) {
+                    listener.onDone(null);
+                }
                 // upstreams (e.g. collector(s)) finished (after the requests have been sent)
                 // send request with isLast=true with remaining buckets to downstream nodes
                 multiBucketBuilder.build(buckets);

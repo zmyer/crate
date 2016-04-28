@@ -24,6 +24,11 @@ package io.crate.operation.projectors;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.crate.core.collections.Row;
+import io.crate.operation.OperationListener;
+import io.crate.operation.OperationMultiListener;
+import io.crate.operation.OperationObserver;
+import org.elasticsearch.common.collect.Tuple;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -34,6 +39,36 @@ public class RowReceivers {
             return (ListenableRowReceiver) rowReceiver;
         }
         return new SettableFutureRowReceiver(rowReceiver);
+    }
+
+    public static Tuple<RowReceiver, OperationObserver> observedRowReceiver(RowReceiver rowReceiver) {
+        if (rowReceiver instanceof Projector) {
+            Projector projector = (Projector) rowReceiver;
+            // return first RowReceiver (the projector) but OperationObserver of last downstream, we want to observe last one.
+            return new Tuple<>(rowReceiver, observeLastRowReceiverOfProjector(projector, rowReceiver).v2());
+        }
+        return wrapToObservedRowReceiver(rowReceiver);
+    }
+
+    static Tuple<RowReceiver, OperationObserver> wrapToObservedRowReceiver(RowReceiver rowReceiver) {
+        if (rowReceiver instanceof OperationObserver) {
+            return new Tuple<>(rowReceiver, (OperationObserver) rowReceiver);
+        }
+        if (!rowReceiver.isSynchronous()) {
+            throw new UnsupportedOperationException("Given RowReceiver implementation will not work synchronous and so cannot be wrapped");
+        }
+        ObservedRowReceiver observedRowReceiver = new ObservedRowReceiver(rowReceiver);
+        return new Tuple<>((RowReceiver) observedRowReceiver, (OperationObserver) observedRowReceiver);
+    }
+
+    static Tuple<RowReceiver, OperationObserver> observeLastRowReceiverOfProjector(Projector projector, RowReceiver rowReceiver) {
+        if (rowReceiver instanceof Projector) {
+            projector = (Projector) rowReceiver;
+            return observeLastRowReceiverOfProjector(projector, projector.downstream());
+        }
+        Tuple<RowReceiver, OperationObserver> tuple = wrapToObservedRowReceiver(rowReceiver);
+        projector.downstream(tuple.v1());
+        return tuple;
     }
 
     @ParametersAreNonnullByDefault
@@ -60,6 +95,57 @@ public class RowReceivers {
         @Override
         public ListenableFuture<Void> finishFuture() {
             return finishedFuture;
+        }
+
+        @Override
+        public boolean isSynchronous() {
+            return rowReceiver.isSynchronous();
+        }
+    }
+
+    private static class ObservedRowReceiver extends ForwardingRowReceiver implements OperationObserver {
+
+        OperationListener listener = OperationListener.NO_OP;
+        boolean started = false;
+
+        ObservedRowReceiver(RowReceiver rowReceiver) {
+            super(rowReceiver);
+        }
+
+        @Override
+        public boolean setNextRow(Row row) {
+            started = true;
+            return super.setNextRow(row);
+        }
+
+        @Override
+        public void finish() {
+            super.finish();
+            listener.onDone(null);
+        }
+
+        @Override
+        public void fail(Throwable throwable) {
+            super.fail(throwable);
+            listener.onDone(throwable);
+        }
+
+        @Override
+        public void kill(Throwable throwable) {
+            super.kill(throwable);
+            if (!started) {
+                listener.onDone(throwable);
+            }
+        }
+
+        @Override
+        public void addListener(OperationListener listener) {
+            this.listener = OperationMultiListener.merge(this.listener, listener);
+        }
+
+        @Override
+        public boolean isSynchronous() {
+            return false;
         }
     }
 }

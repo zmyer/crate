@@ -263,18 +263,17 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
                         if (unwrappedException instanceof InterruptedException) {
                             message = KILLED_MESSAGE;
                             logger.debug("KILLED: [{}]", request.stmt());
+                            statsTables.jobFinished(plan.jobId(), message);
+                            sendResponse(listener, buildSQLActionException(t));
                         } else if ((unwrappedException instanceof ShardNotFoundException || unwrappedException instanceof IllegalIndexShardStateException)
                                 && attempt <= MAX_SHARD_MISSING_RETRIES) {
                             logger.debug("FAILED ({}/{} attempts) - Retry: [{}]", attempt, MAX_SHARD_MISSING_RETRIES,  request.stmt());
 
                             killAndRetry(t);
-                            return;
                         } else {
-                            message = Exceptions.messageOf(t);
-                            logger.debug("Error processing SQLRequest", t);
+                            logger.debug("Error processing SQLRequest, killing job..", t);
+                            kill(t);
                         }
-                        statsTables.jobFinished(plan.jobId(), message);
-                        sendResponse(listener, buildSQLActionException(t));
                     }
 
                     private void killAndRetry(@Nonnull final Throwable t) {
@@ -294,6 +293,25 @@ public abstract class TransportBaseSQLAction<TRequest extends SQLBaseRequest, TR
                                     }
                                 }
                         );
+                    }
+
+                    private void kill(@Nonnull final Throwable t) {
+                        transportKillJobsNodeAction.executeKillOnAllNodes(
+                            new KillJobsRequest(Collections.singletonList(plan.jobId())), new ActionListener<KillResponse>() {
+                                @Override
+                                public void onResponse(KillResponse killResponse) {
+                                    statsTables.jobFinished(plan.jobId(), Exceptions.messageOf(t));
+                                    sendResponse(listener, buildSQLActionException(t));
+                                }
+
+                                @Override
+                                public void onFailure(Throwable e) {
+                                    logger.warn("Failed to kill job", e);
+                                    statsTables.jobFinished(plan.jobId(), Exceptions.messageOf(t));
+                                    sendResponse(listener, buildSQLActionException(t));
+                                }
+                            });
+
                     }
                 }
 
