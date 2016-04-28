@@ -27,6 +27,7 @@ import io.crate.analyze.symbol.Reference;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.metadata.doc.DocSysColumns;
 import org.elasticsearch.Version;
+import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkShardProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.common.Nullable;
@@ -42,7 +43,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.UUID;
 
-public class ShardUpsertRequest extends ShardRequest<ShardUpsertRequest, ShardUpsertRequest.Item> {
+public class ShardUpsertRequest extends ShardRequest<ShardUpsertRequest, ShardUpsertRequest.Item>
+    implements io.crate.executor.BulkProcessor.Group<ShardUpsertRequest.Item> {
 
     private boolean continueOnError = false;
     private boolean overwriteDuplicates = false;

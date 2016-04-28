@@ -310,7 +310,17 @@ public class ProjectionToProjectorVisitor
     @Override
     public Projector visitUpdateProjection(UpdateProjection projection, Context context) {
         checkShardLevel("Update projection can only be executed on a shard");
-
+        return new UpdateProjectorNew(
+            settings,
+            threadPool,
+            context.jobId,
+            shardId,
+            projection.assignments(),
+            projection.assignmentsColumns(),
+            transportActionProvider,
+            projection.requiredVersion(),
+            resolveUidCollectExpression(projection));
+        /*
         return new UpdateProjector(
                 clusterService,
                 indexNameExpressionResolver,
@@ -323,6 +333,7 @@ public class ProjectionToProjectorVisitor
                 projection.assignments(),
                 projection.requiredVersion(),
                 context.jobId);
+                */
     }
 
     @Override

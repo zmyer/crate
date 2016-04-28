@@ -63,6 +63,8 @@ public class UpdateProjector extends DMLProjector<ShardUpsertRequest> {
         this.assignmentsColumns = assignmentsColumns;
         this.assignments = assignments;
         this.requiredVersion = requiredVersion;
+
+
     }
 
     @Override
