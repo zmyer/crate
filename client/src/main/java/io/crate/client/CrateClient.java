@@ -32,6 +32,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.ClusterNameModule;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.inject.Injector;
+import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.inject.ModulesBuilder;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -40,6 +41,9 @@ import org.elasticsearch.common.settings.SettingsModule;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.indices.breaker.CircuitBreakerModule;
+import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.plugins.PluginsModule;
+import org.elasticsearch.plugins.PluginsService;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.threadpool.ThreadPoolModule;
 import org.elasticsearch.transport.TransportModule;
@@ -48,6 +52,8 @@ import org.elasticsearch.transport.TransportService;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -62,9 +68,8 @@ public class CrateClient {
 
     private static final ESLogger logger = Loggers.getLogger(CrateClient.class);
 
-    public CrateClient(Settings pSettings, String ... servers) throws
-            ElasticsearchException {
 
+    public CrateClient(Settings pSettings, String[] servers, Collection<Class<? extends Plugin>> elasticsearchPlugins) throws ElasticsearchException {
         Settings.Builder builder = settingsBuilder()
                 .put(pSettings)
                 .put("network.server", false)
@@ -83,11 +88,22 @@ public class CrateClient {
             builder.put("name", "crate_client");
         }
 
-        this.settings = builder.build();
+        Settings settings = builder.build();
 
-        threadPool = new ThreadPool(this.settings);
 
         ModulesBuilder modules = new ModulesBuilder();
+        PluginsService pluginsService = null;
+        if (elasticsearchPlugins.isEmpty()) {
+            this.settings = settings;
+        } else {
+            pluginsService = new PluginsService(settings, null, null, elasticsearchPlugins);
+            this.settings = pluginsService.updatedSettings();
+            for (Module module : pluginsService.nodeModules()) {
+                modules.add(module);
+            }
+            modules.add(new PluginsModule(pluginsService));
+        }
+        threadPool = new ThreadPool(this.settings);
         modules.add(new CrateClientModule());
         modules.add(new Version.Module(Version.CURRENT));
         modules.add(new ThreadPoolModule(threadPool));
@@ -97,6 +113,10 @@ public class CrateClient {
         modules.add(new ClusterNameModule(this.settings));
         modules.add(new TransportModule(this.settings));
         modules.add(new CircuitBreakerModule(this.settings));
+
+        if (pluginsService != null) {
+            pluginsService.processModules(modules);
+        }
 
         Injector injector = modules.createInjector();
         transportService = injector.getInstance(TransportService.class).start();
@@ -108,6 +128,10 @@ public class CrateClient {
                 internalClient.addTransportAddress(transportAddress);
             }
         }
+    }
+
+    public CrateClient(Settings pSettings, String ... servers) throws ElasticsearchException {
+        this(pSettings, servers, Collections.<Class<? extends Plugin>>emptyList());
     }
 
     public CrateClient() {
