@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.breaker.SizeEstimator;
 import io.crate.breaker.SizeEstimatorFactory;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.operation.AggregationContext;
@@ -44,7 +45,7 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import javax.annotation.Nullable;
 import java.util.*;
 
-public class GroupingProjector extends AbstractProjector {
+class GroupingProjector extends AbstractProjector {
 
 
     private static final ESLogger logger = Loggers.getLogger(GroupingProjector.class);
@@ -54,7 +55,7 @@ public class GroupingProjector extends AbstractProjector {
     private EnumSet<Requirement> requirements;
     private boolean killed = false;
 
-    public GroupingProjector(List<? extends DataType> keyTypes,
+    GroupingProjector(List<? extends DataType> keyTypes,
                              List<Input<?>> keyInputs,
                              CollectExpression[] collectExpressions,
                              AggregationContext[] aggregations,
@@ -106,17 +107,22 @@ public class GroupingProjector extends AbstractProjector {
         if (logger.isDebugEnabled()) {
             logger.debug("grouping operation size is: {}", new ByteSizeValue(ramAccountingContext.totalBytes()));
         }
+        // TODO: call in grouper after requests are done
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
     public void kill(Throwable throwable) {
         killed = true;
         grouper.kill(throwable);
+        // TODO: call in grouper after requests are done
+        listener.onFailure(throwable);
     }
 
     @Override
     public void fail(Throwable throwable) {
         downstream.fail(throwable);
+        listener.onFailure(throwable);
     }
 
     /**
@@ -220,6 +226,7 @@ public class GroupingProjector extends AbstractProjector {
                         (1 + aggregators.length) * 4 + 12));
             } catch (CircuitBreakingException e) {
                 downstream.fail(e);
+                listener.onFailure(e);
                 return;
             }
 
@@ -334,6 +341,7 @@ public class GroupingProjector extends AbstractProjector {
                         (keyInputs.size() + aggregators.length) * 4));
             } catch (CircuitBreakingException e) {
                 downstream.fail(e);
+                listener.onFailure(e);
                 return;
             }
 

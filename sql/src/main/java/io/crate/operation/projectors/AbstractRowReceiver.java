@@ -20,19 +20,17 @@
  * agreement.
  */
 
-package io.crate.concurrent;
+package io.crate.operation.projectors;
 
-public class CompletionState {
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
 
-    public static CompletionState EMPTY_STATE = new CompletionState();
+public abstract class AbstractRowReceiver implements RowReceiver {
 
-    private long bytesUsed = -1;
+    protected CompletionListener listener = CompletionListener.NO_OP;
 
-    public void bytesUsed(long bytesUsed) {
-        this.bytesUsed = bytesUsed;
-    }
-
-    public long bytesUsed() {
-        return bytesUsed;
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 }

@@ -35,6 +35,7 @@ public class IterableRowEmitter implements Runnable {
     private final RowReceiver rowReceiver;
     private final TopRowUpstream topRowUpstream;
     private Iterator<? extends Row> rowsIt;
+    private boolean killed = false;
 
     public IterableRowEmitter(RowReceiver rowReceiver,
                               final Iterable<? extends Row> rows,
@@ -60,6 +61,7 @@ public class IterableRowEmitter implements Runnable {
     }
 
     public void kill(Throwable t) {
+        killed = true;
         rowReceiver.kill(t);
     }
 
@@ -67,6 +69,9 @@ public class IterableRowEmitter implements Runnable {
     public void run() {
         try {
             while (rowsIt.hasNext()) {
+                if (killed) {
+                    return;
+                }
                 boolean wantsMore = rowReceiver.setNextRow(rowsIt.next());
                 if (!wantsMore) {
                     break;

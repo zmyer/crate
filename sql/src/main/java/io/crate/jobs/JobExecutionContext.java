@@ -213,7 +213,7 @@ public class JobExecutionContext implements CompletionListenable {
         if (failure != null) {
             listener.onFailure(failure);
         } else {
-            listener.onSuccess(null);
+            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
         // this future is only needed to make kill() synchronous
         finishedFuture.set(null);
@@ -245,9 +245,11 @@ public class JobExecutionContext implements CompletionListenable {
             ExecutionSubContext removed = subContexts.remove(id);
             assert removed != null;
             if (numSubContexts.decrementAndGet() == 0){
+                LOGGER.trace("all subcontexts removed, calling finish");
                 finish();
                 return RemoveSubContextPosition.LAST;
             }
+            LOGGER.trace("removed subcontext, remaining subcontexts={}", numSubContexts.get());
             return RemoveSubContextPosition.UNKNOWN;
         }
 

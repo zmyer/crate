@@ -52,7 +52,10 @@ import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Singleton
 public class CollectSourceResolver {
@@ -173,11 +176,11 @@ public class CollectSourceResolver {
         return visitor.process(collectPhase, null);
     }
 
-    static class VoidCollectSource implements CollectSource {
+    private static class VoidCollectSource implements CollectSource {
 
         @Override
-        public Collection<CrateCollector> getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
-            return ImmutableList.of();
+        public CollectSourceContext getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
+            return new CollectSourceContext(ImmutableList.<CrateCollector>of(), ImmutableList.<RowReceiver>of());
         }
     }
 }

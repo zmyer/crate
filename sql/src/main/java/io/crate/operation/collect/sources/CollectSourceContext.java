@@ -20,19 +20,33 @@
  * agreement.
  */
 
-package io.crate.concurrent;
+package io.crate.operation.collect.sources;
 
-public class CompletionState {
+import io.crate.concurrent.ExecutionComponent;
+import io.crate.operation.collect.CrateCollector;
+import io.crate.operation.projectors.RowReceiver;
 
-    public static CompletionState EMPTY_STATE = new CompletionState();
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
-    private long bytesUsed = -1;
+public class CollectSourceContext {
 
-    public void bytesUsed(long bytesUsed) {
-        this.bytesUsed = bytesUsed;
+    private final Collection<CrateCollector> collectors;
+    private final List<ExecutionComponent> executionComponents;
+
+    public CollectSourceContext(Collection<CrateCollector> collectors, List<RowReceiver> rowReceivers) {
+        this.collectors = collectors;
+        executionComponents = new ArrayList<>(collectors.size() + rowReceivers.size());
+        executionComponents.addAll(collectors);
+        executionComponents.addAll(rowReceivers);
     }
 
-    public long bytesUsed() {
-        return bytesUsed;
+    public Collection<CrateCollector> collectors() {
+        return collectors;
+    }
+
+    public List<ExecutionComponent> executionComponents() {
+        return executionComponents;
     }
 }

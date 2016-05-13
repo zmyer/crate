@@ -25,6 +25,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.crate.Constants;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.ArrayBucket;
 import io.crate.core.collections.Row;
 import io.crate.operation.Input;
@@ -34,7 +35,7 @@ import io.crate.operation.projectors.sorting.RowPriorityQueue;
 import java.util.Collection;
 import java.util.Set;
 
-public class SortingTopNProjector extends AbstractProjector {
+class SortingTopNProjector extends AbstractProjector {
 
     private final int offset;
     private final int numOutputs;
@@ -54,7 +55,7 @@ public class SortingTopNProjector extends AbstractProjector {
      * @param limit              the number of rows to gather, pass to upStream
      * @param offset             the initial offset, this number of rows are skipped
      */
-    public SortingTopNProjector(Collection<? extends Input<?>> inputs,
+    SortingTopNProjector(Collection<? extends Input<?>> inputs,
                                 Iterable<? extends CollectExpression<Row, ?>> collectExpressions,
                                 int numOutputs,
                                 Ordering<Object[]> ordering,
@@ -96,10 +97,12 @@ public class SortingTopNProjector extends AbstractProjector {
         final int resultSize = Math.max(pq.size() - offset, 0);
         if (resultSize == 0) {
             downstream.finish();
+            listener.onSuccess(CompletionState.EMPTY_STATE);
             return;
         }
         rowEmitter = createRowEmitter(resultSize);
         rowEmitter.run();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     private IterableRowEmitter createRowEmitter(int resultSize) {
@@ -118,11 +121,13 @@ public class SortingTopNProjector extends AbstractProjector {
         } else {
             emitter.kill(throwable);
         }
+        listener.onFailure(throwable);
     }
 
     @Override
     public void fail(Throwable t) {
         downstream.fail(t);
+        listener.onFailure(t);
     }
 
     @Override

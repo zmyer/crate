@@ -21,18 +21,19 @@
 
 package io.crate.operation.projectors;
 
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.operation.Input;
 import io.crate.operation.collect.CollectExpression;
 
 import java.util.Collection;
 
-public class FilterProjector extends AbstractProjector {
+class FilterProjector extends AbstractProjector {
 
     private final Collection<CollectExpression<Row, ?>> collectExpressions;
     private final Input<Boolean> condition;
 
-    public FilterProjector(Collection<CollectExpression<Row, ?>> collectExpressions, Input<Boolean> condition) {
+    FilterProjector(Collection<CollectExpression<Row, ?>> collectExpressions, Input<Boolean> condition) {
         this.collectExpressions = collectExpressions;
         this.condition = condition;
     }
@@ -53,10 +54,12 @@ public class FilterProjector extends AbstractProjector {
     @Override
     public void finish() {
         downstream.finish();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
     public void fail(Throwable throwable) {
         downstream.fail(throwable);
+        listener.onFailure(throwable);
     }
 }

@@ -22,7 +22,8 @@
 package io.crate.operation.collect.blobs;
 
 import io.crate.blob.BlobContainer;
-import io.crate.exceptions.JobKilledException;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
 import io.crate.operation.RowUpstream;
@@ -45,6 +46,7 @@ public class BlobDocCollector implements CrateCollector, RowUpstream {
     private final Input<Boolean> condition;
     private RowReceiver downstream;
     private volatile boolean killed;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     public BlobDocCollector(
             BlobContainer blobContainer,
@@ -92,6 +94,11 @@ public class BlobDocCollector implements CrateCollector, RowUpstream {
     @Override
     public void repeat() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 
     private class FileListingsFileVisitor implements BlobContainer.FileVisitor {

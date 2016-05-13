@@ -22,12 +22,13 @@
 
 package io.crate.operation.projectors;
 
+import io.crate.concurrent.ExecutionComponent;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 
 import java.util.Set;
 
-public interface RowReceiver {
+public interface RowReceiver extends ExecutionComponent {
 
     /**
      * Feed the downstream with the next input row.
@@ -61,15 +62,6 @@ public interface RowReceiver {
      * NOTE: This method must not throw any exceptions!
      */
     void fail(Throwable throwable);
-
-    /**
-     * kill a RowReceiver to stop it's execution.
-     * kill can be called from a different thread and can be called after/during finish/fail operations
-     *
-     * If a RowReceiver doesn't delegate the kill to another RowReceiver the rowReceiver has to return false on the
-     * next setNextRow call in order to stop collect operations.
-     */
-    void kill(Throwable throwable);
 
     /**
      * prepares / starts the RowReceiver, after this call it must be ready to receive rows

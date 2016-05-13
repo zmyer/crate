@@ -23,12 +23,13 @@ package io.crate.operation;
 
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.executor.RowCountResult;
 import io.crate.executor.TaskResult;
+import io.crate.operation.projectors.AbstractRowReceiver;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
-import io.crate.operation.projectors.RowReceiver;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +39,7 @@ import java.util.Set;
  * RowDownstream that will set a TaskResultFuture once the result is ready.
  * It will also close the associated context once it is done
  */
-public class RowCountResultRowDownstream implements RowReceiver {
+public class RowCountResultRowDownstream extends AbstractRowReceiver {
 
     private final SettableFuture<TaskResult> result;
     private final List<Object[]> rows = new ArrayList<>();
@@ -60,17 +61,20 @@ public class RowCountResultRowDownstream implements RowReceiver {
     @Override
     public void finish() {
         result.set(new RowCountResult(((Number) Iterables.getOnlyElement(rows)[0]).longValue()));
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
     public void fail(Throwable throwable) {
         result.setException(throwable);
+        listener.onFailure(throwable);
     }
 
     @Override
     public void kill(Throwable throwable) {
         killed = true;
         result.setException(throwable);
+        listener.onFailure(throwable);
     }
 
     @Override

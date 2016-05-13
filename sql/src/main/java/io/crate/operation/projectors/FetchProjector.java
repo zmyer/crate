@@ -30,6 +30,7 @@ import com.carrotsearch.hppc.cursors.IntObjectCursor;
 import io.crate.Streamer;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.Symbols;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.NodeFetchRequest;
@@ -88,6 +89,7 @@ public class FetchProjector extends AbstractProjector {
 
     private static final ESLogger LOGGER = Loggers.getLogger(FetchProjector.class);
     private Fetches fetches;
+    private boolean killed = false;
 
     /**
      * An array backed row, which returns the inner array upon materialize
@@ -177,6 +179,9 @@ public class FetchProjector extends AbstractProjector {
         }
         boolean anyRequestSent = false;
         for (Map.Entry<String, IntSet> entry : nodeReaders.entrySet()) {
+            if (killed) {
+                return;
+            }
             IntObjectHashMap<IntContainer> toFetch = new IntObjectHashMap<>(entry.getValue().size());
             IntObjectHashMap<Streamer[]> streamers = new IntObjectHashMap<>(entry.getValue().size());
             boolean requestRequired = false;
@@ -282,6 +287,7 @@ public class FetchProjector extends AbstractProjector {
         Throwable t = failure.get();
         if (t != null) {
             downstream.fail(t);
+            listener.onFailure(t);
             return true;
         }
         return false;
@@ -292,6 +298,7 @@ public class FetchProjector extends AbstractProjector {
             return;
         }
         downstream.finish();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
@@ -311,11 +318,16 @@ public class FetchProjector extends AbstractProjector {
             }
         }
         downstream.fail(throwable);
+        listener.onFailure(throwable);
     }
 
     @Override
     public void kill(Throwable throwable) {
+        killed = true;
         downstream.kill(throwable);
+
+        // TODO: call when projector really is done
+        listener.onFailure(throwable);
     }
 
     private static class IndexInfo {

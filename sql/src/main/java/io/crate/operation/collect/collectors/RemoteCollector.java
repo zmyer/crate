@@ -28,6 +28,9 @@ import io.crate.action.job.JobRequest;
 import io.crate.action.job.JobResponse;
 import io.crate.action.job.TransportJobAction;
 import io.crate.breaker.RamAccountingContext;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.kill.KillJobsRequest;
 import io.crate.executor.transport.kill.KillResponse;
@@ -70,6 +73,7 @@ public class RemoteCollector implements CrateCollector {
     private final Object killLock = new Object();
     private JobExecutionContext context = null;
     private boolean collectorKilled = false;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     public RemoteCollector(UUID jobId,
                            String localNode,
@@ -104,7 +108,9 @@ public class RemoteCollector implements CrateCollector {
         try {
             synchronized (killLock) {
                 if (collectorKilled) {
-                    rowReceiver.fail(new InterruptedException());
+                    Throwable t = new InterruptedException();
+                    rowReceiver.fail(t);
+                    listener.onFailure(t);
                     return false;
                 }
                 context = jobContextService.createContext(builder);
@@ -117,6 +123,7 @@ public class RemoteCollector implements CrateCollector {
             } else {
                 context.kill();
             }
+            listener.onFailure(t);
             return false;
         }
     }
@@ -129,6 +136,7 @@ public class RemoteCollector implements CrateCollector {
         synchronized (killLock) {
             if (collectorKilled) {
                 context.kill();
+                listener.onFailure(new InterruptedException());
                 return;
             }
             transportJobAction.execute(
@@ -140,6 +148,8 @@ public class RemoteCollector implements CrateCollector {
                         LOGGER.trace("RemoteCollector jobAction=onResponse");
                         if (collectorKilled) {
                             killRemoteContext();
+                        } else {
+                            listener.onSuccess(CompletionState.EMPTY_STATE);
                         }
                     }
 
@@ -147,6 +157,7 @@ public class RemoteCollector implements CrateCollector {
                     public void onFailure(Throwable e) {
                         LOGGER.error("RemoteCollector jobAction=onFailure", e);
                         context.kill();
+                        listener.onFailure(e);
                     }
                 }
             );
@@ -183,11 +194,13 @@ public class RemoteCollector implements CrateCollector {
                 @Override
                 public void onResponse(KillResponse killResponse) {
                     context.kill();
+                    listener.onFailure(new InterruptedException());
                 }
 
                 @Override
                 public void onFailure(Throwable e) {
                     context.kill();
+                    listener.onFailure(e);
                 }
             });
     }
@@ -204,5 +217,10 @@ public class RemoteCollector implements CrateCollector {
              *  3. localContext created, requests sent - clean-up happens once response from remote is received
              */
         }
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 }

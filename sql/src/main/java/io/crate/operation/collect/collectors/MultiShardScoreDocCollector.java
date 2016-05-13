@@ -26,6 +26,9 @@ import com.carrotsearch.hppc.ObjectObjectHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.*;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.merge.KeyIterable;
@@ -62,7 +65,7 @@ public class MultiShardScoreDocCollector implements CrateCollector {
     private final FlatProjectorChain flatProjectorChain;
     private final boolean singleShard;
     private IterableRowEmitter rowEmitter = null;
-
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     public MultiShardScoreDocCollector(final List<OrderedDocCollector> orderedDocCollectors,
                                        Ordering<Row> rowOrdering,
@@ -216,11 +219,13 @@ public class MultiShardScoreDocCollector implements CrateCollector {
     private void finish() {
         closeShardContexts();
         rowReceiver.finish();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     private void fail(@Nonnull Throwable t) {
         closeShardContexts();
         rowReceiver.fail(t);
+        listener.onFailure(t);
     }
 
     private void closeShardContexts() {
@@ -236,5 +241,11 @@ public class MultiShardScoreDocCollector implements CrateCollector {
         } else {
             rowEmitter.kill(throwable);
         }
+        listener.onFailure(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 }

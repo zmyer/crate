@@ -25,6 +25,7 @@ import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.metadata.*;
 import io.crate.operation.collect.files.FileInputFactory;
+import io.crate.operation.collect.sources.CollectSourceContext;
 import io.crate.operation.collect.sources.CollectSourceResolver;
 import io.crate.operation.collect.sources.FileCollectSource;
 import io.crate.operation.reference.sys.node.NodeSysExpression;
@@ -46,7 +47,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
 
@@ -112,8 +112,8 @@ public class MapSideDataCollectOperationTest extends CrateUnitTest {
         CollectingRowReceiver cd = new CollectingRowReceiver();
         cd.prepare();
         JobCollectContext jobCollectContext = mock(JobCollectContext.class);
-        Collection<CrateCollector> collectors = collectOperation.createCollectors(collectNode, cd, jobCollectContext);
-        collectOperation.launchCollectors(collectors, threadPoolName);
+        CollectSourceContext collectSourceContext = collectOperation.createCollectors(collectNode, cd, jobCollectContext);
+        collectOperation.launchCollectors(collectSourceContext.collectors(), threadPoolName);
         assertThat(cd.result(), contains(
                 isRow("Arthur", 38),
                 isRow("Trillian", 33)

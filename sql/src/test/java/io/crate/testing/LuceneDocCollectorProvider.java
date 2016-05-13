@@ -35,12 +35,12 @@ import io.crate.metadata.Routing;
 import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.collect.JobCollectContext;
 import io.crate.operation.collect.MapSideDataCollectOperation;
+import io.crate.operation.collect.sources.CollectSourceContext;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.planner.Planner;
 import io.crate.planner.consumer.ConsumerContext;
 import io.crate.planner.consumer.QueryAndFetchConsumer;
 import io.crate.planner.node.dql.CollectAndMerge;
-import io.crate.planner.node.dql.FileUriCollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.sql.parser.SqlParser;
 import org.elasticsearch.common.breaker.CircuitBreaker;
@@ -74,7 +74,7 @@ public class LuceneDocCollectorProvider implements AutoCloseable {
         this.queryAndFetchConsumer = cluster.getDataNodeInstance(QueryAndFetchConsumer.class);
     }
 
-    private Iterable<CrateCollector> createNodeCollectors(String nodeId, RoutedCollectPhase collectPhase, RowReceiver downstream) {
+    private CollectSourceContext createNodeCollectors(String nodeId, RoutedCollectPhase collectPhase, RowReceiver downstream) {
         String nodeName = cluster.clusterService().state().nodes().get(nodeId).name();
         IndicesService indicesService = cluster.getInstance(IndicesService.class, nodeName);
         JobContextService jobContextService = cluster.getInstance(JobContextService.class, nodeName);
@@ -110,7 +110,7 @@ public class LuceneDocCollectorProvider implements AutoCloseable {
         routing.walkLocations(new Routing.RoutingLocationVisitor() {
             @Override
             public boolean visitNode(String nodeId, Map<String, List<Integer>> nodeRouting) {
-                builder.addAll(createNodeCollectors(nodeId, collectPhase, downstream));
+                builder.addAll(createNodeCollectors(nodeId, collectPhase, downstream).collectors());
                 return true;
             }
         });

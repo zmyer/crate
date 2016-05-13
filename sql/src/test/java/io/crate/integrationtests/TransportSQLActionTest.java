@@ -1563,19 +1563,6 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
     }
 
     @Test
-    public void testSelectGroupByFailingSearchScript() throws Exception {
-        expectedException.expect(SQLActionException.class);
-        expectedException.expectMessage("log(x, b): given arguments would result in: 'NaN'");
-
-        execute("create table t (i integer, l long, d double) with (number_of_replicas=0)");
-        ensureYellow();
-        execute("insert into t (i, l, d) values (1, 2, 90.5), (0, 4, 100)");
-        execute("refresh table t");
-
-        execute("select log(d, l) from t where log(d, -1) >= 0 group by log(d, l)");
-    }
-
-    @Test
     public void testNumericScriptOnAllTypes() throws Exception {
         // this test validates that no exception is thrown
         execute("create table t (b byte, s short, i integer, l long, f float, d double, t timestamp) with (number_of_replicas=0)");

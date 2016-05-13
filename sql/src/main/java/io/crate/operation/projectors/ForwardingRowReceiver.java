@@ -22,12 +22,13 @@
 
 package io.crate.operation.projectors;
 
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 
 import java.util.Set;
 
-public abstract class ForwardingRowReceiver implements RowReceiver {
+public abstract class ForwardingRowReceiver extends AbstractRowReceiver {
 
     final RowReceiver rowReceiver;
 
@@ -58,15 +59,18 @@ public abstract class ForwardingRowReceiver implements RowReceiver {
     @Override
     public void finish() {
         rowReceiver.finish();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
     public void fail(Throwable throwable) {
         rowReceiver.fail(throwable);
+        listener.onFailure(throwable);
     }
 
     @Override
     public void kill(Throwable throwable) {
         rowReceiver.kill(throwable);
+        listener.onFailure(throwable);
     }
 }

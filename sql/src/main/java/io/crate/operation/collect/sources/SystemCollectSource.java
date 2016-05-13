@@ -131,13 +131,15 @@ public class SystemCollectSource implements CollectSource {
     }
 
     @Override
-    public Collection<CrateCollector> getCollectors(CollectPhase phase, RowReceiver downstream, JobCollectContext jobCollectContext) {
+    public CollectSourceContext getCollectors(CollectPhase phase, RowReceiver downstream, JobCollectContext jobCollectContext) {
         RoutedCollectPhase collectPhase = (RoutedCollectPhase) phase;
         Map<String, Map<String, List<Integer>>> locations = collectPhase.routing().locations();
         String table = Iterables.getOnlyElement(locations.get(discoveryService.localNode().id()).keySet());
         Supplier<Iterable<?>> iterableGetter = iterableGetters.get(table);
         assert iterableGetter != null : "iterableGetter for " + table + " must exist";
-        return ImmutableList.<CrateCollector>of(
-                new RowsCollector(downstream, toRowsIterable(collectPhase, iterableGetter.get())));
+        return new CollectSourceContext(
+            ImmutableList.<CrateCollector>of(
+                new RowsCollector(downstream, toRowsIterable(collectPhase, iterableGetter.get()))),
+            ImmutableList.of(downstream));
     }
 }

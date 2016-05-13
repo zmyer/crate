@@ -25,6 +25,9 @@ package io.crate.operation.collect.collectors;
 import io.crate.action.sql.query.CrateSearchContext;
 import io.crate.breaker.CrateCircuitBreakerService;
 import io.crate.breaker.RamAccountingContext;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
@@ -59,11 +62,13 @@ public class CrateDocCollector implements CrateCollector {
     private final CrateSearchContext searchContext;
     private final RowReceiver rowReceiver;
     private final Collection<? extends LuceneCollectorExpression<?>> expressions;
+    private final LuceneDocCollector luceneDocCollector;
     private final SimpleCollector luceneCollector;
     private final TopRowUpstream upstreamState;
     private final State state = new State();
     private boolean killed;
     private final boolean doScores;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     public CrateDocCollector(final CrateSearchContext searchContext,
                              Executor executor,
@@ -103,7 +108,7 @@ public class CrateDocCollector implements CrateCollector {
         );
         rowReceiver.setUpstream(upstreamState);
         this.doScores = doScores || searchContext.minimumScore() != null;
-        SimpleCollector collector = new LuceneDocCollector(
+        luceneDocCollector = new LuceneDocCollector(
                 ramAccountingContext,
                 upstreamState,
                 rowReceiver,
@@ -111,6 +116,7 @@ public class CrateDocCollector implements CrateCollector {
                 new InputRow(inputs),
                 expressions
         );
+        SimpleCollector collector = luceneDocCollector;
         if (searchContext.minimumScore() != null) {
             collector = new MinimumScoreCollector(collector, searchContext.minimumScore());
         }
@@ -180,13 +186,14 @@ public class CrateDocCollector implements CrateCollector {
             // log it, the original failure is more interesting than the stage assertion
             LOGGER.error("Invalid searcher stage: ", e);
         }
-        rowReceiver.fail(t);
+        listener.onFailure(t);
     }
 
     private void finishCollect() {
         debugLog("finished collect");
         searchContext.clearReleasables(SearchContext.Lifetime.PHASE);
         rowReceiver.finish();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     private Result collectLeaves(SimpleCollector collector,
@@ -229,7 +236,12 @@ public class CrateDocCollector implements CrateCollector {
 
     @Override
     public void kill(@Nullable Throwable throwable) {
-        rowReceiver.kill(throwable);
+        luceneDocCollector.kill();
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 
     static class State {
@@ -248,6 +260,7 @@ public class CrateDocCollector implements CrateCollector {
         private final boolean doScores;
         private final Row inputRow;
         private final LuceneCollectorExpression[] expressions;
+        private boolean killed = false;
 
         public LuceneDocCollector(RamAccountingContext ramAccountingContext,
                                   TopRowUpstream topRowUpstream,
@@ -279,6 +292,9 @@ public class CrateDocCollector implements CrateCollector {
 
         @Override
         public void collect(int doc) throws IOException {
+            if (killed) {
+                throw CollectionFinishedEarlyException.INSTANCE;
+            }
             checkCircuitBreaker();
 
             for (LuceneCollectorExpression<?> expression : expressions) {
@@ -309,6 +325,10 @@ public class CrateDocCollector implements CrateCollector {
             for (LuceneCollectorExpression<?> expression : expressions) {
                 expression.setNextReader(context);
             }
+        }
+
+        public void kill() {
+            killed = true;
         }
     }
 

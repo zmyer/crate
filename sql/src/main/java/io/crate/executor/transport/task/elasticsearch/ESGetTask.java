@@ -197,7 +197,7 @@ public class ESGetTask extends EsJobContextTask implements RowUpstream {
                     jobId()
             );
         } else {
-            return FlatProjectorChain.withReceivers(ImmutableList.of(queryResultRowDownstream));
+            return FlatProjectorChain.withReceivers(ImmutableList.<RowReceiver>of(queryResultRowDownstream));
         }
     }
 

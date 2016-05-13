@@ -111,7 +111,7 @@ public class ShardCollectSource implements CollectSource {
     }
 
     @Override
-    public Collection<CrateCollector> getCollectors(CollectPhase phase, RowReceiver downstream, JobCollectContext jobCollectContext) {
+    public CollectSourceContext getCollectors(CollectPhase phase, RowReceiver downstream, JobCollectContext jobCollectContext) {
         RoutedCollectPhase collectPhase = (RoutedCollectPhase) phase;
         NodeSysReferenceResolver referenceResolver = new NodeSysReferenceResolver(nodeSysExpression);
         ImplementationSymbolVisitor implementationSymbolVisitor = new ImplementationSymbolVisitor(functions);
@@ -147,12 +147,13 @@ public class ShardCollectSource implements CollectSource {
             } else {
                 flatProjectorChain = FlatProjectorChain.withReceivers(ImmutableList.of(downstream));
             }
-            return ImmutableList.of(createMultiShardScoreDocCollector(
+            Collection<CrateCollector> collectors = ImmutableList.of(createMultiShardScoreDocCollector(
                     normalizedPhase,
                     flatProjectorChain,
                     jobCollectContext,
                     localNodeId)
             );
+            return new CollectSourceContext(collectors, flatProjectorChain.rowReceivers());
         }
 
 
@@ -181,7 +182,7 @@ public class ShardCollectSource implements CollectSource {
             }
         }
         projectorChain.prepare();
-        return shardCollectors;
+        return new CollectSourceContext(shardCollectors, projectorChain.rowReceivers());
     }
 
     private CrateCollector createMultiShardScoreDocCollector(RoutedCollectPhase collectPhase,

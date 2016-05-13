@@ -21,12 +21,10 @@
 
 package io.crate.jobs;
 
-import io.crate.concurrent.CompletionListenable;
 import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.ExecutionComponent;
 
-import javax.annotation.Nullable;
-
-public interface ExecutionSubContext extends CompletionListenable {
+public interface ExecutionSubContext extends ExecutionComponent {
 
 
     /**
@@ -46,8 +44,6 @@ public interface ExecutionSubContext extends CompletionListenable {
      * However, it is ok for the started executors to use their downstreams to propagate failures.
      */
     void start();
-
-    void kill(@Nullable Throwable throwable);
 
     String name();
 

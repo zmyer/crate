@@ -28,6 +28,7 @@ import io.crate.action.sql.query.CrateSearchContext;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.metadata.Routing;
 import io.crate.metadata.RowGranularity;
+import io.crate.operation.collect.sources.CollectSourceContext;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.testing.CollectingRowReceiver;
@@ -115,9 +116,12 @@ public class JobCollectContextTest extends RandomizedTest {
         jobCtx.addSearchContext(1, mock1);
         CrateCollector collectorMock1 = mock(CrateCollector.class);
         CrateCollector collectorMock2 = mock(CrateCollector.class);
+        CollectSourceContext collectSourceContext = new CollectSourceContext(
+            ImmutableList.of(collectorMock1, collectorMock2),
+            ImmutableList.<RowReceiver>of());
 
         when(collectOperationMock.createCollectors(eq(collectPhase), any(RowReceiver.class), eq(jobCtx)))
-                .thenReturn(ImmutableList.of(collectorMock1, collectorMock2));
+                .thenReturn(collectSourceContext);
         jobCtx.prepare();
         jobCtx.start();
         jobCtx.kill(null);

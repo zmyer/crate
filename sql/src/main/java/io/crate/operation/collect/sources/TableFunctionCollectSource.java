@@ -23,7 +23,6 @@
 package io.crate.operation.collect.sources;
 
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import io.crate.analyze.OrderBy;
 import io.crate.analyze.symbol.Reference;
 import io.crate.analyze.symbol.Symbol;
@@ -41,7 +40,6 @@ import io.crate.operation.collect.InputCollectExpression;
 import io.crate.operation.collect.JobCollectContext;
 import io.crate.operation.collect.RowsCollector;
 import io.crate.operation.projectors.RowReceiver;
-import io.crate.operation.projectors.sorting.OrderingByPosition;
 import io.crate.planner.node.dql.CollectPhase;
 import io.crate.planner.node.dql.TableFunctionCollectPhase;
 import org.elasticsearch.cluster.ClusterService;
@@ -49,7 +47,6 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -68,9 +65,9 @@ public class TableFunctionCollectSource implements CollectSource {
     }
 
     @Override
-    public Collection<CrateCollector> getCollectors(CollectPhase collectPhase,
-                                                    RowReceiver downstream,
-                                                    JobCollectContext jobCollectContext) {
+    public CollectSourceContext getCollectors(CollectPhase collectPhase,
+                                              RowReceiver downstream,
+                                              JobCollectContext jobCollectContext) {
         TableFunctionCollectPhase phase = (TableFunctionCollectPhase) collectPhase;
         TableFunctionImplementation tableFunctionSafe = functions.getTableFunctionSafe(phase.functionName());
         TableInfo tableInfo = tableFunctionSafe.createTableInfo(clusterService, Symbols.extractTypes(phase.arguments()));
@@ -90,7 +87,9 @@ public class TableFunctionCollectSource implements CollectSource {
             rows = SystemCollectSource.sortRows(Iterables.transform(rows, Row.MATERIALIZE), phase);
         }
         RowsCollector rowsCollector = new RowsCollector(downstream, rows);
-        return Collections.<CrateCollector>singletonList(rowsCollector);
+        return new CollectSourceContext(
+            Collections.<CrateCollector>singletonList(rowsCollector),
+            Collections.singletonList(downstream));
     }
 
     private static class Context {

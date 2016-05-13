@@ -22,6 +22,9 @@
 package io.crate.operation.collect;
 
 import com.google.common.collect.ImmutableList;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.operation.projectors.IterableRowEmitter;
 import io.crate.operation.projectors.RowReceiver;
@@ -31,6 +34,8 @@ import javax.annotation.Nullable;
 public class RowsCollector implements CrateCollector {
 
     private final IterableRowEmitter emitter;
+    private boolean killed = false;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     public static RowsCollector empty(RowReceiver rowDownstream) {
         return new RowsCollector(rowDownstream, ImmutableList.<Row>of());
@@ -47,10 +52,20 @@ public class RowsCollector implements CrateCollector {
     @Override
     public void doCollect() {
         emitter.run();
+        if (!killed) {
+            listener.onSuccess(CompletionState.EMPTY_STATE);
+        }
     }
 
     @Override
     public void kill(@Nullable Throwable throwable) {
+        killed = true;
         emitter.kill(throwable);
+        listener.onFailure(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 }

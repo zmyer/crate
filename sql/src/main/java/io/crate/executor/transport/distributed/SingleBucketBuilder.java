@@ -22,22 +22,27 @@
 package io.crate.executor.transport.distributed;
 
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.Streamer;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.StreamBucket;
 import io.crate.operation.RowUpstream;
+import io.crate.operation.projectors.AbstractRowReceiver;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
-import io.crate.operation.projectors.RowReceiver;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Set;
 
 
-public class SingleBucketBuilder implements RowReceiver {
+public class SingleBucketBuilder extends AbstractRowReceiver {
 
     private final StreamBucket.Builder bucketBuilder;
     private final SettableFuture<Bucket> bucketFuture = SettableFuture.create();
@@ -90,5 +95,20 @@ public class SingleBucketBuilder implements RowReceiver {
 
     @Override
     public void setUpstream(RowUpstream rowUpstream) {
+    }
+
+    @Override
+    public void addListener(final CompletionListener listener) {
+        Futures.addCallback(bucketFuture, new FutureCallback<Bucket>() {
+            @Override
+            public void onSuccess(@Nullable Bucket result) {
+                listener.onSuccess(CompletionState.EMPTY_STATE);
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                listener.onFailure(t);
+            }
+        });
     }
 }

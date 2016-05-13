@@ -21,10 +21,9 @@
 
 package io.crate.operation.collect;
 
-import javax.annotation.Nullable;
+import io.crate.concurrent.ExecutionComponent;
 
-public interface CrateCollector {
+public interface CrateCollector extends ExecutionComponent {
 
     void doCollect();
-    void kill(@Nullable Throwable throwable);
 }

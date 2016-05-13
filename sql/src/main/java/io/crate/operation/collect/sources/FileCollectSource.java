@@ -58,7 +58,7 @@ public class FileCollectSource implements CollectSource {
     }
 
     @Override
-    public Collection<CrateCollector> getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
+    public CollectSourceContext getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
         FileUriCollectPhase fileUriCollectPhase = (FileUriCollectPhase) collectPhase;
         FileCollectInputSymbolVisitor.Context context = fileInputSymbolVisitor.extractImplementations(collectPhase.toCollect());
 
@@ -68,7 +68,7 @@ public class FileCollectSource implements CollectSource {
 
         List<String> fileUris;
         fileUris = targetUriToStringList(fileUriCollectPhase.targetUri());
-        return ImmutableList.<CrateCollector>of(new FileReadingCollector(
+        Collection<CrateCollector> collectors = ImmutableList.<CrateCollector>of(new FileReadingCollector(
                 fileUris,
                 context.topLevelInputs(),
                 context.expressions(),
@@ -80,6 +80,7 @@ public class FileCollectSource implements CollectSource {
                 readers.length,
                 Arrays.binarySearch(readers, clusterService.state().nodes().localNodeId())
         ));
+        return new CollectSourceContext(collectors, ImmutableList.of(downstream));
     }
 
     private static List<String> targetUriToStringList(Symbol targetUri) {

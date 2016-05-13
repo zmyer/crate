@@ -33,6 +33,7 @@ import io.crate.metadata.*;
 import io.crate.metadata.information.InformationSchemaInfo;
 import io.crate.metadata.sys.SysClusterTableInfo;
 import io.crate.metadata.table.TableInfo;
+import io.crate.operation.collect.sources.CollectSourceContext;
 import io.crate.operation.operator.EqOperator;
 import io.crate.operation.reference.sys.cluster.ClusterNameExpression;
 import io.crate.planner.distribution.DistributionInfo;
@@ -101,8 +102,8 @@ public class HandlerSideLevelCollectTest extends SQLTransportIntegrationTest {
     private Bucket collect(RoutedCollectPhase collectPhase) throws Exception {
         CollectingRowReceiver collectingProjector = new CollectingRowReceiver();
         collectingProjector.prepare();
-        Collection<CrateCollector> collectors = operation.createCollectors(collectPhase, collectingProjector, mock(JobCollectContext.class));
-        operation.launchCollectors(collectors, JobCollectContext.threadPoolName(collectPhase, clusterService().localNode().id()));
+        CollectSourceContext collectSourceContext = operation.createCollectors(collectPhase, collectingProjector, mock(JobCollectContext.class));
+        operation.launchCollectors(collectSourceContext.collectors(), JobCollectContext.threadPoolName(collectPhase, clusterService().localNode().id()));
         return collectingProjector.result();
     }
 

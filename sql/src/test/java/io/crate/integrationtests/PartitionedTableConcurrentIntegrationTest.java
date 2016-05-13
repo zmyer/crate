@@ -188,7 +188,7 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
 
     @Test
     public void testTableUnknownExceptionIsNotRaisedIfPartitionsAreDeletedAfterPlanSingleNode() throws Exception {
-        // with a sinlge node, this test leads to empty shard collectors
+        // with a single node, this test leads to empty shard collectors
         internalCluster().ensureAtMostNumDataNodes(1);
         TaskResult taskResult = deletePartitionsAndExecutePlan("select * from t");
         assertThat(taskResult.rows().size(), is(0));

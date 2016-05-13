@@ -29,6 +29,7 @@ import io.crate.metadata.NestedReferenceResolver;
 import io.crate.metadata.RowGranularity;
 import io.crate.operation.ThreadPools;
 import io.crate.operation.collect.sources.CollectSource;
+import io.crate.operation.collect.sources.CollectSourceContext;
 import io.crate.operation.collect.sources.CollectSourceResolver;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.operation.reference.sys.node.NodeSysExpression;
@@ -87,9 +88,9 @@ public class MapSideDataCollectOperation {
      * &nbsp; -&gt; run node level collect (cluster level)<br>
      * </p>
      */
-    public Collection<CrateCollector> createCollectors(CollectPhase collectPhase,
-                                                       RowReceiver downstream,
-                                                       final JobCollectContext jobCollectContext) {
+    public CollectSourceContext createCollectors(CollectPhase collectPhase,
+                                                 RowReceiver downstream,
+                                                 final JobCollectContext jobCollectContext) {
         CollectSource service = collectSourceResolver.getService(collectPhase);
         collectPhase = normalize(collectPhase);
         return service.getCollectors(collectPhase, downstream, jobCollectContext);

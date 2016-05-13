@@ -24,22 +24,22 @@ package io.crate.operation.collect;
 import com.carrotsearch.hppc.IntObjectHashMap;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.crate.action.job.SharedShardContexts;
 import io.crate.action.sql.query.CrateSearchContext;
 import io.crate.breaker.RamAccountingContext;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.ExecutionComponent;
 import io.crate.jobs.AbstractExecutionSubContext;
 import io.crate.metadata.RowGranularity;
-import io.crate.operation.projectors.ListenableRowReceiver;
+import io.crate.operation.collect.sources.CollectSourceContext;
 import io.crate.operation.projectors.RowReceiver;
-import io.crate.operation.projectors.RowReceivers;
 import io.crate.planner.node.dql.CollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
+import org.elasticsearch.common.util.concurrent.ConcurrentCollections;
 import org.elasticsearch.threadpool.ThreadPool;
 
 import javax.annotation.Nonnull;
@@ -47,6 +47,9 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class JobCollectContext extends AbstractExecutionSubContext {
 
@@ -60,10 +63,12 @@ public class JobCollectContext extends AbstractExecutionSubContext {
 
     private final IntObjectHashMap<CrateSearchContext> searchContexts = new IntObjectHashMap<>();
     private final Object subContextLock = new Object();
-    private final ListenableRowReceiver listenableRowReceiver;
     private final String threadPoolName;
+    private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
     private Collection<CrateCollector> collectors;
+    private Set<ExecutionComponent> executionComponents;
+    private AtomicInteger executionComponentsCount;
 
     public JobCollectContext(final CollectPhase collectPhase,
                              MapSideDataCollectOperation collectOperation,
@@ -76,24 +81,11 @@ public class JobCollectContext extends AbstractExecutionSubContext {
         this.collectOperation = collectOperation;
         this.queryPhaseRamAccountingContext = queryPhaseRamAccountingContext;
         this.sharedShardContexts = sharedShardContexts;
-
-        listenableRowReceiver = RowReceivers.listenableRowReceiver(rowReceiver);
-        Futures.addCallback(listenableRowReceiver.finishFuture(), new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(@Nullable Void result) {
-                close();
-            }
-
-            @Override
-            public void onFailure(@Nonnull Throwable t) {
-                closeDueToFailure(t);
-            }
-        });
-        this.rowReceiver = listenableRowReceiver;
+        this.rowReceiver = rowReceiver;
         this.threadPoolName = threadPoolName(collectPhase, localNodeId);
     }
 
-    public void addSearchContext(int jobSearchContextId, CrateSearchContext searchContext) {
+    void addSearchContext(int jobSearchContextId, CrateSearchContext searchContext) {
         if (future.closed()) {
             // if this is closed and addContext is called this means the context got killed.
             searchContext.close();
@@ -137,12 +129,17 @@ public class JobCollectContext extends AbstractExecutionSubContext {
 
     @Override
     public void innerKill(@Nonnull Throwable throwable) {
-        if (collectors != null) {
-            for (CrateCollector collector : collectors) {
-                collector.kill(throwable);
+        failure.compareAndSet(null, throwable);
+        killComponents(throwable);
+        future.bytesUsed(queryPhaseRamAccountingContext.totalBytes());
+    }
+
+    private void killComponents(@Nonnull Throwable throwable) {
+        if (executionComponents != null) {
+            for (ExecutionComponent executionComponent : executionComponents) {
+                executionComponent.kill(throwable);
             }
         }
-        future.bytesUsed(queryPhaseRamAccountingContext.totalBytes());
     }
 
     @Override
@@ -164,8 +161,33 @@ public class JobCollectContext extends AbstractExecutionSubContext {
 
     @Override
     protected void innerPrepare() {
-        collectors = collectOperation.createCollectors(collectPhase, rowReceiver, this);
+        CollectSourceContext collectSourceContext = collectOperation.createCollectors(collectPhase, rowReceiver, this);
+        collectors = collectSourceContext.collectors();
+        executionComponents = ConcurrentCollections.newConcurrentSet();
+        if (collectors.isEmpty()) {
+            // only add rowReceiver known by this context as execution component (projectors are skipped if collectors are empty)
+            executionComponents.add(rowReceiver);
+        } else {
+            executionComponents.addAll(collectSourceContext.executionComponents());
+        }
+        executionComponentsCount = new AtomicInteger(executionComponents.size());
+        for (ExecutionComponent component : executionComponents) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("[{}] Registering completion listener to component={}", collectPhase.jobId(), component);
+            }
+            component.addListener(new ComponentCompletionListener(component));
+        }
+    }
 
+    private void countdown() {
+        // TODO: seems like due to existing failure propagation, counter can go negative. check/fix this after removed failure propagation.
+        if (executionComponentsCount.decrementAndGet() <= 0) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("[{}] [{}] All components finished, will close context",
+                    collectPhase.jobId(), collectPhase.executionPhaseId());
+            }
+            close(failure.get());
+        }
     }
 
     @Override
@@ -183,13 +205,27 @@ public class JobCollectContext extends AbstractExecutionSubContext {
     private void measureCollectTime() {
         final StopWatch stopWatch = new StopWatch(collectPhase.executionPhaseId() + ": " + collectPhase.name());
         stopWatch.start("starting collectors");
-        listenableRowReceiver.finishFuture().addListener(new Runnable() {
-            @Override
-            public void run() {
-                stopWatch.stop();
+        rowReceiver.addListener(new CompletionListener() {
+
+            private void stop() {
+                // stopWatch is not thread-safe and so it could be still marked as non-runnning
+                // TODO: use a thread-safe implementation
+                if (stopWatch.isRunning()) {
+                    stopWatch.stop();
+                }
                 logger.trace("Collectors finished: {}", stopWatch.shortSummary());
             }
-        }, MoreExecutors.directExecutor());
+
+            @Override
+            public void onSuccess(@Nullable CompletionState result) {
+                stop();
+            }
+
+            @Override
+            public void onFailure(@Nonnull Throwable t) {
+                stop();
+            }
+        });
     }
 
     public RamAccountingContext queryPhaseRamAccountingContext() {
@@ -217,5 +253,40 @@ public class JobCollectContext extends AbstractExecutionSubContext {
 
         // Anything else like INFORMATION_SCHEMA tables or sys.cluster table collector
         return ThreadPool.Names.PERCOLATE;
+    }
+
+    private class ComponentCompletionListener implements CompletionListener {
+
+        ExecutionComponent component;
+
+        ComponentCompletionListener(ExecutionComponent component) {
+            this.component = component;
+        }
+
+        @Override
+        public void onSuccess(@Nullable CompletionState result) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("[{}] onSuccess called by component={}, remainingComponents={}",
+                    collectPhase.jobId(), component, executionComponentsCount.get());
+            }
+            executionComponents.remove(component);
+            countdown();
+        }
+
+        @Override
+        public void onFailure(@Nonnull Throwable t) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("[{}] onFailure called by component={}, remainingComponents={}",
+                    t, collectPhase.jobId(), component, executionComponentsCount.get());
+            }
+            boolean isFirstFailure = failure.compareAndSet(null, t);
+            executionComponents.remove(component);
+            countdown();
+
+            if (isFirstFailure) {
+                // TODO: is this the right place for doing that?
+                kill(failure.get());
+            }
+        }
     }
 }

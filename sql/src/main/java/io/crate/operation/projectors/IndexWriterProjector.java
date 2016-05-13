@@ -26,6 +26,7 @@ import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.Futures;
 import io.crate.analyze.symbol.Reference;
 import io.crate.analyze.symbol.Symbol;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.ShardUpsertRequest;
 import io.crate.executor.transport.TransportActionProvider;
@@ -57,7 +58,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class IndexWriterProjector extends AbstractProjector {
+class IndexWriterProjector extends AbstractProjector {
 
     private final Input<BytesRef> sourceInput;
     private final RowShardResolver rowShardResolver;
@@ -66,7 +67,7 @@ public class IndexWriterProjector extends AbstractProjector {
     private final BulkShardProcessor<ShardUpsertRequest> bulkShardProcessor;
     private final AtomicBoolean failed = new AtomicBoolean(false);
 
-    public IndexWriterProjector(ClusterService clusterService,
+    IndexWriterProjector(ClusterService clusterService,
                                 Functions functions,
                                 IndexNameExpressionResolver indexNameExpressionResolver,
                                 Settings settings,
@@ -140,6 +141,7 @@ public class IndexWriterProjector extends AbstractProjector {
     @Override
     public void finish() {
         bulkShardProcessor.close();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
@@ -147,6 +149,7 @@ public class IndexWriterProjector extends AbstractProjector {
         failed.set(true);
         downstream.fail(throwable);
         bulkShardProcessor.kill(throwable);
+        listener.onFailure(throwable);
     }
 
     private static class MapInput implements Input<BytesRef> {

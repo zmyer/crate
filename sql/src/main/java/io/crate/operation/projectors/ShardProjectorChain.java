@@ -208,4 +208,12 @@ public class ShardProjectorChain {
         }
         firstNodeProjector.fail(t);
     }
+
+    public List<RowReceiver> rowReceivers() {
+        List<RowReceiver> rowReceivers = new ArrayList<>(shardProjectors.size() + nodeProjectors.size());
+        rowReceivers.addAll(shardProjectors);
+        rowReceivers.addAll(nodeProjectors);
+        rowReceivers.add(finalDownstream);
+        return rowReceivers;
+    }
 }

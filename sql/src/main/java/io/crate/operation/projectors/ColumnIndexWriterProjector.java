@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.Futures;
 import io.crate.analyze.symbol.Assignments;
 import io.crate.analyze.symbol.Reference;
 import io.crate.analyze.symbol.Symbol;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.ShardUpsertRequest;
 import io.crate.executor.transport.TransportActionProvider;
@@ -137,6 +138,7 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
     @Override
     public void finish() {
         bulkShardProcessor.close();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
@@ -144,6 +146,7 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
         super.kill(throwable);
         failed.set(true);
         bulkShardProcessor.kill(throwable);
+        listener.onFailure(throwable);
     }
 
     @Override
@@ -151,5 +154,6 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
         failed.set(true);
         downstream.fail(throwable);
         bulkShardProcessor.kill(throwable);
+        listener.onFailure(throwable);
     }
 }

@@ -23,6 +23,7 @@
 package io.crate.operation.projectors;
 
 import com.google.common.collect.Sets;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.ArrayRow;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowDownstream;
@@ -37,15 +38,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class RowMergers {
+class RowMergers {
 
     private RowMergers() {}
 
-    public static RowDownstream passThroughRowMerger(RowReceiver delegate) {
+    static RowDownstream passThroughRowMerger(RowReceiver delegate) {
         return new MultiUpstreamRowReceiver(delegate);
     }
 
-    static class MultiUpstreamRowReceiver implements RowReceiver, RowMerger {
+    static class MultiUpstreamRowReceiver extends AbstractRowReceiver implements RowMerger {
 
         private static final ESLogger LOGGER = Loggers.getLogger(MultiUpstreamRowReceiver.class);
 
@@ -56,12 +57,12 @@ public class RowMergers {
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
         private final Object lock = new Object();
 
-        protected final Queue<Object[]> pauseFifo = new LinkedList<>();
-        protected final ArrayRow sharedRow = new ArrayRow();
+        final Queue<Object[]> pauseFifo = new LinkedList<>();
+        final ArrayRow sharedRow = new ArrayRow();
 
         volatile boolean paused = false;
 
-        public MultiUpstreamRowReceiver(RowReceiver delegate) {
+        MultiUpstreamRowReceiver(RowReceiver delegate) {
             delegate.setUpstream(this);
             this.delegate = delegate;
         }
@@ -78,7 +79,7 @@ public class RowMergers {
             }
         }
 
-        protected boolean synchronizedSetNextRow(Row row) {
+        boolean synchronizedSetNextRow(Row row) {
             if (paused) {
                 pauseFifo.add(row.materialize());
                 return true;
@@ -113,7 +114,7 @@ public class RowMergers {
         /**
          * triggered if the last remaining upstream finished or failed
          */
-        protected void onFinish() {
+        void onFinish() {
             assert !paused : "must not receive a finish call if upstream should be paused";
             for (Object[] objects : pauseFifo) {
                 sharedRow.cells(objects);
@@ -123,13 +124,15 @@ public class RowMergers {
                 }
             }
             delegate.finish();
+            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
 
         /**
          * triggered if the last remaining upstream finished or failed
          */
-        protected void onFail(Throwable t) {
+        void onFail(Throwable t) {
             delegate.fail(t);
+            listener.onFailure(t);
         }
 
         @Override
@@ -142,6 +145,7 @@ public class RowMergers {
         @Override
         public void kill(Throwable throwable) {
             delegate.kill(throwable);
+            listener.onFailure(throwable);
         }
 
         @Override

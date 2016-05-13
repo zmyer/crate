@@ -23,6 +23,7 @@
 package io.crate.operation.projectors;
 
 import com.google.common.util.concurrent.Futures;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.ShardRequest;
 import io.crate.executor.transport.TransportActionProvider;
@@ -94,6 +95,7 @@ abstract class DMLProjector<Request extends ShardRequest> extends AbstractProjec
     @Override
     public void finish() {
         bulkShardProcessor.close();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
@@ -106,5 +108,7 @@ abstract class DMLProjector<Request extends ShardRequest> extends AbstractProjec
         } else {
             bulkShardProcessor.close();
         }
+
+        listener.onFailure(throwable);
     }
 }

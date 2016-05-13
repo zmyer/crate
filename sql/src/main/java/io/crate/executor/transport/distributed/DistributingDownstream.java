@@ -23,12 +23,13 @@ package io.crate.executor.transport.distributed;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.crate.Streamer;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
+import io.crate.operation.projectors.AbstractRowReceiver;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
-import io.crate.operation.projectors.RowReceiver;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -39,7 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class DistributingDownstream implements RowReceiver {
+public class DistributingDownstream extends AbstractRowReceiver {
 
     private static final ActionListener<DistributedResultResponse> NO_OP_ACTION_LISTENER = new ActionListener<DistributedResultResponse>() {
 
@@ -157,6 +158,9 @@ public class DistributingDownstream implements RowReceiver {
     @Override
     public void finish() {
         upstreamFinished();
+
+        // TODO: must be called when all requests finished
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
@@ -164,12 +168,18 @@ public class DistributingDownstream implements RowReceiver {
         failure.compareAndSet(null, throwable);
         gatherMoreRows = false;
         upstreamFinished();
+
+        // TODO: must be called when all requests finished
+        listener.onFailure(throwable);
     }
 
     @Override
     public void kill(Throwable throwable) {
         killed = true;
         // downstream will also receive a kill request
+
+        // TODO: must be called when all requests finished
+        listener.onFailure(throwable);
     }
 
     @Override

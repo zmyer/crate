@@ -34,8 +34,6 @@ import io.crate.planner.node.dql.RoutedCollectPhase;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 
-import java.util.Collection;
-
 @Singleton
 public class SingleRowSource implements CollectSource {
 
@@ -47,13 +45,17 @@ public class SingleRowSource implements CollectSource {
     }
 
     @Override
-    public Collection<CrateCollector> getCollectors(CollectPhase phase, RowReceiver downstream, JobCollectContext jobCollectContext) {
+    public CollectSourceContext getCollectors(CollectPhase phase, RowReceiver downstream, JobCollectContext jobCollectContext) {
         RoutedCollectPhase collectPhase = (RoutedCollectPhase) phase;
         ImplementationSymbolVisitor nodeImplementationSymbolVisitor = new ImplementationSymbolVisitor(functions);
         if (collectPhase.whereClause().noMatch()){
-            return ImmutableList.<CrateCollector>of(RowsCollector.empty(downstream));
+            return new CollectSourceContext(
+                ImmutableList.<CrateCollector>of(RowsCollector.empty(downstream)),
+                ImmutableList.of(downstream));
         }
         ImplementationSymbolVisitor.Context ctx = nodeImplementationSymbolVisitor.extractImplementations(collectPhase.toCollect());
-        return ImmutableList.<CrateCollector>of(RowsCollector.single(new InputRow(ctx.topLevelInputs()), downstream));
+        return new CollectSourceContext(
+            ImmutableList.<CrateCollector>of(RowsCollector.single(new InputRow(ctx.topLevelInputs()), downstream)),
+            ImmutableList.of(downstream));
     }
 }

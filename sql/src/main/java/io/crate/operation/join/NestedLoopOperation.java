@@ -23,13 +23,11 @@ package io.crate.operation.join;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.operation.RowUpstream;
-import io.crate.operation.projectors.ListenableRowReceiver;
-import io.crate.operation.projectors.Requirement;
-import io.crate.operation.projectors.Requirements;
-import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.*;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 
@@ -143,7 +141,7 @@ public class NestedLoopOperation implements RowUpstream {
         }
     }
 
-    private abstract class AbstractRowReceiver implements ListenableRowReceiver {
+    private abstract class AbstractNestedLoopRowReceiver extends AbstractRowReceiver implements ListenableRowReceiver {
 
         final SettableFuture<Void> finished = SettableFuture.create();
         final AtomicReference<State> state = new AtomicReference<>(State.LEAD_ELECTION);
@@ -163,6 +161,7 @@ public class NestedLoopOperation implements RowUpstream {
         public void kill(Throwable throwable) {
             killBoth(throwable);
             downstream.kill(throwable);
+            listener.onFailure(throwable);
         }
 
         @Override
@@ -208,7 +207,7 @@ public class NestedLoopOperation implements RowUpstream {
         right.state.set(State.FINISHED);
     }
 
-    private class LeftRowReceiver extends AbstractRowReceiver {
+    private class LeftRowReceiver extends AbstractNestedLoopRowReceiver {
 
         private Row lastRow = null;
         private boolean done = false;
@@ -261,12 +260,14 @@ public class NestedLoopOperation implements RowUpstream {
         public void finish() {
             LOGGER.trace("[{}] LEFT upstream called finish", phaseId);
             finish(right.state, right.upstream);
+            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
 
         @Override
         public void fail(Throwable throwable) {
             upstreamFailure = throwable;
             finish(right.state, right.upstream);
+            listener.onFailure(throwable);
         }
 
         @Override
@@ -275,7 +276,7 @@ public class NestedLoopOperation implements RowUpstream {
         }
     }
 
-    private class RightRowReceiver extends AbstractRowReceiver {
+    private class RightRowReceiver extends AbstractNestedLoopRowReceiver {
 
         private final CombinedRow combinedRow = new CombinedRow();
         private final Set<Requirement> requirements;
@@ -348,6 +349,7 @@ public class NestedLoopOperation implements RowUpstream {
 
             leftIsSuspended = false;
             finish(left.state, left.upstream);
+            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
 
         @Override
@@ -355,6 +357,7 @@ public class NestedLoopOperation implements RowUpstream {
             upstreamFailure = throwable;
             leftIsSuspended = true;
             finish(left.state, left.upstream);
+            listener.onFailure(throwable);
         }
 
         @Override

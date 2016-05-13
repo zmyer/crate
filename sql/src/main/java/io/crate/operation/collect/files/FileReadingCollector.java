@@ -25,6 +25,9 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
+import io.crate.concurrent.CompletionState;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
 import io.crate.operation.RowUpstream;
@@ -71,6 +74,8 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
         }
     };
     private final List<UriWithGlob> fileUris;
+    private CompletionListener listener = CompletionListener.NO_OP;
+    private boolean killed = false;
 
     @Override
     public void pause() {
@@ -185,6 +190,7 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
                 fileInput = getFileInput(fileUri.uri);
             } catch (IOException e) {
                 downstream.fail(e);
+                listener.onFailure(e);
                 return;
             }
 
@@ -200,15 +206,23 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
                 }
             } catch (Throwable e) {
                 downstream.fail(e);
+                listener.onFailure(e);
                 return;
             }
         }
         downstream.finish();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
     public void kill(@Nullable Throwable throwable) {
+        killed = true;
         downstream.kill(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 
     private boolean readLines(FileInput fileInput,
@@ -225,6 +239,9 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
         long linesRead = 0L;
         try (BufferedReader reader = createReader(inputStream)) {
             while ((line = reader.readLine()) != null) {
+                if (killed) {
+                    return false;
+                }
                 linesRead++;
                 if (linesRead < startLine) {
                     continue;

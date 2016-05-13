@@ -22,6 +22,7 @@
 package io.crate.operation.projectors;
 
 import io.crate.breaker.RamAccountingContext;
+import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.operation.AggregationContext;
@@ -30,7 +31,7 @@ import io.crate.operation.collect.CollectExpression;
 
 import java.util.Set;
 
-public class AggregationPipe extends AbstractProjector {
+class AggregationPipe extends AbstractProjector {
 
     private final Aggregator[] aggregators;
     private final Set<CollectExpression<Row, ?>> collectExpressions;
@@ -38,7 +39,7 @@ public class AggregationPipe extends AbstractProjector {
     private final Row row;
     private final Object[] states;
 
-    public AggregationPipe(Set<CollectExpression<Row, ?>> collectExpressions,
+    AggregationPipe(Set<CollectExpression<Row, ?>> collectExpressions,
                            AggregationContext[] aggregations,
                            RamAccountingContext ramAccountingContext) {
         cells = new Object[aggregations.length];
@@ -74,6 +75,7 @@ public class AggregationPipe extends AbstractProjector {
     @Override
     public void fail(Throwable t) {
         downstream.fail(t);
+        listener.onFailure(t);
     }
 
     @Override
@@ -83,5 +85,6 @@ public class AggregationPipe extends AbstractProjector {
         }
         downstream.setNextRow(row);
         downstream.finish();
+        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 }

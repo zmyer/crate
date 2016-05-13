@@ -21,15 +21,11 @@
 
 package io.crate.operation.collect.sources;
 
-import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.collect.JobCollectContext;
 import io.crate.operation.projectors.FlatProjectorChain;
 import io.crate.operation.projectors.ProjectorFactory;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.planner.node.dql.CollectPhase;
-import io.crate.planner.node.dql.RoutedCollectPhase;
-
-import java.util.Collection;
 
 public class ProjectorSetupCollectSource implements CollectSource {
 
@@ -42,7 +38,7 @@ public class ProjectorSetupCollectSource implements CollectSource {
     }
 
     @Override
-    public Collection<CrateCollector> getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
+    public CollectSourceContext getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
         if (collectPhase.projections().isEmpty()) {
             return sourceDelegate.getCollectors(collectPhase, downstream, jobCollectContext);
         }

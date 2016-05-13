@@ -48,9 +48,9 @@ import java.util.UUID;
  */
 public class FlatProjectorChain {
 
-    private final List<? extends RowReceiver> rowReceivers;
+    private final List<RowReceiver> rowReceivers;
 
-    private FlatProjectorChain(List<? extends RowReceiver> rowReceivers) {
+    private FlatProjectorChain(List<RowReceiver> rowReceivers) {
         Preconditions.checkArgument(!rowReceivers.isEmpty(), "no projectors given");
         this.rowReceivers = rowReceivers;
     }
@@ -91,7 +91,11 @@ public class FlatProjectorChain {
     /**
      * Create a task from a list of rowReceivers (which are already chained).
      */
-    public static FlatProjectorChain withReceivers(List<? extends RowReceiver> rowReceivers) {
+    public static FlatProjectorChain withReceivers(List<RowReceiver> rowReceivers) {
         return new FlatProjectorChain(rowReceivers);
+    }
+
+    public List<RowReceiver> rowReceivers() {
+        return rowReceivers;
     }
 }

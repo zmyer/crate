@@ -345,17 +345,16 @@ class ExecutionPhasesTask extends JobTask {
 
         @Override
         public void onResponse(JobResponse jobResponse) {
-            initializationTracker.jobInitialized(null);
             if (jobResponse.directResponse().size() > 0) {
-                for (Tuple<ExecutionPhase, RowReceiver> rowReceiver : rowReceivers) {
-                    rowReceiver.v2().fail(new IllegalStateException("Got a directResponse but didn't expect one"));
-                }
+                initializationTracker.jobInitialized(new IllegalStateException("Got a directResponse but didn't expect one"));
+            } else {
+                initializationTracker.jobInitialized(null);
             }
         }
 
         @Override
         public void onFailure(Throwable e) {
-            initializationTracker.jobInitialized(null);
+            initializationTracker.jobInitialized(e);
             // could be a preparation failure - in that case the regular error propagation doesn't work as it hasn't been set up yet
             // so fail rowReceivers directly
             for (Tuple<ExecutionPhase, RowReceiver> rowReceiver : rowReceivers) {

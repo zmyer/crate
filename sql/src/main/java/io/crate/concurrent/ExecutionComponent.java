@@ -22,17 +22,13 @@
 
 package io.crate.concurrent;
 
-public class CompletionState {
+import javax.annotation.Nullable;
 
-    public static CompletionState EMPTY_STATE = new CompletionState();
+public interface ExecutionComponent extends CompletionListenable {
 
-    private long bytesUsed = -1;
-
-    public void bytesUsed(long bytesUsed) {
-        this.bytesUsed = bytesUsed;
-    }
-
-    public long bytesUsed() {
-        return bytesUsed;
-    }
+    /**
+     * kill a ExecutionComponent to stop it's execution.
+     * kill can be called from a different thread and can be called after/during finish/fail operations
+     */
+    void kill(@Nullable Throwable throwable);
 }
