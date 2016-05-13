@@ -22,8 +22,6 @@
 
 package io.crate.operation.projectors;
 
-import io.crate.concurrent.CompletionListener;
-import io.crate.concurrent.CompletionMultiListener;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 
@@ -38,7 +36,6 @@ public abstract class AbstractProjector implements Projector {
 
     private RowUpstream upstream = STATE_CHECK_ROW_UPSTREAM;
     protected RowReceiver downstream = STATE_CHECK_RECEIVER;
-    protected CompletionListener listener = CompletionListener.NO_OP;
 
     @Override
     public void downstream(RowReceiver rowReceiver) {
@@ -54,12 +51,6 @@ public abstract class AbstractProjector implements Projector {
     @Override
     public void pause() {
         upstream.pause();
-    }
-
-    @Override
-    public void kill(Throwable throwable) {
-        downstream.kill(throwable);
-        listener.onFailure(throwable);
     }
 
     @Override
@@ -81,11 +72,6 @@ public abstract class AbstractProjector implements Projector {
     public void setUpstream(RowUpstream upstream) {
         assert upstream != null : "upstream must not be null";
         this.upstream = upstream;
-    }
-
-    @Override
-    public void addListener(CompletionListener listener) {
-        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 
     private static class StateCheckRowUpstream implements RowUpstream {
@@ -128,11 +114,6 @@ public abstract class AbstractProjector implements Projector {
         }
 
         @Override
-        public void kill(Throwable throwable) {
-            throw new IllegalStateException(STATE_ERROR);
-        }
-
-        @Override
         public void prepare() {
             throw new IllegalStateException(STATE_ERROR);
         }
@@ -144,11 +125,6 @@ public abstract class AbstractProjector implements Projector {
 
         @Override
         public Set<Requirement> requirements() {
-            throw new IllegalStateException(STATE_ERROR);
-        }
-
-        @Override
-        public void addListener(CompletionListener listener) {
             throw new IllegalStateException(STATE_ERROR);
         }
     }

@@ -21,8 +21,8 @@
 
 package io.crate.jobs;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionState;
 import io.crate.operation.join.NestedLoopOperation;
 import io.crate.operation.projectors.FlatProjectorChain;
 import io.crate.operation.projectors.ListenableRowReceiver;
@@ -69,13 +69,13 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
         rightRowReceiver = nestedLoopOperation.rightRowReceiver();
 
         if (leftPageDownstreamContext == null) {
-            Futures.addCallback(leftRowReceiver.finishFuture(), new RemoveContextCallback());
+            leftRowReceiver.addListener(new RemoveContextCallback());
         } else {
             leftPageDownstreamContext.future.addCallback(new RemoveContextCallback());
         }
 
         if (rightPageDownstreamContext == null) {
-            Futures.addCallback(rightRowReceiver.finishFuture(), new RemoveContextCallback());
+            rightRowReceiver.addListener(new RemoveContextCallback());
         } else {
             rightPageDownstreamContext.future.addCallback(new RemoveContextCallback());
         }
@@ -135,9 +135,7 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
     }
 
     private static void killSubContext(Throwable t, @Nullable PageDownstreamContext subContext, ListenableRowReceiver rowReceiver) {
-        if (subContext == null) {
-            rowReceiver.kill(t);
-        } else {
+        if (subContext != null) {
             subContext.kill(t);
         }
     }
@@ -162,14 +160,14 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
                '}';
     }
 
-    private class RemoveContextCallback implements FutureCallback<Object> {
+    private class RemoveContextCallback implements CompletionListener {
 
         public RemoveContextCallback() {
             activeSubContexts.incrementAndGet();
         }
 
         @Override
-        public void onSuccess(@Nullable Object result) {
+        public void onSuccess(@Nullable CompletionState result) {
             countdown();
         }
 

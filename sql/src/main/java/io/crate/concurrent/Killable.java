@@ -24,10 +24,10 @@ package io.crate.concurrent;
 
 import javax.annotation.Nullable;
 
-public interface ExecutionComponent extends CompletionListenable {
+public interface Killable {
 
     /**
-     * kill a ExecutionComponent to stop it's execution.
+     * kill must to stop execution of the implementation.
      * kill can be called from a different thread and can be called after/during finish/fail operations
      */
     void kill(@Nullable Throwable throwable);

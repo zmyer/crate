@@ -27,7 +27,7 @@ import com.google.common.util.concurrent.Futures;
 import io.crate.analyze.symbol.Assignments;
 import io.crate.analyze.symbol.Reference;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.*;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.ShardUpsertRequest;
 import io.crate.executor.transport.TransportActionProvider;
@@ -51,7 +51,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class ColumnIndexWriterProjector extends AbstractProjector {
+class ColumnIndexWriterProjector extends AbstractProjector implements Killable, CompletionListenable {
 
     private final Iterable<? extends CollectExpression<Row, ?>> collectExpressions;
 
@@ -61,26 +61,27 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
     private final InputRow insertValues;
     private BulkShardProcessor<ShardUpsertRequest> bulkShardProcessor;
     private final AtomicBoolean failed = new AtomicBoolean(false);
+    private CompletionListener listener = CompletionListener.NO_OP;
 
 
-    protected ColumnIndexWriterProjector(ClusterService clusterService,
-                                         Functions functions,
-                                         IndexNameExpressionResolver indexNameExpressionResolver,
-                                         Settings settings,
-                                         Supplier<String> indexNameResolver,
-                                         TransportActionProvider transportActionProvider,
-                                         BulkRetryCoordinatorPool bulkRetryCoordinatorPool,
-                                         List<ColumnIdent> primaryKeyIdents,
-                                         List<? extends Symbol> primaryKeySymbols,
-                                         @Nullable Symbol routingSymbol,
-                                         ColumnIdent clusteredByColumn,
-                                         List<Reference> columnReferences,
-                                         List<Input<?>> insertInputs,
-                                         Iterable<? extends CollectExpression<Row, ?>> collectExpressions,
-                                         @Nullable Map<Reference, Symbol> updateAssignments,
-                                         @Nullable Integer bulkActions,
-                                         boolean autoCreateIndices,
-                                         UUID jobId) {
+    ColumnIndexWriterProjector(ClusterService clusterService,
+                               Functions functions,
+                               IndexNameExpressionResolver indexNameExpressionResolver,
+                               Settings settings,
+                               Supplier<String> indexNameResolver,
+                               TransportActionProvider transportActionProvider,
+                               BulkRetryCoordinatorPool bulkRetryCoordinatorPool,
+                               List<ColumnIdent> primaryKeyIdents,
+                               List<? extends Symbol> primaryKeySymbols,
+                               @Nullable Symbol routingSymbol,
+                               ColumnIdent clusteredByColumn,
+                               List<Reference> columnReferences,
+                               List<Input<?>> insertInputs,
+                               Iterable<? extends CollectExpression<Row, ?>> collectExpressions,
+                               @Nullable Map<Reference, Symbol> updateAssignments,
+                               @Nullable Integer bulkActions,
+                               boolean autoCreateIndices,
+                               UUID jobId) {
         this.indexNameResolver = indexNameResolver;
         this.collectExpressions = collectExpressions;
         rowShardResolver = new RowShardResolver(functions, primaryKeyIdents, primaryKeySymbols, clusteredByColumn, routingSymbol);
@@ -143,7 +144,6 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
 
     @Override
     public void kill(Throwable throwable) {
-        super.kill(throwable);
         failed.set(true);
         bulkShardProcessor.kill(throwable);
         listener.onFailure(throwable);
@@ -155,5 +155,10 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
         downstream.fail(throwable);
         bulkShardProcessor.kill(throwable);
         listener.onFailure(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 }

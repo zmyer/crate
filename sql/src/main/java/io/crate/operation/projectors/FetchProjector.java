@@ -30,7 +30,7 @@ import com.carrotsearch.hppc.cursors.IntObjectCursor;
 import io.crate.Streamer;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.Symbols;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.*;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.NodeFetchRequest;
@@ -57,7 +57,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class FetchProjector extends AbstractProjector {
+public class FetchProjector extends AbstractProjector implements Killable, CompletionListenable {
 
     enum Stage {
         INIT,
@@ -90,6 +90,7 @@ public class FetchProjector extends AbstractProjector {
     private static final ESLogger LOGGER = Loggers.getLogger(FetchProjector.class);
     private Fetches fetches;
     private boolean killed = false;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     /**
      * An array backed row, which returns the inner array upon materialize
@@ -324,10 +325,14 @@ public class FetchProjector extends AbstractProjector {
     @Override
     public void kill(Throwable throwable) {
         killed = true;
-        downstream.kill(throwable);
 
         // TODO: call when projector really is done
         listener.onFailure(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 
     private static class IndexInfo {

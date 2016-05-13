@@ -25,7 +25,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.crate.Constants;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.*;
 import io.crate.core.collections.ArrayBucket;
 import io.crate.core.collections.Row;
 import io.crate.operation.Input;
@@ -35,7 +35,7 @@ import io.crate.operation.projectors.sorting.RowPriorityQueue;
 import java.util.Collection;
 import java.util.Set;
 
-class SortingTopNProjector extends AbstractProjector {
+class SortingTopNProjector extends AbstractProjector implements Killable, CompletionListenable {
 
     private final int offset;
     private final int numOutputs;
@@ -46,6 +46,7 @@ class SortingTopNProjector extends AbstractProjector {
     private Object[] spare;
     private Set<Requirement> requirements;
     private volatile IterableRowEmitter rowEmitter = null;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     /**
      * @param inputs             contains output {@link io.crate.operation.Input}s and orderBy {@link io.crate.operation.Input}s
@@ -102,7 +103,6 @@ class SortingTopNProjector extends AbstractProjector {
         }
         rowEmitter = createRowEmitter(resultSize);
         rowEmitter.run();
-        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     private IterableRowEmitter createRowEmitter(int resultSize) {
@@ -116,12 +116,11 @@ class SortingTopNProjector extends AbstractProjector {
     @Override
     public void kill(Throwable throwable) {
         IterableRowEmitter emitter = rowEmitter;
-        if (emitter == null) {
-            downstream.kill(throwable);
-        } else {
+        if (emitter != null) {
             emitter.kill(throwable);
+        } else {
+            listener.onFailure(throwable);
         }
-        listener.onFailure(throwable);
     }
 
     @Override
@@ -144,5 +143,14 @@ class SortingTopNProjector extends AbstractProjector {
             requirements.remove(Requirement.REPEAT);
         }
         return requirements;
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
+        IterableRowEmitter emitter = rowEmitter;
+        if (emitter != null) {
+            emitter.addListener(listener);
+        }
     }
 }

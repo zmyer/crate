@@ -22,13 +22,12 @@
 
 package io.crate.operation.projectors;
 
-import io.crate.concurrent.ExecutionComponent;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 
 import java.util.Set;
 
-public interface RowReceiver extends ExecutionComponent {
+public interface RowReceiver {
 
     /**
      * Feed the downstream with the next input row.

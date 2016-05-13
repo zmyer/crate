@@ -22,8 +22,9 @@
 
 package io.crate.operation.projectors;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
+import io.crate.concurrent.CompletionState;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -33,33 +34,33 @@ public class RowReceivers {
         if (rowReceiver instanceof ListenableRowReceiver) {
             return (ListenableRowReceiver) rowReceiver;
         }
-        return new SettableFutureRowReceiver(rowReceiver);
+        return new ListenableWrappedRowReceiver(rowReceiver);
     }
 
     @ParametersAreNonnullByDefault
-    private static class SettableFutureRowReceiver extends ForwardingRowReceiver implements ListenableRowReceiver {
+    private static class ListenableWrappedRowReceiver extends ForwardingRowReceiver implements ListenableRowReceiver {
 
-        private final SettableFuture<Void> finishedFuture = SettableFuture.create();
+        private CompletionListener listener = CompletionListener.NO_OP;
 
-        SettableFutureRowReceiver(RowReceiver rowReceiver) {
+        ListenableWrappedRowReceiver(RowReceiver rowReceiver) {
             super(rowReceiver);
         }
 
         @Override
         public void finish() {
             super.finish();
-            finishedFuture.set(null);
+            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
 
         @Override
         public void fail(Throwable throwable) {
             super.fail(throwable);
-            finishedFuture.setException(throwable);
+            listener.onFailure(throwable);
         }
 
         @Override
-        public ListenableFuture<Void> finishFuture() {
-            return finishedFuture;
+        public void addListener(CompletionListener listener) {
+            this.listener = CompletionMultiListener.merge(this.listener, listener);
         }
     }
 }

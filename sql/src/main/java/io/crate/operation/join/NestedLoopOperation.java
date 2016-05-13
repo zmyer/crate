@@ -21,13 +21,16 @@
 
 package io.crate.operation.join;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.CompletionListener;
+import io.crate.concurrent.CompletionMultiListener;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.operation.RowUpstream;
-import io.crate.operation.projectors.*;
+import io.crate.operation.projectors.ListenableRowReceiver;
+import io.crate.operation.projectors.Requirement;
+import io.crate.operation.projectors.Requirements;
+import io.crate.operation.projectors.RowReceiver;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 
@@ -141,27 +144,16 @@ public class NestedLoopOperation implements RowUpstream {
         }
     }
 
-    private abstract class AbstractNestedLoopRowReceiver extends AbstractRowReceiver implements ListenableRowReceiver {
+    private abstract class AbstractNestedLoopRowReceiver implements ListenableRowReceiver {
 
         final SettableFuture<Void> finished = SettableFuture.create();
         final AtomicReference<State> state = new AtomicReference<>(State.LEAD_ELECTION);
+        CompletionListener listener = CompletionListener.NO_OP;
 
         volatile RowUpstream upstream;
 
         @Override
-        public ListenableFuture<Void> finishFuture() {
-            return finished;
-        }
-
-        @Override
         public void prepare() {
-        }
-
-        @Override
-        public void kill(Throwable throwable) {
-            killBoth(throwable);
-            downstream.kill(throwable);
-            listener.onFailure(throwable);
         }
 
         @Override
@@ -197,6 +189,12 @@ public class NestedLoopOperation implements RowUpstream {
             } else {
                 otherUpstream.resume(false);
             }
+        }
+
+
+        @Override
+        public void addListener(CompletionListener listener) {
+            this.listener = CompletionMultiListener.merge(this.listener, listener);
         }
     }
 
@@ -260,14 +258,12 @@ public class NestedLoopOperation implements RowUpstream {
         public void finish() {
             LOGGER.trace("[{}] LEFT upstream called finish", phaseId);
             finish(right.state, right.upstream);
-            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
 
         @Override
         public void fail(Throwable throwable) {
             upstreamFailure = throwable;
             finish(right.state, right.upstream);
-            listener.onFailure(throwable);
         }
 
         @Override
@@ -349,7 +345,6 @@ public class NestedLoopOperation implements RowUpstream {
 
             leftIsSuspended = false;
             finish(left.state, left.upstream);
-            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
 
         @Override
@@ -357,7 +352,6 @@ public class NestedLoopOperation implements RowUpstream {
             upstreamFailure = throwable;
             leftIsSuspended = true;
             finish(left.state, left.upstream);
-            listener.onFailure(throwable);
         }
 
         @Override

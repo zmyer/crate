@@ -28,7 +28,7 @@ import com.google.common.collect.Sets;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.breaker.SizeEstimator;
 import io.crate.breaker.SizeEstimatorFactory;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.*;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.operation.AggregationContext;
@@ -45,7 +45,7 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import javax.annotation.Nullable;
 import java.util.*;
 
-class GroupingProjector extends AbstractProjector {
+class GroupingProjector extends AbstractProjector implements Killable, CompletionListenable {
 
 
     private static final ESLogger logger = Loggers.getLogger(GroupingProjector.class);
@@ -53,7 +53,6 @@ class GroupingProjector extends AbstractProjector {
 
     private final Grouper grouper;
     private EnumSet<Requirement> requirements;
-    private boolean killed = false;
 
     GroupingProjector(List<? extends DataType> keyTypes,
                              List<Input<?>> keyInputs,
@@ -95,9 +94,6 @@ class GroupingProjector extends AbstractProjector {
 
     @Override
     public boolean setNextRow(Row row) {
-        if (killed) {
-            return false;
-        }
         return grouper.setNextRow(row);
     }
 
@@ -107,22 +103,21 @@ class GroupingProjector extends AbstractProjector {
         if (logger.isDebugEnabled()) {
             logger.debug("grouping operation size is: {}", new ByteSizeValue(ramAccountingContext.totalBytes()));
         }
-        // TODO: call in grouper after requests are done
-        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     @Override
     public void kill(Throwable throwable) {
-        killed = true;
         grouper.kill(throwable);
-        // TODO: call in grouper after requests are done
-        listener.onFailure(throwable);
     }
 
     @Override
     public void fail(Throwable throwable) {
         downstream.fail(throwable);
-        listener.onFailure(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.grouper.addListener(listener);
     }
 
     /**
@@ -158,27 +153,49 @@ class GroupingProjector extends AbstractProjector {
         }
     }
 
-    private interface Grouper extends AutoCloseable {
+    private interface Grouper extends AutoCloseable, Killable, CompletionListenable {
         boolean setNextRow(final Row row);
         void finish();
-        void kill(Throwable t);
     }
 
-    private class SingleKeyGrouper implements Grouper {
+    private abstract class AbstractGrouper implements Grouper {
 
-        private final Map<Object, Object[]> result;
+        CompletionListener listener = CompletionListener.NO_OP;
+        volatile IterableRowEmitter rowEmitter = null;
+
+        @Override
+        public void kill(Throwable t) {
+            IterableRowEmitter emitter = rowEmitter;
+            if (emitter != null) {
+                emitter.kill(t);
+            } else {
+                listener.onFailure(t);
+            }
+        }
+
+        @Override
+        public void addListener(CompletionListener listener) {
+            this.listener = CompletionMultiListener.merge(this.listener, listener);
+            IterableRowEmitter emitter = rowEmitter;
+            if (emitter != null) {
+                emitter.addListener(listener);
+            }
+        }
+    }
+
+    private class SingleKeyGrouper extends AbstractGrouper {
+
+        private final Map<Object, Object[]> result = new HashMap<>();
         private final Aggregator[] aggregators;
         private final Input keyInput;
         private final CollectExpression[] collectExpressions;
         private final SizeEstimator<Object> sizeEstimator;
-        private volatile IterableRowEmitter rowEmitter = null;
 
-        public SingleKeyGrouper(Input keyInput,
-                                DataType keyInputType,
-                                CollectExpression[] collectExpressions,
-                                Aggregator[] aggregators) {
+        SingleKeyGrouper(Input keyInput,
+                         DataType keyInputType,
+                         CollectExpression[] collectExpressions,
+                         Aggregator[] aggregators) {
             this.collectExpressions = collectExpressions;
-            this.result = new HashMap<>();
             this.keyInput = keyInput;
             this.aggregators = aggregators;
             sizeEstimator = SizeEstimatorFactory.create(keyInputType);
@@ -249,37 +266,24 @@ class GroupingProjector extends AbstractProjector {
         }
 
         @Override
-        public void kill(Throwable t) {
-            IterableRowEmitter emitter = rowEmitter;
-            if (emitter == null) {
-                downstream.kill(t);
-            } else {
-                emitter.kill(t);
-            }
-        }
-
-        @Override
         public void close() throws Exception {
             result.clear();
         }
     }
 
-    private class ManyKeyGrouper implements Grouper {
+    private class ManyKeyGrouper extends AbstractGrouper {
 
         private final Aggregator[] aggregators;
-        private final Map<List<Object>, Object[]> result;
+        private final Map<List<Object>, Object[]> result = new HashMap<>();
         private final List<Input<?>> keyInputs;
         private final CollectExpression[] collectExpressions;
         private final List<SizeEstimator<Object>> sizeEstimators;
-        private final Object killLock = new Object();
-        private IterableRowEmitter rowEmitter = null;
 
         ManyKeyGrouper(List<Input<?>> keyInputs,
                        List<? extends DataType> keyTypes,
                        CollectExpression[] collectExpressions,
                        Aggregator[] aggregators) {
             this.collectExpressions = collectExpressions;
-            this.result = new HashMap<>();
             this.keyInputs = keyInputs;
             this.aggregators = aggregators;
             sizeEstimators = new ArrayList<>(keyTypes.size());
@@ -361,16 +365,6 @@ class GroupingProjector extends AbstractProjector {
                 }
             }));
             rowEmitter.run();
-        }
-
-        @Override
-        public void kill(Throwable t) {
-            IterableRowEmitter emitter = rowEmitter;
-            if (emitter == null) {
-                downstream.kill(t);
-            } else {
-                emitter.kill(t);
-            }
         }
 
         @Override

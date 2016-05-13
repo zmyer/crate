@@ -26,7 +26,7 @@ import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.Futures;
 import io.crate.analyze.symbol.Reference;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.*;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.ShardUpsertRequest;
 import io.crate.executor.transport.TransportActionProvider;
@@ -58,7 +58,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-class IndexWriterProjector extends AbstractProjector {
+class IndexWriterProjector extends AbstractProjector implements Killable, CompletionListenable {
 
     private final Input<BytesRef> sourceInput;
     private final RowShardResolver rowShardResolver;
@@ -66,6 +66,7 @@ class IndexWriterProjector extends AbstractProjector {
     private final Iterable<? extends CollectExpression<Row, ?>> collectExpressions;
     private final BulkShardProcessor<ShardUpsertRequest> bulkShardProcessor;
     private final AtomicBoolean failed = new AtomicBoolean(false);
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     IndexWriterProjector(ClusterService clusterService,
                                 Functions functions,
@@ -150,6 +151,17 @@ class IndexWriterProjector extends AbstractProjector {
         downstream.fail(throwable);
         bulkShardProcessor.kill(throwable);
         listener.onFailure(throwable);
+    }
+
+    @Override
+    public void kill(@Nullable Throwable throwable) {
+        bulkShardProcessor.kill(throwable);
+        listener.onFailure(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 
     private static class MapInput implements Input<BytesRef> {

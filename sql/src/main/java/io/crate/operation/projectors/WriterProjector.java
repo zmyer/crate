@@ -21,7 +21,6 @@
 
 package io.crate.operation.projectors;
 
-import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.Row1;
 import io.crate.exceptions.UnhandledServerException;
@@ -168,7 +167,6 @@ class WriterProjector extends AbstractProjector {
 
         downstream.setNextRow(new Row1(counter.get()));
         downstream.finish();
-        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     private boolean closeWriterAndOutput() {
@@ -179,7 +177,6 @@ class WriterProjector extends AbstractProjector {
         } catch (IOException e) {
             Throwable t = new UnhandledServerException("Failed to close output", e);
             downstream.fail(t);
-            listener.onFailure(t);
             return true;
         }
         return false;
@@ -190,7 +187,6 @@ class WriterProjector extends AbstractProjector {
         if (closeWriterAndOutput()) return;
 
         downstream.fail(throwable);
-        listener.onFailure(throwable);
     }
 
     interface RowWriter {

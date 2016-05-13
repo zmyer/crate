@@ -23,13 +23,13 @@ package io.crate.executor.transport.distributed;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.crate.Streamer;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.*;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
-import io.crate.operation.projectors.AbstractRowReceiver;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
+import io.crate.operation.projectors.RowReceiver;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -40,7 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class DistributingDownstream extends AbstractRowReceiver {
+public class DistributingDownstream implements RowReceiver, Killable, CompletionListenable {
 
     private static final ActionListener<DistributedResultResponse> NO_OP_ACTION_LISTENER = new ActionListener<DistributedResultResponse>() {
 
@@ -78,6 +78,7 @@ public class DistributingDownstream extends AbstractRowReceiver {
     private volatile boolean gatherMoreRows = true;
     private volatile boolean killed = false;
     private boolean hasUpstreamFinished = false;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
     public DistributingDownstream(ESLogger logger,
                                   UUID jobId,
@@ -186,6 +187,11 @@ public class DistributingDownstream extends AbstractRowReceiver {
     public void prepare() {
     }
 
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
+    }
+
     private void upstreamFinished() {
         if (killed) {
             return;
@@ -219,7 +225,7 @@ public class DistributingDownstream extends AbstractRowReceiver {
         private boolean finished = false;
 
 
-        public Downstream(String targetNode) {
+        Downstream(String targetNode) {
             this.targetNode = targetNode;
         }
 
@@ -229,7 +235,7 @@ public class DistributingDownstream extends AbstractRowReceiver {
             }
         }
 
-        public void forwardFailure(Throwable throwable) {
+        void forwardFailure(Throwable throwable) {
             traceLog("Forwarding failure");
             transportDistributedResultAction.pushResult(
                     targetNode,
@@ -238,7 +244,7 @@ public class DistributingDownstream extends AbstractRowReceiver {
             );
         }
 
-        public void sendRequest(Bucket bucket, boolean isLast) {
+        void sendRequest(Bucket bucket, boolean isLast) {
             if (finished) {
                 requestsPending.decrementAndGet();
                 return;

@@ -23,7 +23,7 @@
 package io.crate.operation.projectors;
 
 import com.google.common.util.concurrent.Futures;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.*;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.ShardRequest;
 import io.crate.executor.transport.TransportActionProvider;
@@ -39,7 +39,7 @@ import org.elasticsearch.index.shard.ShardId;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-abstract class DMLProjector<Request extends ShardRequest> extends AbstractProjector {
+abstract class DMLProjector<Request extends ShardRequest> extends AbstractProjector implements Killable, CompletionListenable {
 
     static final int DEFAULT_BULK_SIZE = 1024;
 
@@ -52,6 +52,7 @@ abstract class DMLProjector<Request extends ShardRequest> extends AbstractProjec
     protected final TransportActionProvider transportActionProvider;
     protected final BulkRetryCoordinatorPool bulkRetryCoordinatorPool;
     protected final UUID jobId;
+    protected CompletionListener listener = CompletionListener.NO_OP;
 
     private BulkShardProcessor<Request> bulkShardProcessor;
 
@@ -110,5 +111,16 @@ abstract class DMLProjector<Request extends ShardRequest> extends AbstractProjec
         }
 
         listener.onFailure(throwable);
+    }
+
+    @Override
+    public void kill(Throwable throwable) {
+        bulkShardProcessor.kill(throwable);
+        listener.onFailure(throwable);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 }

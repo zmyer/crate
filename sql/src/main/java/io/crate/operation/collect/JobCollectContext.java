@@ -27,13 +27,15 @@ import com.google.common.annotations.VisibleForTesting;
 import io.crate.action.job.SharedShardContexts;
 import io.crate.action.sql.query.CrateSearchContext;
 import io.crate.breaker.RamAccountingContext;
+import io.crate.concurrent.CompletionListenable;
 import io.crate.concurrent.CompletionListener;
 import io.crate.concurrent.CompletionState;
-import io.crate.concurrent.ExecutionComponent;
+import io.crate.concurrent.Killable;
 import io.crate.jobs.AbstractExecutionSubContext;
 import io.crate.metadata.RowGranularity;
 import io.crate.operation.collect.sources.CollectSourceContext;
 import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.RowReceivers;
 import io.crate.planner.node.dql.CollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import org.elasticsearch.common.StopWatch;
@@ -44,10 +46,7 @@ import org.elasticsearch.threadpool.ThreadPool;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -59,6 +58,7 @@ public class JobCollectContext extends AbstractExecutionSubContext {
     private final MapSideDataCollectOperation collectOperation;
     private final RamAccountingContext queryPhaseRamAccountingContext;
     private final RowReceiver rowReceiver;
+    private final CompletionListenable completionListenableRowReceiver;
     private final SharedShardContexts sharedShardContexts;
 
     private final IntObjectHashMap<CrateSearchContext> searchContexts = new IntObjectHashMap<>();
@@ -67,8 +67,8 @@ public class JobCollectContext extends AbstractExecutionSubContext {
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
     private Collection<CrateCollector> collectors;
-    private Set<ExecutionComponent> executionComponents;
-    private AtomicInteger executionComponentsCount;
+    private Set<Killable> killables;
+    private AtomicInteger completionCount;
 
     public JobCollectContext(final CollectPhase collectPhase,
                              MapSideDataCollectOperation collectOperation,
@@ -81,6 +81,12 @@ public class JobCollectContext extends AbstractExecutionSubContext {
         this.collectOperation = collectOperation;
         this.queryPhaseRamAccountingContext = queryPhaseRamAccountingContext;
         this.sharedShardContexts = sharedShardContexts;
+
+        if (rowReceiver instanceof CompletionListenable) {
+            completionListenableRowReceiver = (CompletionListenable) rowReceiver;
+        } else {
+            completionListenableRowReceiver = RowReceivers.listenableRowReceiver(rowReceiver);
+        }
         this.rowReceiver = rowReceiver;
         this.threadPoolName = threadPoolName(collectPhase, localNodeId);
     }
@@ -135,9 +141,9 @@ public class JobCollectContext extends AbstractExecutionSubContext {
     }
 
     private void killComponents(@Nonnull Throwable throwable) {
-        if (executionComponents != null) {
-            for (ExecutionComponent executionComponent : executionComponents) {
-                executionComponent.kill(throwable);
+        if (killables != null) {
+            for (Killable killable : killables) {
+                killable.kill(throwable);
             }
         }
     }
@@ -163,25 +169,33 @@ public class JobCollectContext extends AbstractExecutionSubContext {
     protected void innerPrepare() {
         CollectSourceContext collectSourceContext = collectOperation.createCollectors(collectPhase, rowReceiver, this);
         collectors = collectSourceContext.collectors();
-        executionComponents = ConcurrentCollections.newConcurrentSet();
+        killables = ConcurrentCollections.newConcurrentSet();
+        Collection<CompletionListenable> completionListenables = new ArrayList<>();
         if (collectors.isEmpty()) {
-            // only add rowReceiver known by this context as execution component (projectors are skipped if collectors are empty)
-            executionComponents.add(rowReceiver);
-        } else {
-            executionComponents.addAll(collectSourceContext.executionComponents());
-        }
-        executionComponentsCount = new AtomicInteger(executionComponents.size());
-        for (ExecutionComponent component : executionComponents) {
-            if (logger.isTraceEnabled()) {
-                logger.trace("[{}] Registering completion listener to component={}", collectPhase.jobId(), component);
+            // only add rowReceiver known by this context as killable and listenable
+            // (projectors are skipped if collectors are empty)
+            if (rowReceiver instanceof Killable) {
+                killables.add((Killable) rowReceiver);
             }
-            component.addListener(new ComponentCompletionListener(component));
+            if (rowReceiver instanceof CompletionListenable) {
+                completionListenables.add((CompletionListenable) rowReceiver);
+            }
+        } else {
+            killables.addAll(collectSourceContext.killables());
+            completionListenables.addAll(collectSourceContext.completionListenables());
+        }
+        completionCount = new AtomicInteger(completionListenables.size());
+        for (CompletionListenable completionListenable : completionListenables) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("[{}] Registering completion listener to listenable={}", collectPhase.jobId(), completionListenable);
+            }
+            completionListenable.addListener(new ComponentCompletionListener(completionListenable));
         }
     }
 
     private void countdown() {
         // TODO: seems like due to existing failure propagation, counter can go negative. check/fix this after removed failure propagation.
-        if (executionComponentsCount.decrementAndGet() <= 0) {
+        if (completionCount.decrementAndGet() <= 0) {
             if (logger.isTraceEnabled()) {
                 logger.trace("[{}] [{}] All components finished, will close context",
                     collectPhase.jobId(), collectPhase.executionPhaseId());
@@ -205,7 +219,7 @@ public class JobCollectContext extends AbstractExecutionSubContext {
     private void measureCollectTime() {
         final StopWatch stopWatch = new StopWatch(collectPhase.executionPhaseId() + ": " + collectPhase.name());
         stopWatch.start("starting collectors");
-        rowReceiver.addListener(new CompletionListener() {
+        completionListenableRowReceiver.addListener(new CompletionListener() {
 
             private void stop() {
                 // stopWatch is not thread-safe and so it could be still marked as non-runnning
@@ -257,9 +271,9 @@ public class JobCollectContext extends AbstractExecutionSubContext {
 
     private class ComponentCompletionListener implements CompletionListener {
 
-        ExecutionComponent component;
+        CompletionListenable component;
 
-        ComponentCompletionListener(ExecutionComponent component) {
+        ComponentCompletionListener(CompletionListenable component) {
             this.component = component;
         }
 
@@ -267,9 +281,9 @@ public class JobCollectContext extends AbstractExecutionSubContext {
         public void onSuccess(@Nullable CompletionState result) {
             if (logger.isTraceEnabled()) {
                 logger.trace("[{}] onSuccess called by component={}, remainingComponents={}",
-                    collectPhase.jobId(), component, executionComponentsCount.get());
+                    collectPhase.jobId(), component, completionCount.get());
             }
-            executionComponents.remove(component);
+            killables.remove(component);
             countdown();
         }
 
@@ -277,10 +291,10 @@ public class JobCollectContext extends AbstractExecutionSubContext {
         public void onFailure(@Nonnull Throwable t) {
             if (logger.isTraceEnabled()) {
                 logger.trace("[{}] onFailure called by component={}, remainingComponents={}",
-                    t, collectPhase.jobId(), component, executionComponentsCount.get());
+                    t, collectPhase.jobId(), component, completionCount.get());
             }
             boolean isFirstFailure = failure.compareAndSet(null, t);
-            executionComponents.remove(component);
+            killables.remove(component);
             countdown();
 
             if (isFirstFailure) {

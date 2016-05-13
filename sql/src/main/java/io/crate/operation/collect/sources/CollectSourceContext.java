@@ -22,7 +22,8 @@
 
 package io.crate.operation.collect.sources;
 
-import io.crate.concurrent.ExecutionComponent;
+import io.crate.concurrent.CompletionListenable;
+import io.crate.concurrent.Killable;
 import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.projectors.RowReceiver;
 
@@ -33,20 +34,35 @@ import java.util.List;
 public class CollectSourceContext {
 
     private final Collection<CrateCollector> collectors;
-    private final List<ExecutionComponent> executionComponents;
+    private final List<Killable> killables;
+    private final List<CompletionListenable> completionListenables;
 
     public CollectSourceContext(Collection<CrateCollector> collectors, List<RowReceiver> rowReceivers) {
         this.collectors = collectors;
-        executionComponents = new ArrayList<>(collectors.size() + rowReceivers.size());
-        executionComponents.addAll(collectors);
-        executionComponents.addAll(rowReceivers);
+        killables = new ArrayList<>(collectors.size());
+        killables.addAll(collectors);
+        completionListenables = new ArrayList<>(collectors.size());
+        completionListenables.addAll(collectors);
+
+        for (RowReceiver rowReceiver : rowReceivers) {
+            if (rowReceiver instanceof Killable) {
+                killables.add((Killable) rowReceiver);
+            }
+            if (rowReceiver instanceof CompletionListenable) {
+                completionListenables.add((CompletionListenable) rowReceiver);
+            }
+        }
     }
 
     public Collection<CrateCollector> collectors() {
         return collectors;
     }
 
-    public List<ExecutionComponent> executionComponents() {
-        return executionComponents;
+    public List<Killable> killables() {
+        return killables;
+    }
+
+    public List<CompletionListenable> completionListenables() {
+        return completionListenables;
     }
 }

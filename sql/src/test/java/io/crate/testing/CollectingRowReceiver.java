@@ -25,14 +25,13 @@ package io.crate.testing;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.CollectionBucket;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
-import io.crate.operation.projectors.AbstractRowReceiver;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
+import io.crate.operation.projectors.RowReceiver;
 import org.elasticsearch.common.unit.TimeValue;
 
 import java.util.ArrayList;
@@ -42,12 +41,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class CollectingRowReceiver extends AbstractRowReceiver {
+public class CollectingRowReceiver implements RowReceiver {
 
     public final List<Object[]> rows = new ArrayList<>();
-    protected final SettableFuture<Bucket> resultFuture = SettableFuture.create();
-    protected int numFailOrFinish = 0;
     protected RowUpstream upstream;
+    final SettableFuture<Bucket> resultFuture = SettableFuture.create();
+    int numFailOrFinish = 0;
 
     public static CollectingRowReceiver withPauseAfter(int pauseAfter) {
         return new PausingReceiver(pauseAfter);
@@ -81,16 +80,9 @@ public class CollectingRowReceiver extends AbstractRowReceiver {
     }
 
     @Override
-    public void kill(Throwable throwable) {
-        resultFuture.setException(throwable);
-        listener.onFailure(throwable);
-    }
-
-    @Override
     public void finish() {
         resultFuture.set(new CollectionBucket(rows));
         numFailOrFinish++;
-        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 
     public int getNumFailOrFinishCalls() {
@@ -105,7 +97,6 @@ public class CollectingRowReceiver extends AbstractRowReceiver {
     public void fail(Throwable throwable) {
         resultFuture.setException(throwable);
         numFailOrFinish++;
-        listener.onFailure(throwable);
     }
 
     public void resumeUpstream(boolean async) {
@@ -143,7 +134,7 @@ public class CollectingRowReceiver extends AbstractRowReceiver {
         private final int limit;
         private int numRows = 0;
 
-        public LimitingReceiver(int limit) {
+        LimitingReceiver(int limit) {
             this.limit = limit;
         }
 
@@ -164,7 +155,7 @@ public class CollectingRowReceiver extends AbstractRowReceiver {
         private final int pauseAfter;
         private int numRows = 0;
 
-        public PausingReceiver(int pauseAfter) {
+        PausingReceiver(int pauseAfter) {
             this.pauseAfter = pauseAfter;
         }
 

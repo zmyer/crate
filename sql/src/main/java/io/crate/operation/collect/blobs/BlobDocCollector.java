@@ -24,6 +24,7 @@ package io.crate.operation.collect.blobs;
 import io.crate.blob.BlobContainer;
 import io.crate.concurrent.CompletionListener;
 import io.crate.concurrent.CompletionMultiListener;
+import io.crate.concurrent.Killable;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
 import io.crate.operation.RowUpstream;
@@ -75,7 +76,9 @@ public class BlobDocCollector implements CrateCollector, RowUpstream {
 
     @Override
     public void kill(@Nullable Throwable throwable) {
-        downstream.kill(throwable);
+        if (downstream instanceof Killable) {
+            ((Killable) downstream).kill(throwable);
+        }
     }
 
     @Override

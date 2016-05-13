@@ -21,9 +21,10 @@
 
 package io.crate.operation.collect;
 
-import io.crate.concurrent.ExecutionComponent;
+import io.crate.concurrent.CompletionListenable;
+import io.crate.concurrent.Killable;
 
-public interface CrateCollector extends ExecutionComponent {
+public interface CrateCollector extends Killable, CompletionListenable {
 
     void doCollect();
 }

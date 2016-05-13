@@ -189,11 +189,6 @@ class ExecutionPhasesTask extends JobTask {
         }
 
         @Override
-        public void kill(Throwable throwable) {
-            fail(throwable);
-        }
-
-        @Override
         public void finish() {
             fail(null);
         }

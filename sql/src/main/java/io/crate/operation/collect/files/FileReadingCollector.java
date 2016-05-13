@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import io.crate.concurrent.CompletionListener;
 import io.crate.concurrent.CompletionMultiListener;
 import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.Killable;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
 import io.crate.operation.RowUpstream;
@@ -217,7 +218,10 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
     @Override
     public void kill(@Nullable Throwable throwable) {
         killed = true;
-        downstream.kill(throwable);
+
+        if (downstream instanceof Killable) {
+            ((Killable) downstream).kill(throwable);
+        }
     }
 
     @Override

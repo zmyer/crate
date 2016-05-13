@@ -236,9 +236,7 @@ public class MultiShardScoreDocCollector implements CrateCollector {
 
     @Override
     public void kill(@Nullable Throwable throwable) {
-        if (rowEmitter == null) {
-            rowReceiver.kill(throwable);
-        } else {
+        if (rowEmitter != null) {
             rowEmitter.kill(throwable);
         }
         listener.onFailure(throwable);

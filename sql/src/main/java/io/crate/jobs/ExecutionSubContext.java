@@ -21,10 +21,11 @@
 
 package io.crate.jobs;
 
+import io.crate.concurrent.CompletionListenable;
 import io.crate.concurrent.CompletionListener;
-import io.crate.concurrent.ExecutionComponent;
+import io.crate.concurrent.Killable;
 
-public interface ExecutionSubContext extends ExecutionComponent {
+public interface ExecutionSubContext extends Killable, CompletionListenable {
 
 
     /**

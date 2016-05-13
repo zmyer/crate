@@ -22,7 +22,6 @@
 package io.crate.operation.projectors;
 
 import io.crate.breaker.RamAccountingContext;
-import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.operation.AggregationContext;
@@ -75,7 +74,6 @@ class AggregationPipe extends AbstractProjector {
     @Override
     public void fail(Throwable t) {
         downstream.fail(t);
-        listener.onFailure(t);
     }
 
     @Override
@@ -85,6 +83,5 @@ class AggregationPipe extends AbstractProjector {
         }
         downstream.setNextRow(row);
         downstream.finish();
-        listener.onSuccess(CompletionState.EMPTY_STATE);
     }
 }

@@ -23,7 +23,6 @@
 package io.crate.operation.projectors;
 
 import com.google.common.collect.Sets;
-import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.ArrayRow;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowDownstream;
@@ -46,7 +45,7 @@ class RowMergers {
         return new MultiUpstreamRowReceiver(delegate);
     }
 
-    static class MultiUpstreamRowReceiver extends AbstractRowReceiver implements RowMerger {
+    static class MultiUpstreamRowReceiver implements RowReceiver, RowMerger {
 
         private static final ESLogger LOGGER = Loggers.getLogger(MultiUpstreamRowReceiver.class);
 
@@ -124,7 +123,6 @@ class RowMergers {
                 }
             }
             delegate.finish();
-            listener.onSuccess(CompletionState.EMPTY_STATE);
         }
 
         /**
@@ -132,7 +130,6 @@ class RowMergers {
          */
         void onFail(Throwable t) {
             delegate.fail(t);
-            listener.onFailure(t);
         }
 
         @Override
@@ -140,12 +137,6 @@ class RowMergers {
             if (prepared.compareAndSet(false, true)) {
                 delegate.prepare();
             }
-        }
-
-        @Override
-        public void kill(Throwable throwable) {
-            delegate.kill(throwable);
-            listener.onFailure(throwable);
         }
 
         @Override

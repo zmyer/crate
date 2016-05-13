@@ -47,11 +47,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 
-import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.core.Is.is;
 
 public class NestedLoopOperationTest extends CrateUnitTest {
@@ -269,6 +266,10 @@ public class NestedLoopOperationTest extends CrateUnitTest {
         receiver.result();
     }
 
+    /*
+
+    TODO: following tests must be obsolete after kill() iface is removed, validate this!
+
     @Test
     public void testFutureIsTriggeredOnKill() throws Exception {
         CollectingRowReceiver receiver = new CollectingRowReceiver();
@@ -308,6 +309,7 @@ public class NestedLoopOperationTest extends CrateUnitTest {
         // join is used to make sure the are no "lingering thread" warnings from randomized-test
         t.join(5000);
     }
+    */
 
     private static List<ListenableRowReceiver> getRandomLeftAndRightRowReceivers(CollectingRowReceiver receiver) {
         NestedLoopOperation nestedLoopOperation = new NestedLoopOperation(0, receiver);

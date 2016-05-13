@@ -24,20 +24,22 @@ package io.crate.operation.projectors;
 
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.crate.concurrent.*;
 import io.crate.core.collections.Row;
 import io.crate.operation.collect.collectors.TopRowUpstream;
 
 import java.util.Iterator;
 import java.util.concurrent.Executor;
 
-public class IterableRowEmitter implements Runnable {
+public class IterableRowEmitter implements Runnable, Killable, CompletionListenable {
 
     private final RowReceiver rowReceiver;
     private final TopRowUpstream topRowUpstream;
     private Iterator<? extends Row> rowsIt;
     private boolean killed = false;
+    private CompletionListener listener = CompletionListener.NO_OP;
 
-    public IterableRowEmitter(RowReceiver rowReceiver,
+    private IterableRowEmitter(RowReceiver rowReceiver,
                               final Iterable<? extends Row> rows,
                               Optional<Executor> executor) {
         this.rowReceiver = rowReceiver;
@@ -60,9 +62,14 @@ public class IterableRowEmitter implements Runnable {
         this(rowReceiver, rows, Optional.<Executor>absent());
     }
 
+    @Override
     public void kill(Throwable t) {
         killed = true;
-        rowReceiver.kill(t);
+    }
+
+    @Override
+    public void addListener(CompletionListener listener) {
+        this.listener = CompletionMultiListener.merge(this.listener, listener);
     }
 
     @Override
@@ -70,6 +77,7 @@ public class IterableRowEmitter implements Runnable {
         try {
             while (rowsIt.hasNext()) {
                 if (killed) {
+                    listener.onSuccess(CompletionState.EMPTY_STATE);
                     return;
                 }
                 boolean wantsMore = rowReceiver.setNextRow(rowsIt.next());
@@ -82,8 +90,10 @@ public class IterableRowEmitter implements Runnable {
                 }
             }
             rowReceiver.finish();
+            listener.onSuccess(CompletionState.EMPTY_STATE);
         } catch (Throwable t) {
             rowReceiver.fail(t);
+            listener.onFailure(t);
         }
     }
 }

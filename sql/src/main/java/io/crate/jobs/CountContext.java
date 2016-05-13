@@ -26,6 +26,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.analyze.WhereClause;
+import io.crate.concurrent.Killable;
 import io.crate.core.collections.Row1;
 import io.crate.operation.RowUpstream;
 import io.crate.operation.count.CountOperation;
@@ -93,7 +94,9 @@ public class CountContext extends AbstractExecutionSubContext implements RowUpst
         if (countFuture != null) {
             countFuture.cancel(true);
         }
-        rowReceiver.kill(throwable);
+        if (rowReceiver instanceof Killable) {
+            ((Killable) rowReceiver).kill(throwable);
+        }
     }
 
     @Override

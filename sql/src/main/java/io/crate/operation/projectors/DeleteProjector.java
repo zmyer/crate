@@ -37,11 +37,11 @@ import org.elasticsearch.index.shard.ShardId;
 
 import java.util.UUID;
 
-public class DeleteProjector extends DMLProjector<ShardDeleteRequest> {
+class DeleteProjector extends DMLProjector<ShardDeleteRequest> {
 
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
-    public DeleteProjector(ClusterService clusterService,
+    DeleteProjector(ClusterService clusterService,
                            IndexNameExpressionResolver indexNameExpressionResolver,
                            Settings settings,
                            ShardId shardId,
