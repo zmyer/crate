@@ -37,7 +37,9 @@ import io.crate.types.DataTypes;
 import java.util.Collections;
 import java.util.List;
 
-public class CountAggregation extends AggregationFunction<Long, Long> {
+import static java.lang.Long.valueOf;
+
+public class CountAggregation extends AggregationFunction<CountAggregation.LongState, Long> {
 
     public static final String NAME = "count";
     private final FunctionInfo info;
@@ -58,7 +60,7 @@ public class CountAggregation extends AggregationFunction<Long, Long> {
         mod.register(NAME, new CountAggregationFunctionResolver());
     }
 
-    static class CountAggregationFunctionResolver implements DynamicFunctionResolver {
+    private static class CountAggregationFunctionResolver implements DynamicFunctionResolver {
 
         @Override
         public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
@@ -72,23 +74,23 @@ public class CountAggregation extends AggregationFunction<Long, Long> {
         }
     }
 
-    CountAggregation(FunctionInfo info, boolean hasArgs) {
+    private CountAggregation(FunctionInfo info, boolean hasArgs) {
         this.info = info;
         this.hasArgs = hasArgs;
     }
 
     @Override
-    public Long iterate(RamAccountingContext ramAccountingContext, Long state, Input... args) {
+    public LongState iterate(RamAccountingContext ramAccountingContext, LongState state, Input... args) {
         if (!hasArgs || args[0].value() != null){
-            return state + 1;
+            return state.add(1L);
         }
         return state;
     }
 
     @Override
-    public Long newState(RamAccountingContext ramAccountingContext) {
+    public LongState newState(RamAccountingContext ramAccountingContext) {
         ramAccountingContext.addBytes(DataTypes.LONG.fixedSize());
-        return 0L;
+        return new LongState();
     }
 
     @Override
@@ -118,12 +120,27 @@ public class CountAggregation extends AggregationFunction<Long, Long> {
     }
 
     @Override
-    public Long reduce(RamAccountingContext ramAccountingContext, Long state1, Long state2) {
-        return state1 + state2;
+    public LongState reduce(RamAccountingContext ramAccountingContext, LongState state1, LongState state2) {
+        return state1.merge(state2);
     }
 
     @Override
-    public Long terminatePartial(RamAccountingContext ramAccountingContext, Long state) {
-        return state;
+    public Long terminatePartial(RamAccountingContext ramAccountingContext, LongState state) {
+        return valueOf(state.value);
+    }
+
+    static class LongState {
+
+        long value = 0L;
+
+        public LongState add(long value) {
+            this.value = this.value + value;
+            return this;
+        }
+
+        public LongState merge(LongState otherState) {
+            add(otherState.value);
+            return this;
+        }
     }
 }
