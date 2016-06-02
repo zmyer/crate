@@ -38,10 +38,12 @@ import org.elasticsearch.cluster.ack.ClusterStateUpdateResponse;
 import org.elasticsearch.cluster.block.ClusterBlockException;
 import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.metadata.*;
+import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.routing.RoutingTable;
 import org.elasticsearch.cluster.routing.allocation.AllocationService;
 import org.elasticsearch.cluster.routing.allocation.RoutingAllocation;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.compress.CompressedXContent;
@@ -50,6 +52,7 @@ import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.io.Streams;
 import org.elasticsearch.common.regex.Regex;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -311,17 +314,33 @@ public class TransportBulkCreateIndicesAction
             request,
             BasicClusterStateTaskConfig.create(Priority.NORMAL, request.masterNodeTimeout()),
             executor,
-            new AckedClusterStateUpdateTask<ClusterStateUpdateResponse>(request, listener) {
+            new AbstractAckedClusterStateTaskListener() {
                 @Override
-                public ClusterState execute(ClusterState currentState) throws Exception {
-                    return executeCreateIndices(currentState, request);
+                public boolean mustAck(DiscoveryNode discoveryNode) {
+                    return true;
                 }
 
                 @Override
-                protected ClusterStateUpdateResponse newResponse(boolean acknowledged) {
-                    return new ClusterStateUpdateResponse(acknowledged);
+                public void onAllNodesAcked(@Nullable Throwable t) {
+                    listener.onResponse(new ClusterStateUpdateResponse(true));
                 }
-            });
+
+                @Override
+                public void onAckTimeout() {
+                    listener.onResponse(new ClusterStateUpdateResponse(false));
+                }
+
+                @Override
+                public TimeValue ackTimeout() {
+                    return request.ackTimeout();
+                }
+
+                @Override
+                public void onFailure(String source, Throwable t) {
+                    listener.onFailure(t);
+                }
+            }
+        );
     }
 
     private void addMappingFromMappingsFile(Map<String, Map<String, Object>> mappings, File mappingsDir, BulkCreateIndicesRequest request) {
