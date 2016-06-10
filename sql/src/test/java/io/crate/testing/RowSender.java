@@ -22,6 +22,7 @@
 package io.crate.testing;
 
 import com.google.common.util.concurrent.MoreExecutors;
+import io.crate.core.collections.Bucket;
 import io.crate.core.collections.CollectionBucket;
 import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
@@ -29,7 +30,6 @@ import io.crate.operation.collect.collectors.TopRowUpstream;
 import io.crate.operation.projectors.RowReceiver;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -41,9 +41,10 @@ public class RowSender implements Runnable, RowUpstream {
 
     private volatile int numPauses = 0;
     private volatile int numResumes = 0;
-    private Iterator<Row> iterator;
+    private Iterator<? extends Row> iterator;
+    private Row currentRow;
 
-    public RowSender(final Iterable<Row> rows, RowReceiver rowReceiver, Executor executor) {
+    public RowSender(final Iterable<? extends Row> rows, RowReceiver rowReceiver, Executor executor) {
         downstream = rowReceiver;
         topRowUpstream = new TopRowUpstream(executor, new Runnable() {
             @Override
@@ -65,7 +66,8 @@ public class RowSender implements Runnable, RowUpstream {
     @Override
     public void run() {
         while (iterator.hasNext()) {
-            final boolean wantsMore = downstream.setNextRow(iterator.next());
+            currentRow = iterator.next();
+            final boolean wantsMore = downstream.setNextRow(currentRow);
             if (!wantsMore) {
                 break;
             }
@@ -106,6 +108,26 @@ public class RowSender implements Runnable, RowUpstream {
         return numResumes;
     }
 
+    public static Bucket bucketFromRange(int from, int to) {
+        List<Object[]> rows = new ArrayList<>(Math.abs(to - from));
+        if (from < to) {
+            for (int i = from; i < to; i++) {
+                rows.add(new Object[] {i});
+            }
+        } else {
+            for (int i = from; i > to; i--) {
+                rows.add(new Object[] {i});
+            }
+        }
+        return new CollectionBucket(rows);
+    }
+
+    public static RowSender run(Iterable<? extends Row> rows, RowReceiver rowReceiver) {
+        RowSender rowSender = new RowSender(rows, rowReceiver, MoreExecutors.directExecutor());
+        rowSender.run();
+        return rowSender;
+    }
+
     /**
      * Generates N rows where each row will just have 1 integer column, the current range iteration value.
      * N is defined by the given <p>start</p> and <p>end</p> arguments.
@@ -117,21 +139,9 @@ public class RowSender implements Runnable, RowUpstream {
      * @return              the last emitted integer value
      */
     public static int generateRowsInRangeAndEmit(int start, int end, boolean reverse, RowReceiver rowReceiver) {
-        final List<Object[]> rows = new ArrayList<>(end - start);
-        for (int i = start; i < end; i++) {
-            rows.add(new Object[]{i});
-        }
         if (reverse) {
-            Collections.reverse(rows);
+            return (int) run(bucketFromRange(end, start), rowReceiver).currentRow.get(0);
         }
-
-        RowSender rowSender = new RowSender(new CollectionBucket(rows), rowReceiver, MoreExecutors.directExecutor());
-        rowSender.run();
-        if (rowSender.iterator.hasNext()) {
-            Integer nextValue = (Integer) rowSender.iterator.next().get(0);
-            return reverse ? nextValue + 1 : nextValue - 1;
-        } else {
-            return end;
-        }
+        return ((int) run(bucketFromRange(start, end), rowReceiver).currentRow.get(0));
     }
 }

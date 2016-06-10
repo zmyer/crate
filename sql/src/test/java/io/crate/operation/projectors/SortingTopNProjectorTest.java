@@ -33,6 +33,7 @@ import io.crate.operation.projectors.sorting.OrderingByPosition;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.CollectingRowReceiver;
 import io.crate.testing.RowSender;
+import io.crate.testing.TestingHelpers;
 import org.junit.Test;
 
 import java.util.List;
@@ -69,24 +70,19 @@ public class SortingTopNProjectorTest extends CrateUnitTest {
     public void testOrderBy() throws Exception {
         CollectingRowReceiver rowReceiver = new CollectingRowReceiver();
         Projector pipe = getProjector(1, 3, 5, rowReceiver);
-        RowSender.generateRowsInRangeAndEmit(1, 11, true, pipe);
+        RowSender.generateRowsInRangeAndEmit(0, 11, true, pipe);
 
         Bucket rows = rowReceiver.result();
         assertThat(rows.size(), is(3));
 
-        int iterateLength = 0;
-        for (Row row : rows) {
-            assertThat(row, isRow(iterateLength + 6));
-            iterateLength++;
-        }
-        assertThat(iterateLength, is(3));
+        assertThat(TestingHelpers.printedTable(rows), is("6\n7\n8\n"));
     }
 
     @Test
     public void testOrderByWithoutOffset() throws Exception {
         CollectingRowReceiver rowReceiver = new CollectingRowReceiver();
         Projector pipe = getProjector(2, 10, TopN.NO_OFFSET, rowReceiver);
-        RowSender.generateRowsInRangeAndEmit(1, 11, true, pipe);
+        RowSender.generateRowsInRangeAndEmit(0, 11, true, pipe);
 
         Bucket rows = rowReceiver.result();
         assertThat(rows.size(), is(10));
