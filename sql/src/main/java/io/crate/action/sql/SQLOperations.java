@@ -24,6 +24,9 @@ package io.crate.action.sql;
 
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -64,6 +67,17 @@ public class SQLOperations {
     private final Analyzer analyzer;
     private final Planner planner;
     private final Provider<Executor> executorProvider;
+
+    private final LoadingCache<String, Statement> statementCache = CacheBuilder.newBuilder()
+        .maximumSize(100)
+        .build(
+            new CacheLoader<String, Statement>() {
+                @Override
+                public Statement load(@Nonnull String statement) throws Exception {
+                    return SqlParser.createStatement(statement);
+                }
+            }
+        );
 
     @Inject
     public SQLOperations(Analyzer analyzer,
@@ -162,11 +176,11 @@ public class SQLOperations {
             try {
                 this.jobId = UUID.randomUUID();
                 this.query = query;
-                this.statement = SqlParser.createStatement(query);
+                this.statement = statementCache.get(query);
                 this.paramTypes = paramTypes;
             } catch (Throwable t) {
                 throwable = t;
-                throw t;
+                throw Throwables.propagate(t);
             }
         }
 

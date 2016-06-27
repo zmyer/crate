@@ -84,7 +84,7 @@ public class PostgresNetty extends AbstractLifecycleComponent {
 
         bossExecutor = Executors.newCachedThreadPool(daemonThreadFactory(settings, "postgres-netty-boss"));
         workerExecutor = Executors.newCachedThreadPool(daemonThreadFactory(settings, "postgres-netty-worker"));
-        bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(bossExecutor, workerExecutor));
+        bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(bossExecutor, workerExecutor, 10));
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             @Override

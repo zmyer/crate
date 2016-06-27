@@ -42,10 +42,7 @@ import org.jboss.netty.handler.codec.frame.FrameDecoder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static io.crate.protocols.postgres.ConnectionContext.State.STARTUP_HEADER;
 
@@ -268,7 +265,7 @@ class ConnectionContext {
                     return;
                 case MSG_BODY:
                     state = State.MSG_HEADER;
-                    LOGGER.trace("msg={} msgLength={} readableBytes={}", ((char) msgType), msgLength, buffer.readableBytes());
+                    LOGGER.debug("msg={} msgLength={} readableBytes={}", ((char) msgType), msgLength, buffer.readableBytes());
                     switch (msgType) {
                         case 'Q': // Query (simple)
                             handleSimpleQuery(buffer, channel);
@@ -463,7 +460,7 @@ class ConnectionContext {
         }
 
         // TODO: hack for unsupported `SET datetype = 'ISO'` that's sent by psycopg2 if a connection is established
-        if (query.startsWith("SET DATESTYLE")) {
+        if (query.toUpperCase(Locale.ENGLISH).startsWith("SET DATESTYLE")) {
             Messages.sendCommandComplete(channel, "SET", 0);
             Messages.sendReadyForQuery(channel);
             return;
@@ -528,7 +525,6 @@ class ConnectionContext {
                     }
                     msgType = buffer.readByte();
                     msgLength = buffer.readInt() - 4; // exclude length itself
-                    LOGGER.trace("Received msg={} length={}", ((char) msgType), msgLength);
                     state = State.MSG_BODY;
                     return nullOrBuffer(buffer);
                 case MSG_BODY:

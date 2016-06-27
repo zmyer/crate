@@ -129,11 +129,11 @@ class Messages {
         buffer.writeInt(5);
         buffer.writeByte('I');
         ChannelFuture channelFuture = channel.write(buffer);
-        if (LOGGER.isTraceEnabled()) {
+        if (LOGGER.isDebugEnabled()) {
             channelFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
-                    LOGGER.trace("sentReadyForQuery");
+                    LOGGER.debug("sentReadyForQuery");
                 }
             });
         }
