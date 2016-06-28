@@ -1,0 +1,10 @@
+apply from: "$rootDir/gradle/javaModule.gradle"
+apply plugin: 'java'
+
+dependencies {
+    compile 'org.postgresql:postgresql:9.4-1201-jdbc41'
+}
+
+test {
+    testLogging.exceptionFormat = 'full'
+}
