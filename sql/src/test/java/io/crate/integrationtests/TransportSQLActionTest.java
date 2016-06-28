@@ -40,6 +40,7 @@ import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.test.junit.annotations.TestLogging;
 import org.hamcrest.Matchers;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,6 +57,7 @@ import static org.hamcrest.Matchers.*;
 import static org.hamcrest.core.Is.is;
 
 @ESIntegTestCase.ClusterScope(minNumDataNodes = 2)
+@TestLogging("io.crate.protocols:TRACE")
 public class TransportSQLActionTest extends SQLTransportIntegrationTest {
 
     private Setup setup = new Setup(sqlExecutor);
@@ -890,7 +892,7 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
         execute("select * from quotes");
         execute("select quote, \"_score\" from quotes where match(quote_ft, ?) " +
                         "order by \"_score\" desc",
-                new Object[]{"time", "time"}
+                new Object[]{"time"}
         );
         assertEquals(2L, response.rowCount());
         assertEquals("Time is an illusion. Lunchtime doubly so", response.rows()[0][0]);

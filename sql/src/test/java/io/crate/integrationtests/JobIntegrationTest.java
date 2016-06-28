@@ -32,6 +32,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import javax.annotation.Nullable;
+
 @ESIntegTestCase.ClusterScope(numDataNodes = 1, numClientNodes = 1, randomDynamicTemplates = false)
 public class JobIntegrationTest extends SQLTransportIntegrationTest {
 
@@ -54,7 +56,13 @@ public class JobIntegrationTest extends SQLTransportIntegrationTest {
                     public Client client() {
                         return internalCluster().clientNodeClient();
                     }
-                }
+
+                    @Nullable
+                    @Override
+                    public String pgUrl() {
+                        return null;
+                    }
+                }, random()
         ));
     }
 

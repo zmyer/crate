@@ -22,7 +22,10 @@
 package io.crate.testing;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Throwables;
 import io.crate.action.sql.*;
+import io.crate.protocols.postgres.types.PGTypes;
+import io.crate.types.DataType;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -33,9 +36,13 @@ import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.test.TestCluster;
 import org.hamcrest.Matchers;
 
+import javax.annotation.Nullable;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -50,18 +57,11 @@ public class SQLTransportExecutor {
 
     private static final ESLogger LOGGER = Loggers.getLogger(SQLTransportExecutor.class);
     private final ClientProvider clientProvider;
+    private final Random random;
 
-    public static SQLTransportExecutor create(final TestCluster testCluster) {
-        return new SQLTransportExecutor(new ClientProvider() {
-            @Override
-            public Client client() {
-                return testCluster.client();
-            }
-        });
-    }
-
-    public SQLTransportExecutor(ClientProvider clientProvider) {
+    public SQLTransportExecutor(ClientProvider clientProvider, Random random) {
         this.clientProvider = clientProvider;
+        this.random = random;
     }
 
     public SQLResponse exec(String statement) {
@@ -89,11 +89,71 @@ public class SQLTransportExecutor {
     }
 
     public SQLResponse exec(SQLRequest request, TimeValue timeout) {
+        String pgUrl = clientProvider.pgUrl();
+        if (pgUrl != null ) { // && random.nextInt() % 10 == 0) {
+            return executeWithPg(request, pgUrl);
+        }
         try {
             return execute(request).actionGet(timeout);
         } catch (ElasticsearchTimeoutException e) {
             LOGGER.error("Timeout on SQL statement: {}", e, request.stmt());
             throw e;
+        }
+    }
+
+    private SQLResponse executeWithPg(SQLRequest request, String pgUrl) {
+        try {
+            try (Connection conn = DriverManager.getConnection(pgUrl)) {
+                conn.setAutoCommit(true);
+                PreparedStatement preparedStatement = conn.prepareStatement(request.stmt());
+                Object[] args = request.args();
+                for (int i = 0; i < args.length; i++) {
+                    preparedStatement.setObject(i + 1, args[i]);
+                }
+                return toSqlResponse(preparedStatement);
+            }
+        } catch (SQLException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private SQLResponse toSqlResponse(PreparedStatement preparedStatement) throws SQLException {
+        if (preparedStatement.execute()) {
+            ResultSetMetaData metaData = preparedStatement.getMetaData();
+            ResultSet resultSet = preparedStatement.getResultSet();
+            List<Object[]> rows = new ArrayList<>();
+            List<String> columnNames = new ArrayList<>(metaData.getColumnCount());
+            DataType[] dataTypes = new DataType[metaData.getColumnCount()];
+            for (int i = 0; i < metaData.getColumnCount(); i++) {
+                columnNames.add(metaData.getColumnName(i + 1));
+
+                // TODO: get dataType
+            }
+            while (resultSet.next()) {
+                Object[] row = new Object[metaData.getColumnCount()];
+                for (int i = 0; i < row.length; i++) {
+                    row[i] = resultSet.getObject(i + 1);
+                }
+                rows.add(row);
+            }
+            return new SQLResponse(
+                columnNames.toArray(new String[0]),
+                rows.toArray(new Object[0][]),
+                dataTypes,
+                rows.size(),
+                1,
+                true
+            );
+        } else {
+            int updateCount = preparedStatement.getUpdateCount();
+            return new SQLResponse(
+                new String[0],
+                new Object[0][],
+                new DataType[0],
+                updateCount,
+                1,
+                true
+            );
         }
     }
 
@@ -151,5 +211,8 @@ public class SQLTransportExecutor {
 
     public interface ClientProvider {
         Client client();
+
+        @Nullable
+        String pgUrl();
     }
 }

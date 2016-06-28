@@ -25,7 +25,6 @@ package io.crate.integrationtests;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.hamcrest.Matchers;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -51,11 +50,6 @@ public class PostgresITest extends SQLTransportIntegrationTest {
             .put("psql.host", "127.0.0.1")
             .put("psql.port", "4242")
             .build();
-    }
-
-    @Before
-    public void initDriver() throws Exception {
-        Class.forName("org.postgresql.Driver");
     }
 
     @Test
