@@ -22,9 +22,7 @@
 package io.crate.testing;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Throwables;
 import io.crate.action.sql.*;
-import io.crate.protocols.postgres.types.PGTypes;
 import io.crate.types.DataType;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.action.ActionFuture;
@@ -36,6 +34,7 @@ import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.rest.RestStatus;
 import org.hamcrest.Matchers;
 
 import javax.annotation.Nullable;
@@ -113,7 +112,7 @@ public class SQLTransportExecutor {
                 return toSqlResponse(preparedStatement);
             }
         } catch (SQLException e) {
-            throw Throwables.propagate(e);
+            throw new SQLActionException(e.getMessage(), 4000, RestStatus.BAD_REQUEST);
         }
     }
 
