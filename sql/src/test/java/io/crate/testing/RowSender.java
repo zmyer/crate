@@ -54,7 +54,6 @@ public class RowSender implements Runnable, RowUpstream {
                 RowSender.this.run();
             }
         });
-        rowReceiver.setUpstream(this);
         iterator = rows.iterator();
     }
 

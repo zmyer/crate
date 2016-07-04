@@ -106,7 +106,6 @@ public class FileReadingCollector implements CrateCollector, RowUpstream {
                                 int readerNumber) {
         this.fileUris = getUrisWithGlob(fileUris);
         this.downstream = downstream;
-        downstream.setUpstream(this);
         this.compressed = compression != null && compression.equalsIgnoreCase("gzip");
         this.row = new InputRow(inputs);
         this.collectorExpressions = collectorExpressions;

@@ -57,7 +57,6 @@ public class CountContext extends AbstractExecutionSubContext implements RowUpst
         super(id, LOGGER);
         this.countOperation = countOperation;
         this.rowReceiver = rowReceiver;
-        rowReceiver.setUpstream(this);
         this.indexShardMap = indexShardMap;
         this.whereClause = whereClause;
     }

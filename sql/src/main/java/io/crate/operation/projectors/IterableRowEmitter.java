@@ -23,35 +23,20 @@
 package io.crate.operation.projectors;
 
 import com.google.common.base.Optional;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.crate.core.collections.Row;
-import io.crate.operation.collect.collectors.TopRowUpstream;
 
 import java.util.Iterator;
 import java.util.concurrent.Executor;
 
-public class IterableRowEmitter implements Runnable {
+public class IterableRowEmitter implements Runnable, Resumeable {
 
     private final RowReceiver rowReceiver;
-    private final TopRowUpstream topRowUpstream;
     private Iterator<? extends Row> rowsIt;
 
     public IterableRowEmitter(RowReceiver rowReceiver,
                               final Iterable<? extends Row> rows,
                               Optional<Executor> executor) {
         this.rowReceiver = rowReceiver;
-        topRowUpstream = new TopRowUpstream(
-                executor.or(MoreExecutors.directExecutor()),
-                this,
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        rowsIt = rows.iterator();
-                        IterableRowEmitter.this.run();
-                    }
-                }
-        );
-        rowReceiver.setUpstream(topRowUpstream);
         this.rowsIt = rows.iterator();
     }
 
@@ -66,19 +51,26 @@ public class IterableRowEmitter implements Runnable {
     @Override
     public void run() {
         try {
+            loop:
             while (rowsIt.hasNext()) {
-                boolean wantsMore = rowReceiver.setNextRow(rowsIt.next());
-                if (!wantsMore) {
-                    break;
-                }
-                if (topRowUpstream.shouldPause()) {
-                    topRowUpstream.pauseProcessed();
-                    return;
+                switch (rowReceiver.nextRow(rowsIt.next())) {
+                    case CONTINUE:
+                        break;
+                    case PAUSE:
+                        rowReceiver.pauseProcessed(this);
+                        return;
+                    case STOP:
+                        break loop;
                 }
             }
             rowReceiver.finish();
         } catch (Throwable t) {
             rowReceiver.fail(t);
         }
+    }
+
+    @Override
+    public void resume(boolean async) {
+        run();
     }
 }

@@ -36,6 +36,7 @@ import io.crate.operation.PageConsumeListener;
 import io.crate.operation.PageDownstream;
 import io.crate.operation.RejectionAwareExecutor;
 import io.crate.operation.collect.collectors.TopRowUpstream;
+import io.crate.operation.projectors.Resumeable;
 import io.crate.operation.projectors.RowReceiver;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -47,7 +48,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class IteratorPageDownstream implements PageDownstream {
+public class IteratorPageDownstream implements PageDownstream, Resumeable {
 
     private static final ESLogger LOGGER = Loggers.getLogger(IteratorPageDownstream.class);
 
@@ -73,12 +74,6 @@ public class IteratorPageDownstream implements PageDownstream {
                 new Runnable() {
                     @Override
                     public void run() {
-                        try {
-                            processBuckets(lastIterator, lastListener);
-                        } catch (Throwable t) {
-                            fail(t);
-                            lastListener.finish();
-                        }
                     }
                 },
                 new Runnable() {
@@ -95,26 +90,25 @@ public class IteratorPageDownstream implements PageDownstream {
                     }
                 }
         );
-        rowReceiver.setUpstream(topRowUpstream);
     }
 
     private void processBuckets(Iterator<Row> iterator, PageConsumeListener listener) {
         while (iterator.hasNext()) {
             Row row = iterator.next();
-            boolean wantMore = rowReceiver.setNextRow(row);
-            if (topRowUpstream.shouldPause()) {
-                topRowUpstream.pauseProcessed();
-                return;
-            }
-            if (!wantMore) {
-                downstreamWantsMore = false;
-
-                if (upstreamHasMoreData.get()) {
-                    listener.finish();
-                } else {
-                    rowReceiver.finish();
-                }
-                return;
+            switch (rowReceiver.nextRow(row)) {
+                case CONTINUE:
+                    break;
+                case PAUSE:
+                    rowReceiver.pauseProcessed(this);
+                    return;
+                case STOP:
+                    downstreamWantsMore = false;
+                    if (upstreamHasMoreData.get()) {
+                        listener.finish();
+                    } else {
+                        rowReceiver.finish();
+                    }
+                    return;
             }
         }
         if (upstreamHasMoreData.get()) {
@@ -190,6 +184,16 @@ public class IteratorPageDownstream implements PageDownstream {
     public void fail(Throwable t) {
         if (upstreamHasMoreData.compareAndSet(true, false)) {
             rowReceiver.fail(t);
+        }
+    }
+
+    @Override
+    public void resume(boolean async) {
+        try {
+            processBuckets(lastIterator, lastListener);
+        } catch (Throwable t) {
+            fail(t);
+            lastListener.finish();
         }
     }
 }

@@ -34,6 +34,7 @@ import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
+import io.crate.operation.projectors.Resumeable;
 import io.crate.operation.projectors.RowReceiver;
 import org.elasticsearch.common.unit.TimeValue;
 
@@ -65,17 +66,22 @@ public class CollectingRowReceiver implements RowReceiver, ResultReceiver {
     }
 
     @Override
+    public Result nextRow(Row row) {
+        return null;
+    }
+
+    @Override
+    public void pauseProcessed(Resumeable resumeable) {
+
+    }
+
+    @Override
     public void prepare() {
     }
 
     @Override
     public Set<Requirement> requirements() {
         return Requirements.NO_REQUIREMENTS;
-    }
-
-    @Override
-    public void setUpstream(RowUpstream rowUpstream) {
-        this.upstream = rowUpstream;
     }
 
     @Override

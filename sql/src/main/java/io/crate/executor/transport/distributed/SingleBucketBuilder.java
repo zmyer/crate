@@ -28,9 +28,9 @@ import io.crate.Streamer;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.StreamBucket;
-import io.crate.operation.RowUpstream;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
+import io.crate.operation.projectors.Resumeable;
 import io.crate.operation.projectors.RowReceiver;
 
 import java.io.IOException;
@@ -44,6 +44,20 @@ public class SingleBucketBuilder implements RowReceiver {
 
     public SingleBucketBuilder(Streamer<?>[] streamers) {
         bucketBuilder = new StreamBucket.Builder(streamers);
+    }
+
+    @Override
+    public Result nextRow(Row row) {
+        try {
+            bucketBuilder.add(row);
+        } catch (Throwable e) {
+            Throwables.propagate(e);
+        }
+        return Result.CONTINUE;
+    }
+
+    @Override
+    public void pauseProcessed(Resumeable resumeable) {
     }
 
     @Override
@@ -86,9 +100,5 @@ public class SingleBucketBuilder implements RowReceiver {
     @Override
     public Set<Requirement> requirements() {
         return Requirements.NO_REQUIREMENTS;
-    }
-
-    @Override
-    public void setUpstream(RowUpstream rowUpstream) {
     }
 }

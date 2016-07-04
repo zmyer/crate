@@ -29,6 +29,15 @@ import java.util.Set;
 
 public interface RowReceiver {
 
+    enum Result {
+        CONTINUE,
+        PAUSE,
+        STOP
+    }
+
+    Result nextRow(Row row);
+    void pauseProcessed(Resumeable resumeable);
+
     /**
      * Feed the downstream with the next input row.
      * If the downstream does not need any more rows, it returns <code>false</code>,
@@ -42,7 +51,9 @@ public interface RowReceiver {
      * @param row the next row - the row is usually a shared object and the instances content change after the
      *            setNextRow call.
      * @return false if the downstream does not need any more rows, true otherwise.
+     * @deprecated  use {@link #nextRow(Row)}
      */
+    @Deprecated
     boolean setNextRow(Row row);
 
     /**
@@ -75,12 +86,6 @@ public interface RowReceiver {
      * prepares / starts the RowReceiver, after this call it must be ready to receive rows
      */
     void prepare();
-
-    /**
-     * an RowUpstream who wants to call {@link #setNextRow(Row)} calls setUpstream before he starts sending rows
-     * so that the RowReceiver can call pause/resume on the upstream.
-     */
-    void setUpstream(RowUpstream rowUpstream);
 
 
     /**

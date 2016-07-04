@@ -32,6 +32,7 @@ import io.crate.operation.collect.CollectionFinishedEarlyException;
 import io.crate.operation.collect.CollectionPauseException;
 import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.collect.UnexpectedCollectionTerminatedException;
+import io.crate.operation.projectors.Resumeable;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.operation.reference.doc.lucene.CollectorContext;
 import io.crate.operation.reference.doc.lucene.LuceneCollectorExpression;
@@ -51,7 +52,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-public class CrateDocCollector implements CrateCollector {
+public class CrateDocCollector implements CrateCollector, Resumeable {
 
     private static final ESLogger LOGGER = Loggers.getLogger(CrateDocCollector.class);
 
@@ -62,7 +63,6 @@ public class CrateDocCollector implements CrateCollector {
     private final SimpleCollector luceneCollector;
     private final TopRowUpstream upstreamState;
     private final State state = new State();
-    private boolean killed;
     private final boolean doScores;
 
     public CrateDocCollector(final CrateSearchContext searchContext,
@@ -101,7 +101,6 @@ public class CrateDocCollector implements CrateCollector {
                 fieldsVisitor,
                 ((int) searchContext.id())
         );
-        rowReceiver.setUpstream(upstreamState);
         this.doScores = doScores || searchContext.minimumScore() != null;
         SimpleCollector collector = new LuceneDocCollector(
                 ramAccountingContext,
@@ -221,7 +220,7 @@ public class CrateDocCollector implements CrateCollector {
         } catch (CollectionPauseException e) {
             state.leaf = leaf;
             state.bulkScorer = scorer;
-            upstreamState.pauseProcessed();
+            rowReceiver.pauseProcessed(this);
             return true;
         }
         return false;
@@ -232,6 +231,12 @@ public class CrateDocCollector implements CrateCollector {
         rowReceiver.kill(throwable);
     }
 
+    @Override
+    public void resume(boolean async) {
+        traceLog("resume collect");
+        innerCollect(state.collector, state.weight, state.leaveIt, state.bulkScorer, state.leaf);
+    }
+
     static class State {
         BulkScorer bulkScorer;
         Iterator<LeafReaderContext> leaveIt;
@@ -240,7 +245,7 @@ public class CrateDocCollector implements CrateCollector {
         LeafReaderContext leaf;
     }
 
-    static class LuceneDocCollector extends SimpleCollector {
+    private static class LuceneDocCollector extends SimpleCollector {
 
         private final RamAccountingContext ramAccountingContext;
         private final TopRowUpstream topRowUpstream;
@@ -249,12 +254,12 @@ public class CrateDocCollector implements CrateCollector {
         private final Row inputRow;
         private final LuceneCollectorExpression[] expressions;
 
-        public LuceneDocCollector(RamAccountingContext ramAccountingContext,
-                                  TopRowUpstream topRowUpstream,
-                                  RowReceiver rowReceiver,
-                                  boolean doScores,
-                                  Row inputRow,
-                                  Collection<? extends LuceneCollectorExpression<?>> expressions) {
+        LuceneDocCollector(RamAccountingContext ramAccountingContext,
+                           TopRowUpstream topRowUpstream,
+                           RowReceiver rowReceiver,
+                           boolean doScores,
+                           Row inputRow,
+                           Collection<? extends LuceneCollectorExpression<?>> expressions) {
             this.ramAccountingContext = ramAccountingContext;
             this.topRowUpstream = topRowUpstream;
             this.rowReceiver = rowReceiver;
@@ -284,12 +289,14 @@ public class CrateDocCollector implements CrateCollector {
             for (LuceneCollectorExpression<?> expression : expressions) {
                 expression.setNextDocId(doc);
             }
-            boolean wantMore = rowReceiver.setNextRow(inputRow);
-            if (topRowUpstream.shouldPause()) {
-                throw CollectionPauseException.INSTANCE;
-            }
-            if (!wantMore) {
-                throw CollectionFinishedEarlyException.INSTANCE;
+            RowReceiver.Result result = rowReceiver.nextRow(inputRow);
+            switch (result) {
+                case CONTINUE:
+                    break;
+                case PAUSE:
+                    throw CollectionPauseException.INSTANCE;
+                case STOP:
+                    throw CollectionFinishedEarlyException.INSTANCE;
             }
         }
 

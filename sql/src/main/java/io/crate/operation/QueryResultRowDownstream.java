@@ -31,6 +31,7 @@ import io.crate.executor.QueryResult;
 import io.crate.executor.TaskResult;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
+import io.crate.operation.projectors.Resumeable;
 import io.crate.operation.projectors.RowReceiver;
 
 import javax.annotation.Nonnull;
@@ -47,28 +48,38 @@ public class QueryResultRowDownstream implements RowReceiver, ResultReceiver {
     private final SettableFuture<TaskResult> result;
     private final List<Object[]> rows = new ArrayList<>();
     private CompletionListener listener = CompletionListener.NO_OP;
-    private boolean shouldContinue = true;
+    private Result rowResult = Result.CONTINUE;
 
     public QueryResultRowDownstream(SettableFuture<TaskResult> result) {
         this.result = result;
     }
 
     @Override
-    public boolean setNextRow(Row row) {
+    public Result nextRow(Row row) {
         rows.add(row.materialize());
-        return shouldContinue;
+        return rowResult;
+    }
+
+    @Override
+    public void pauseProcessed(Resumeable resumeable) {
+
+    }
+
+    @Override
+    public boolean setNextRow(Row row) {
+        throw new UnsupportedOperationException("deprecated");
     }
 
     @Override
     public void finish() {
-        shouldContinue = false;
+        rowResult = Result.STOP;
         result.set(new QueryResult(new CollectionBucket(rows)));
         listener.onSuccess(null);
     }
 
     @Override
     public void fail(@Nonnull Throwable throwable) {
-        shouldContinue = false;
+        rowResult = Result.STOP;
         result.setException(throwable);
         listener.onFailure(throwable);
     }
@@ -80,10 +91,6 @@ public class QueryResultRowDownstream implements RowReceiver, ResultReceiver {
 
     @Override
     public void prepare() {
-    }
-
-    @Override
-    public void setUpstream(RowUpstream rowUpstream) {
     }
 
     @Override

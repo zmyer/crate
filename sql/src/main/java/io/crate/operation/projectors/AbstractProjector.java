@@ -41,7 +41,6 @@ public abstract class AbstractProjector implements Projector {
     public void downstream(RowReceiver rowReceiver) {
         assert rowReceiver != null : "rowReceiver must not be null";
         this.downstream = rowReceiver;
-        rowReceiver.setUpstream(this);
     }
 
     @Override
@@ -64,6 +63,18 @@ public abstract class AbstractProjector implements Projector {
     }
 
     @Override
+    public Result nextRow(Row row) {
+        if (setNextRow(row)) {
+            return Result.CONTINUE;
+        }
+        return Result.STOP;
+    }
+
+    @Override
+    public void pauseProcessed(Resumeable resumeable) {
+    }
+
+    @Override
     public void repeat() {
         upstream.repeat();
     }
@@ -73,15 +84,9 @@ public abstract class AbstractProjector implements Projector {
         return downstream.requirements();
     }
 
-    @Override
-    public void setUpstream(RowUpstream upstream) {
-        assert upstream != null : "upstream must not be null";
-        this.upstream = upstream;
-    }
-
     private static class StateCheckRowUpstream implements RowUpstream {
 
-        public static final String STATE_ERROR = "upstream not set";
+        static final String STATE_ERROR = "upstream not set";
 
         @Override
         public void pause() {
@@ -102,6 +107,16 @@ public abstract class AbstractProjector implements Projector {
     private static class StateCheckReceiver implements RowReceiver {
 
         private static final String STATE_ERROR = "downstream not set";
+
+        @Override
+        public Result nextRow(Row row) {
+            throw new IllegalStateException(STATE_ERROR);
+        }
+
+        @Override
+        public void pauseProcessed(Resumeable resumeable) {
+            throw new IllegalStateException(STATE_ERROR);
+        }
 
         @Override
         public boolean setNextRow(Row row) {
@@ -125,11 +140,6 @@ public abstract class AbstractProjector implements Projector {
 
         @Override
         public void prepare() {
-            throw new IllegalStateException(STATE_ERROR);
-        }
-
-        @Override
-        public void setUpstream(RowUpstream upstream) {
             throw new IllegalStateException(STATE_ERROR);
         }
 

@@ -32,10 +32,7 @@ import io.crate.operation.merge.KeyIterable;
 import io.crate.operation.merge.PagingIterator;
 import io.crate.operation.merge.PassThroughPagingIterator;
 import io.crate.operation.merge.SortedPagingIterator;
-import io.crate.operation.projectors.FlatProjectorChain;
-import io.crate.operation.projectors.IterableRowEmitter;
-import io.crate.operation.projectors.Requirement;
-import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.*;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
@@ -47,7 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 
-public class MultiShardScoreDocCollector implements CrateCollector {
+public class MultiShardScoreDocCollector implements CrateCollector, Resumeable {
 
     private static final ESLogger LOGGER = Loggers.getLogger(MultiShardScoreDocCollector.class);
 
@@ -55,7 +52,6 @@ public class MultiShardScoreDocCollector implements CrateCollector {
     private final ObjectObjectHashMap<ShardId, OrderedDocCollector> orderedCollectorsMap;
     private final RowReceiver rowReceiver;
     private final PagingIterator<ShardId, Row> pagingIterator;
-    private final TopRowUpstream topRowUpstream;
     private final ListeningExecutorService executor;
     private final ListeningExecutorService directExecutor;
     private final FutureCallback<List<KeyIterable<ShardId, Row>>> futureCallback;
@@ -72,6 +68,7 @@ public class MultiShardScoreDocCollector implements CrateCollector {
         assert orderedDocCollectors.size() > 0 : "must have at least one shardContext";
         this.directExecutor = MoreExecutors.newDirectExecutorService();
         this.executor = executor;
+        /*
         this.topRowUpstream = new TopRowUpstream(executor, new Runnable() {
             @Override
             public void run() {
@@ -84,8 +81,8 @@ public class MultiShardScoreDocCollector implements CrateCollector {
                 rowEmitter.run();
             }
         });
+        */
         rowReceiver = flatProjectorChain.firstProjector();
-        rowReceiver.setUpstream(topRowUpstream);
         this.orderedDocCollectors = orderedDocCollectors;
         singleShard = orderedDocCollectors.size() == 1;
 
@@ -192,13 +189,15 @@ public class MultiShardScoreDocCollector implements CrateCollector {
         while (pagingIterator.hasNext()) {
             Row row = pagingIterator.next();
 
-            boolean wantMore = rowReceiver.setNextRow(row);
-            if (!wantMore) {
-                return Result.FINISHED;
-            }
-            if (topRowUpstream.shouldPause()) {
-                topRowUpstream.pauseProcessed();
-                return Result.PAUSED;
+            RowReceiver.Result result = rowReceiver.nextRow(row);
+            switch (result) {
+                case CONTINUE:
+                    break;
+                case PAUSE:
+                    rowReceiver.pauseProcessed(this);
+                    return Result.PAUSED;
+                case STOP:
+                    return Result.FINISHED;
             }
         }
         return Result.EXHAUSTED;
@@ -236,5 +235,10 @@ public class MultiShardScoreDocCollector implements CrateCollector {
         } else {
             rowEmitter.kill(throwable);
         }
+    }
+
+    @Override
+    public void resume(boolean async) {
+        processIterator();
     }
 }

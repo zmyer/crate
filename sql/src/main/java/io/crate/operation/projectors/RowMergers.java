@@ -90,7 +90,7 @@ public class RowMergers {
             new Runnable() { // resumeRunnable
                 @Override
                 public void run() {
-                    delegate.setUpstream(MultiUpstreamRowReceiver.this);
+                    //delegate.setUpstream(MultiUpstreamRowReceiver.this);
                     resume(false);
                 }
             },
@@ -105,8 +105,21 @@ public class RowMergers {
         );
 
         MultiUpstreamRowReceiver(RowReceiver delegate) {
-            delegate.setUpstream(this);
+            //delegate.setUpstream(this);
             this.delegate = delegate;
+        }
+
+        @Override
+        public Result nextRow(Row row) {
+            if (setNextRow(row)) {
+                return Result.CONTINUE;
+            }
+            return Result.STOP;
+        }
+
+        @Override
+        public void pauseProcessed(Resumeable resumeable) {
+            delegate.pauseProcessed(resumeable);
         }
 
         @Override
@@ -200,13 +213,6 @@ public class RowMergers {
         }
 
         @Override
-        public void setUpstream(RowUpstream rowUpstream) {
-            if (!rowUpstreams.add(rowUpstream)) {
-                LOGGER.debug("Upstream {} registered itself twice", rowUpstream);
-            }
-        }
-
-        @Override
         public void pause() {
             paused = true;
             for (RowUpstream rowUpstream : rowUpstreams) {
@@ -220,12 +226,12 @@ public class RowMergers {
             Object[] row;
             if (!pauseFifo.isEmpty()) {
                 // clear pauseFifo first, otherwise it could grow very large
-                delegate.setUpstream(topRowUpstream);
+                //delegate.setUpstream(topRowUpstream);
                 while ((row = pauseFifo.poll()) != null) {
                     sharedRow.cells(row);
                     boolean wantMore = delegate.setNextRow(sharedRow);
                     if (topRowUpstream.shouldPause()) {
-                        delegate.setUpstream(this);
+                        //delegate.setUpstream(this);
                         topRowUpstream.pauseProcessed();
                         return;
                     }
@@ -237,7 +243,7 @@ public class RowMergers {
                         break;
                     }
                 }
-                delegate.setUpstream(this);
+                //delegate.setUpstream(this);
             }
             for (RowUpstream rowUpstream : rowUpstreams) {
                 rowUpstream.resume(async);

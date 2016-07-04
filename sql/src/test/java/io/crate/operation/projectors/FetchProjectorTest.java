@@ -115,7 +115,6 @@ public class FetchProjectorTest extends CrateUnitTest {
                 buildOutputSymbols(),
                 buildFetchProjectorContext()
             );
-        fetchProjector.setUpstream(upstream);
         fetchProjector.downstream(rowReceiver);
         fetchProjector.prepare();
         return fetchProjector;

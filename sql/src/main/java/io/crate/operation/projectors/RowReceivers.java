@@ -24,6 +24,7 @@ package io.crate.operation.projectors;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.crate.core.collections.Row;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 

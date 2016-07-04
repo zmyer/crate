@@ -28,6 +28,7 @@ import io.crate.core.collections.Row;
 import io.crate.operation.RowUpstream;
 import io.crate.operation.projectors.Requirement;
 import io.crate.operation.projectors.Requirements;
+import io.crate.operation.projectors.Resumeable;
 import io.crate.operation.projectors.RowReceiver;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.logging.ESLogger;
@@ -105,6 +106,15 @@ public class DistributingDownstream implements RowReceiver {
             downstreams[i] = new Downstream(downstreamNodeId);
             i++;
         }
+    }
+
+    @Override
+    public Result nextRow(Row row) {
+        return null;
+    }
+
+    @Override
+    public void pauseProcessed(Resumeable resumeable) {
     }
 
     @Override
@@ -196,11 +206,6 @@ public class DistributingDownstream implements RowReceiver {
                 downstream.forwardFailure(throwable);
             }
         }
-    }
-
-    @Override
-    public void setUpstream(RowUpstream rowUpstream) {
-        upstream = rowUpstream;
     }
 
     private class Downstream implements ActionListener<DistributedResultResponse> {

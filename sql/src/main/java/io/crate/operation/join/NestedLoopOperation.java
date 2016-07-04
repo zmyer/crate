@@ -30,10 +30,7 @@ import io.crate.concurrent.CompletionState;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.operation.RowUpstream;
-import io.crate.operation.projectors.ListenableRowReceiver;
-import io.crate.operation.projectors.Requirement;
-import io.crate.operation.projectors.Requirements;
-import io.crate.operation.projectors.RowReceiver;
+import io.crate.operation.projectors.*;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 
@@ -85,7 +82,6 @@ public class NestedLoopOperation implements RowUpstream, CompletionListenable {
     public NestedLoopOperation(int phaseId, RowReceiver rowReceiver) {
         this.phaseId = phaseId;
         this.downstream = rowReceiver;
-        downstream.setUpstream(this);
         left = new LeftRowReceiver();
         right = new RightRowReceiver();
     }
@@ -176,12 +172,6 @@ public class NestedLoopOperation implements RowUpstream, CompletionListenable {
             completionFuture.setException(throwable);
         }
 
-        @Override
-        public void setUpstream(RowUpstream rowUpstream) {
-            assert rowUpstream != null : "rowUpstream must not be null";
-            this.upstream = rowUpstream;
-        }
-
         private void finishThisSide() {
             finished.set(null);
             state.set(State.FINISHED);
@@ -225,6 +215,16 @@ public class NestedLoopOperation implements RowUpstream, CompletionListenable {
 
         private Row lastRow = null;
         private boolean done = false;
+
+        @Override
+        public Result nextRow(Row row) {
+            return null;
+        }
+
+        @Override
+        public void pauseProcessed(Resumeable resumeable) {
+
+        }
 
         @Override
         public boolean setNextRow(Row row) {
@@ -301,6 +301,16 @@ public class NestedLoopOperation implements RowUpstream, CompletionListenable {
 
         public RightRowReceiver() {
             requirements = Requirements.add(downstream.requirements(), Requirement.REPEAT);
+        }
+
+        @Override
+        public Result nextRow(Row row) {
+            return null;
+        }
+
+        @Override
+        public void pauseProcessed(Resumeable resumeable) {
+
         }
 
         @Override

@@ -22,7 +22,6 @@
 package io.crate.operation.collect.blobs;
 
 import io.crate.blob.BlobContainer;
-import io.crate.exceptions.JobKilledException;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
 import io.crate.operation.RowUpstream;
@@ -44,7 +43,6 @@ public class BlobDocCollector implements CrateCollector, RowUpstream {
 
     private final Input<Boolean> condition;
     private RowReceiver downstream;
-    private volatile boolean killed;
 
     public BlobDocCollector(
             BlobContainer blobContainer,
@@ -57,7 +55,6 @@ public class BlobDocCollector implements CrateCollector, RowUpstream {
         this.expressions = expressions;
         this.condition = condition;
         this.downstream = downstream;
-        downstream.setUpstream(this);
     }
 
     @Override
