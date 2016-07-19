@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public class SysNodesTableInfo extends StaticTableInfo {
+public class SysNodesTableInfo extends StaticTableInfo, FallbackTableInfo {
 
     public static final String SYS_COL_NAME = "_node";
     public static final ColumnIdent SYS_COL_IDENT = new ColumnIdent(SYS_COL_NAME);

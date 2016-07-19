@@ -192,10 +192,13 @@ public class ExecutionPhasesTask extends JobTask {
             String serverNodeId = entry.getKey();
             JobRequest request = new JobRequest(jobId(), localNodeId, entry.getValue());
             if (hasDirectResponse) {
+                // get timeout from CollectAndMerge phase
+                // get fallback implementation from CollectAndMerge (which gets it from FallbackTableInfo implementation)
                 transportJobAction.execute(serverNodeId, request,
-                    new SetBucketAction(pageBucketReceivers, bucketIdx, initializationTracker));
+                    new SetBucketAction(pageBucketReceivers, bucketIdx, initializationTracker), 1000L);
             } else {
-                transportJobAction.execute(serverNodeId, request, new FailureOnlyResponseListener(handlerPhases, initializationTracker));
+                transportJobAction.execute(serverNodeId, request,
+                    new FailureOnlyResponseListener(handlerPhases, initializationTracker));
             }
             bucketIdx++;
         }

@@ -26,10 +26,7 @@ import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
-import org.elasticsearch.transport.TransportRequest;
-import org.elasticsearch.transport.TransportResponse;
-import org.elasticsearch.transport.TransportResponseHandler;
-import org.elasticsearch.transport.TransportService;
+import org.elasticsearch.transport.*;
 
 import java.util.Locale;
 
@@ -47,17 +44,26 @@ public class Transports {
     }
 
     public <TRequest extends TransportRequest, TResponse extends TransportResponse> void sendRequest(
-            String actionName,
-            String node,
-            TRequest request,
-            ActionListener<TResponse> listener,
-            TransportResponseHandler<TResponse> transportResponseHandler) {
+        String actionName,
+        String node,
+        TRequest request,
+        ActionListener<TResponse> listener,
+        TransportResponseHandler<TResponse> transportResponseHandler,
+        TransportRequestOptions options) {
         DiscoveryNode discoveryNode = clusterService.state().nodes().get(node);
         if (discoveryNode == null) {
             listener.onFailure(new IllegalArgumentException(
                 String.format(Locale.ENGLISH, "node \"%s\" not found in cluster state!", node)));
             return;
         }
-        transportService.sendRequest(discoveryNode, actionName, request, transportResponseHandler);
+        transportService.sendRequest(discoveryNode, actionName, request, options, transportResponseHandler);
+    }
+    public <TRequest extends TransportRequest, TResponse extends TransportResponse> void sendRequest(
+            String actionName,
+            String node,
+            TRequest request,
+            ActionListener<TResponse> listener,
+            TransportResponseHandler<TResponse> transportResponseHandler) {
+        sendRequest(actionName, node, request, listener, transportResponseHandler, TransportRequestOptions.EMPTY);
     }
 }

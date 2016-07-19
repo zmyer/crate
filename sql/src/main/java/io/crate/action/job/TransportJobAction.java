@@ -34,8 +34,10 @@ import io.crate.jobs.JobExecutionContext;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportService;
 
 import javax.annotation.Nonnull;
@@ -68,6 +70,17 @@ public class TransportJobAction implements NodeAction<JobRequest, JobResponse> {
                 new NodeActionRequestHandler<JobRequest, JobResponse>(this) { });
     }
 
+    public void execute(String node, final JobRequest request, final ActionListener<JobResponse> listener, long timeout) {
+        TransportRequestOptions.Builder builder = TransportRequestOptions.builder()
+            .withTimeout(timeout);
+        transports.sendRequest(ACTION_NAME, node, request, listener,
+            new DefaultTransportResponseHandler<JobResponse>(listener) {
+                @Override
+                public JobResponse newInstance() {
+                    return new JobResponse();
+                }
+            }, builder.build());
+    }
     public void execute(String node, final JobRequest request, final ActionListener<JobResponse> listener) {
         transports.sendRequest(ACTION_NAME, node, request, listener,
                 new DefaultTransportResponseHandler<JobResponse>(listener) {

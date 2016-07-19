@@ -67,6 +67,10 @@ public class CollectAndMerge extends PlanAndPlannedAnalyzedRelation {
         }
     }
 
+    public TimeoutFallback fallback() {
+
+    }
+
     @Override
     public boolean resultIsDistributed() {
         return localMerge == null;
