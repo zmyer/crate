@@ -153,7 +153,7 @@ public class SQLTransportExecutor {
                 return executeAndConvertResult(preparedStatement);
             }
         } catch (SQLException e) {
-            throw new SQLActionException(e.getMessage(), 0, RestStatus.BAD_REQUEST);
+            throw new SQLActionException(e.getMessage(), 0, RestStatus.BAD_REQUEST, e.getStackTrace());
         }
     }
 

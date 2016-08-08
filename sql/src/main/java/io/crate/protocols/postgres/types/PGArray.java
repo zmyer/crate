@@ -58,7 +58,25 @@ class PGArray extends PGType {
 
     @Override
     public int writeAsBinary(ChannelBuffer buffer, @Nonnull Object value) {
-        throw new UnsupportedOperationException("Binary array streaming not supported");
+        int dimensions = 0;
+        while (value.getClass().isArray()) {
+            dimensions++;
+            Object[] arr = (Object[]) value;
+            if (arr.length > 0) {
+                value = arr[0];
+            } else {
+                break;
+            }
+        }
+        int bytesWritten = 4 + 4 + 4;
+        buffer.writeInt(dimensions);
+        buffer.writeInt(1); // flags bit 0: 0=no-nulls, 1=has-nulls
+        buffer.writeInt(typElem());
+
+        for (int d = 0; d < dimensions; d++) {
+            // TODO:
+        }
+        return bytesWritten;
     }
 
     @Override
