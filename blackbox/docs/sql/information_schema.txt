@@ -353,7 +353,13 @@ SQL Features
 The ``sql_features`` table outlines supported and unsupported SQL features of
 Crate based to the current SQL standard (see :ref:`sql_supported_features`)::
 
-    cr> select * from information_schema.sql_features;
+    cr> select * from information_schema.sql_features where feature_id='E011';
+    +----------+------------+----------------------+--------------+----------------+----------------------+----------------------+
+    | comments | feature_id | feature_name         | is_supported | is_verified_by | sub_feature_id       | sub_feature_name     |
+    +----------+------------+----------------------+--------------+----------------+----------------------+----------------------+
+    |     ...  | ...        | ...                  | ...          |            ... | ...                  | ...                  |
+    ...
+    SELECT 672 rows in set (... sec)
 
 +------------------+-----------+----------+
 | Name             | Data Type | Nullable |
@@ -372,7 +378,6 @@ Crate based to the current SQL standard (see :ref:`sql_supported_features`)::
 +------------------+-----------+----------+
 | comments         | String    | YES      |
 +------------------+-----------+----------+
-
 
 :feature_id:
     Identifier of the feature

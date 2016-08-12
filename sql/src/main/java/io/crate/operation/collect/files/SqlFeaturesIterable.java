@@ -23,6 +23,7 @@
 package io.crate.operation.collect.files;
 
 import com.google.common.base.Splitter;
+import io.crate.sql.tree.Except;
 import org.elasticsearch.common.inject.Inject;
 
 import javax.annotation.Nullable;
@@ -30,6 +31,7 @@ import java.io.*;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -37,7 +39,6 @@ import java.util.NoSuchElementException;
 public class SqlFeaturesIterable implements Iterable<SqlFeatureContext> {
 
     private static final Splitter TAB_SPLITTER = Splitter.on("\t");
-    private static final URL SQL_FEATURES = SqlFeaturesIterator.class.getResource("/sql_features.tsv");
 
     @Inject
     public SqlFeaturesIterable() {
@@ -54,18 +55,11 @@ public class SqlFeaturesIterable implements Iterable<SqlFeatureContext> {
         private String nextLine;
 
         SqlFeaturesIterator() {
-            File features = new File(SQL_FEATURES.getFile());
-            reader = getReader(features);
+            InputStreamReader SQL_FEATURES = new InputStreamReader(
+                    SqlFeaturesIterator.class.getResourceAsStream("/sql_features.tsv"));
+            reader = new BufferedReader(SQL_FEATURES);
             if (reader != null) {
                 readNextLine();
-            }
-        }
-
-        private BufferedReader getReader(File features) {
-            try {
-                return Files.newBufferedReader(features.toPath(), Charset.forName("UTF-8"));
-            } catch (IOException e) {
-                return null;
             }
         }
 
