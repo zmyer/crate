@@ -41,7 +41,6 @@ dependencies {
     compile ('org.apache.xbean:xbean-finder:4.2') {
         exclude group: 'org.apache.xbean', module: 'xbean-asm-util'
     }
-    compile project(':es-cloud-azure')
 
     testCompile project(':testing')
 
@@ -331,21 +330,23 @@ jar {
 }
 
 task downloadPlugins (
-    dependsOn: [':admin-ui:downloadPlugin', ':sigar:jar', ':es-repository-hdfs:distZip', ':es-cloud-azure:jarAndProperties']) << {
+    dependsOn: [':admin-ui:downloadPlugin', ':sigar:jar', ':es-repository-hdfs:distZip', ':azure-discovery:jar']) << {
 
     copy {
         from(zipTree(project(':es-repository-hdfs').tasks.distZip.archivePath))
         into 'plugins/elasticsearch-repository-hdfs'
     }
 
+    // copy jar
     copy {
-        from (project(':es-cloud-azure').buildDir.path + '/libs')
-        into 'plugins/cloud-azure'
+        from(project(':azure-discovery').tasks.jar.archivePath)
+        into 'plugins/crate-azure-discovery'
     }
 
+    // copy generated plugin-descriptor.properties
     copy {
-        from (project(':es-cloud-azure').buildDir.path + '/cloud-azure')
-        into 'plugins/cloud-azure'
+        from(project(':azure-discovery').buildDir.path + '/tmp')
+        into 'plugins/crate-azure-discovery'
     }
 
     copy {
