@@ -5,23 +5,21 @@
 Azure Discovery
 ===============
 
-When running Crate on Microsoft Azure you usually face
-the problem that Crate's default discovery mechanism does
-not work out of the box.
+Crate has native discovery support when running a cluster on Microsoft Azure
+infrastructure. Since Azure does not support multicast, the discovery mechanism
+uses the ARM (Azure Resource Management) mode APIs to generate the list of hosts
+for the unicast host discovery.
 
-Luckily Crate has a built-in mechanism for unicast host
-discovery in an Azure environment.
+The discovery mechanism is implemented as a plugin and resides within the plugin
+folder of the Crate installation. However, since the Azure Java SDKs does have
+a lot of dependencies and we want to keep the plugin jar small in size the
+dependencies are not included in the Crate distribution.
 
-Requirements to use Azure api for node discovery
-------------------------------------------------
+Requirements
+------------
 
-The mechanisms for discovery on Microsoft Azure are built
-in with Crate, but the required sdk libraries are not included in
-any Crate distribution and needed to be added to Crate's
-libs folder. By default this is
-``$CRATE_HOME/lib``
-
-Please add the following libraries into the libs folder::
+To make the plugin work you have to add the following Java libraries to the
+``$CRATE_HOME/plugins/crate-azure-discovery`` folder::
 
     - adal4j-1.0.0.jar
     - azure-core-0.9.3.jar
@@ -53,25 +51,44 @@ Please add the following libraries into the libs folder::
     - lang-tag-1.4.jar
     - nimbus-jose-jwt-3.1.2.jar
     - oauth2-oidc-sdk-4.5.jar
-    - stax-api-1.0-2.jar
 
 Basic Configuration
 -------------------
 
-The most important step for Azure discovery is that you have to launch your instances within the same vnet or even within
-the same subnet. 
-
-Once you have your instances running and Crate installed, you can enable the
-Azure discovery by *simply* setting the ``discovery.type`` to ``azure``::
+To enable Azure discovery simply change the ``discovery.type`` setting to
+``azure``::
 
     discovery.type: azure
 
-To be able to use the Azure API, you have to create an ``Active Directory``
-application with a password. We recommened to follow the `AD Application Guide`_ .
+The discovery mechanism can discover Crate instances within the same **vnet**
+or the same **subnet** of the same **resource group**. By default it will the
+**vnet**.
 
-After the application is created you can add the resourcegroup, the app id, the app secret
-and all the required settings to the config,
-see :ref:`conf_azure_discovery`.
+You can change the behaviour using the ``discovery.azure.method`` setting::
+
+    discovery.azure.method: subnet
+
+The used resource group also needs to be provided::
+
+    cloud.azure.management.resourcegroup.name: production
+
+Authentication
+--------------
+
+The discovery plugin requires authentication as service principle.
+To do so, you have to create an ``Active Directory`` application with a password.
+We recommened to follow the `AD Application Guide`_ .
+
+The configuration settings for authentication are as follows::
+
+    cloud.azure.management:
+      subscription.id: my-id
+      tenant.id: my-tenant
+      app:
+        id: my-app
+        secret: my-secret
+
+For a complete list of settings please refer to :ref:`conf_azure_discovery`.
 
 
 .. _`AD Application Guide`: https://azure.microsoft.com/en-us/documentation/articles/resource-group-authenticate-service-principal-cli/#_create-ad-application-with-password

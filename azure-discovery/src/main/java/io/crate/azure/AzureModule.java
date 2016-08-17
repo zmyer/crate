@@ -92,7 +92,7 @@ public class AzureModule extends AbstractModule {
             isPropertyMissing(settings, Management.APP_ID) ||
             isPropertyMissing(settings, Management.APP_SECRET)
             ) {
-            logger.debug("one or more azure discovery settings are missing. " +
+            logger.warn("one or more azure discovery settings are missing. " +
                          "Check elasticsearch.yml file. Should have [{}], [{}], [{}] and [{}].",
                 Management.SUBSCRIPTION_ID,
                 Management.RESOURCE_GROUP_NAME,

@@ -38,29 +38,29 @@ import java.util.Collection;
 import java.util.List;
 
 
-public class CloudAzurePlugin extends Plugin {
+public class AzureDiscoveryPlugin extends Plugin {
 
     private final Settings settings;
-    protected final ESLogger logger = Loggers.getLogger(CloudAzurePlugin.class);
+    protected final ESLogger logger = Loggers.getLogger(AzureDiscoveryPlugin.class);
 
-    public CloudAzurePlugin(Settings settings) {
+    public AzureDiscoveryPlugin(Settings settings) {
         this.settings = settings;
     }
 
     @Override
     public String name() {
-        return "cloud-azure";
+        return "crate-azure-discovery";
     }
 
     @Override
     public String description() {
-        return "Cloud Azure Plugin";
+        return "Azure Discovery Plugin";
     }
 
     @Override
     public Collection<Module> nodeModules() {
         List<Module> modules = new ArrayList<>();
-        if (AzureModule.isCloudReady(settings)) {
+        if (AzureModule.isDiscoveryReady(settings, logger)) {
             modules.add(new AzureModule());
         }
         return modules;
@@ -69,7 +69,7 @@ public class CloudAzurePlugin extends Plugin {
     @Override
     public Collection<Class<? extends LifecycleComponent>> nodeServices() {
         Collection<Class<? extends LifecycleComponent>> services = new ArrayList<>();
-        if (AzureModule.isCloudReady(settings)) {
+        if (AzureModule.isDiscoveryReady(settings, logger)) {
             services.add(AzureModule.getComputeServiceImpl());
         }
         return services;

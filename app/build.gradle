@@ -337,14 +337,10 @@ task downloadPlugins (
         into 'plugins/elasticsearch-repository-hdfs'
     }
 
-    // copy jar
     copy {
+        // jar file
         from(project(':azure-discovery').tasks.jar.archivePath)
-        into 'plugins/crate-azure-discovery'
-    }
-
-    // copy generated plugin-descriptor.properties
-    copy {
+        // generated plugin-descriptor.properties
         from(project(':azure-discovery').buildDir.path + '/tmp')
         into 'plugins/crate-azure-discovery'
     }

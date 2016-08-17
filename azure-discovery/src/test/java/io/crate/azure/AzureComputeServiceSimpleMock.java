@@ -26,7 +26,7 @@ import com.microsoft.azure.management.compute.ComputeManagementClient;
 import com.microsoft.azure.management.network.NetworkResourceProviderClient;
 import com.microsoft.windowsazure.Configuration;
 import io.crate.azure.management.AzureComputeServiceAbstractMock;
-import io.crate.azure.plugin.CloudAzurePlugin;
+import io.crate.azure.plugin.AzureDiscoveryPlugin;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 
@@ -55,7 +55,7 @@ public class AzureComputeServiceSimpleMock extends AzureComputeServiceAbstractMo
         return null;
     }
 
-    public static class TestPlugin extends CloudAzurePlugin {
+    public static class TestPlugin extends AzureDiscoveryPlugin {
 
         public TestPlugin(Settings settings) {
             super(settings);
