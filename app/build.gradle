@@ -341,7 +341,7 @@ task downloadPlugins (
         // jar file
         from(project(':azure-discovery').tasks.jar.archivePath)
         // generated plugin-descriptor.properties
-        from(project(':azure-discovery').buildDir.path + '/tmp')
+        from(project(':azure-discovery').buildDir.path + '/tmp/plugin-descriptor.properties')
         into 'plugins/crate-azure-discovery'
     }
 
