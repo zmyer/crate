@@ -26,7 +26,9 @@ import com.microsoft.azure.management.network.NetworkResourceProviderClient;
 import com.microsoft.azure.management.network.NetworkResourceProviderService;
 import com.microsoft.azure.utility.AuthHelper;
 import com.microsoft.windowsazure.Configuration;
+import com.microsoft.windowsazure.core.DefaultBuilder;
 import com.microsoft.windowsazure.management.configuration.ManagementConfiguration;
+import io.crate.azure.AzureModule;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
@@ -111,14 +113,13 @@ public class AzureComputeServiceImpl extends AbstractLifecycleComponent<AzureCom
                 appId,
                 appSecret
             );
-            conf = ManagementConfiguration.configure(
-                null,
-                URI.create(Azure.ENDPOINT),
-                subscriptionId, // subscription id
-                authRes.getAccessToken()
-            );
+
+            DefaultBuilder registry = DefaultBuilder.create();
+            AzureModule.registerServices(registry);
+            conf = ManagementConfiguration.configure(null, new Configuration(registry),
+                URI.create(Azure.ENDPOINT), subscriptionId, authRes.getAccessToken());
         } catch (Exception e) {
-            logger.error("Could not create configuration for Azure clients: {}", e.getMessage());
+            logger.error("Could not create configuration for Azure clients: {}", e);
         }
         return conf;
     }

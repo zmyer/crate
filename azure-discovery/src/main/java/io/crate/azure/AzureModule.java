@@ -22,6 +22,7 @@
 
 package io.crate.azure;
 
+import com.microsoft.windowsazure.core.Builder.Registry;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.inject.AbstractModule;
@@ -55,6 +56,18 @@ public class AzureModule extends AbstractModule {
     protected void configure() {
         bind(AzureComputeSettingsFilter.class).asEagerSingleton();
         bind(AzureComputeService.class).to(computeServiceImpl).asEagerSingleton();
+    }
+
+    public static void registerServices(Registry registry) {
+        // taken from https://github.com/Appdynamics/azure-connector-extension/blob/master/src/main/java/com/appdynamics/connectors/azure/ConnectorLocator.java
+        new com.microsoft.windowsazure.core.pipeline.apache.Exports().register(registry);
+        new com.microsoft.windowsazure.core.pipeline.jersey.Exports().register(registry);
+        new com.microsoft.windowsazure.core.utils.Exports().register(registry);
+        new com.microsoft.windowsazure.credentials.Exports().register(registry);
+        new com.microsoft.windowsazure.management.configuration.Exports().register(registry);
+        new com.microsoft.azure.management.compute.Exports().register(registry);
+        new com.microsoft.azure.management.storage.Exports().register(registry);
+        new com.microsoft.azure.management.network.Exports().register(registry);
     }
 
     /**

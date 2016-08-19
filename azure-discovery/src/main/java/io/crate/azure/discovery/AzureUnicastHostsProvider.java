@@ -111,7 +111,6 @@ public class AzureUnicastHostsProvider extends AbstractComponent implements Unic
     public List<DiscoveryNode> buildDynamicNodes() {
         if (cache == null) {
             cache = new DiscoNodeCache(refreshInterval, Collections.<DiscoveryNode>emptyList());
-            cache.refresh();
         }
         return cache.getOrRefresh();
     }

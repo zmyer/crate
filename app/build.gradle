@@ -35,6 +35,7 @@ dependencies {
     compile project(':admin-ui')
     compile project(':blob')
     compile project(':udc')
+    compile project(':azure-discovery')
     compile project(':dns-discovery')
     compile project(':es-discovery-multicast')
     compile project(':es-cloud-aws')
