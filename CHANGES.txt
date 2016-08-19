@@ -5,6 +5,8 @@ Changes for Crate
 Unreleased
 ==========
 
+ - F501: Added SQL conformance info to ``information_schema.sql_features``
+
  - Fix: do not allow to create tables in read-only system schemas
 
  - Fix: type was not set correctly when creating a token filter
