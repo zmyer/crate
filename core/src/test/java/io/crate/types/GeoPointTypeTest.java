@@ -23,10 +23,8 @@ package io.crate.types;
 
 import io.crate.test.integration.CrateUnitTest;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.junit.Rule;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import java.util.Arrays;
 
@@ -35,12 +33,9 @@ import static org.hamcrest.Matchers.is;
 
 public class GeoPointTypeTest extends CrateUnitTest {
 
-    @Rule
-    public ExpectedException expectedException = ExpectedException.none();
-
     @Test
     public void testStreaming() throws Throwable {
-        Double[] p1 = new Double[] { 41.2, -37.4 };
+        Double[] p1 = new Double[]{41.2, -37.4};
 
         BytesStreamOutput out = new BytesStreamOutput();
         DataTypes.GEO_POINT.writeValueTo(out, p1);
@@ -60,7 +55,9 @@ public class GeoPointTypeTest extends CrateUnitTest {
 
     @Test
     public void testInvalidWktToGeoPointValue() throws Exception {
-        expectedException.expectMessage("Bad Y value -123.456 is not in boundary");
+        expectedException.expect(IllegalArgumentException.class);
+        expectedException.expectMessage("Cannot convert \"POINT(54.321 -123.456)\" to geo_point." +
+            " Bad Y value -123.456 is not in boundary Rect(minX=-180.0,maxX=180.0,minY=-90.0,maxY=90.0)");
         DataTypes.GEO_POINT.value("POINT(54.321 -123.456)");
     }
 
@@ -73,14 +70,14 @@ public class GeoPointTypeTest extends CrateUnitTest {
 
     @Test
     public void testConversionFromObjectArrayOfIntegers() throws Exception {
-        Double[] value = DataTypes.GEO_POINT.value(new Object[] { 1, 2 });
+        Double[] value = DataTypes.GEO_POINT.value(new Object[]{1, 2});
         assertThat(value[0], is(1.0));
         assertThat(value[1], is(2.0));
     }
 
     @Test
     public void testConversionFromIntegerArray() throws Exception {
-        Double[] value = DataTypes.GEO_POINT.value(new Integer[] { 1, 2 });
+        Double[] value = DataTypes.GEO_POINT.value(new Integer[]{1, 2});
         assertThat(value[0], is(1.0));
         assertThat(value[1], is(2.0));
     }
@@ -88,12 +85,12 @@ public class GeoPointTypeTest extends CrateUnitTest {
     @Test
     public void testInvalidLatitude() throws Exception {
         expectedException.expectMessage("Failed to validate geo point [lon=54.321000, lat=-123.456000], not a valid location.");
-        DataTypes.GEO_POINT.value(new Double[]{ 54.321, -123.456 });
+        DataTypes.GEO_POINT.value(new Double[]{54.321, -123.456});
     }
 
     @Test
     public void testInvalidLongitude() throws Exception {
         expectedException.expectMessage("Failed to validate geo point [lon=-187.654000, lat=123.456000], not a valid location.");
-        DataTypes.GEO_POINT.value(new Double[]{ -187.654, 123.456 });
+        DataTypes.GEO_POINT.value(new Double[]{-187.654, 123.456});
     }
 }

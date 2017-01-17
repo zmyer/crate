@@ -21,10 +21,9 @@
 
 package io.crate.jobs;
 
-import io.crate.concurrent.CompletionListener;
-import io.crate.concurrent.CompletionState;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import io.crate.operation.join.NestedLoopOperation;
-import io.crate.operation.projectors.FlatProjectorChain;
 import io.crate.operation.projectors.ListenableRowReceiver;
 import io.crate.planner.node.dql.join.NestedLoopPhase;
 import org.elasticsearch.common.logging.ESLogger;
@@ -35,7 +34,6 @@ import javax.annotation.Nullable;
 public class NestedLoopContext extends AbstractExecutionSubContext implements DownstreamExecutionSubContext {
 
     private final NestedLoopPhase nestedLoopPhase;
-    private final FlatProjectorChain flatProjectorChain;
 
     @Nullable
     private final PageBucketReceiver leftBucketReceiver;
@@ -46,23 +44,21 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
 
     public NestedLoopContext(ESLogger logger,
                              NestedLoopPhase nestedLoopPhase,
-                             FlatProjectorChain flatProjectorChain,
                              NestedLoopOperation nestedLoopOperation,
                              @Nullable PageBucketReceiver leftBucketReceiver,
                              @Nullable PageBucketReceiver rightBucketReceiver) {
-        super(nestedLoopPhase.executionPhaseId(), logger);
+        super(nestedLoopPhase.phaseId(), logger);
 
         this.nestedLoopPhase = nestedLoopPhase;
-        this.flatProjectorChain = flatProjectorChain;
         this.leftBucketReceiver = leftBucketReceiver;
         this.rightBucketReceiver = rightBucketReceiver;
 
         leftRowReceiver = nestedLoopOperation.leftRowReceiver();
         rightRowReceiver = nestedLoopOperation.rightRowReceiver();
 
-        nestedLoopOperation.addListener(new CompletionListener() {
+        Futures.addCallback(nestedLoopOperation.completionFuture(), new FutureCallback<Object>() {
             @Override
-            public void onSuccess(@Nullable CompletionState result) {
+            public void onSuccess(@Nullable Object result) {
                 future.close(null);
             }
 
@@ -80,12 +76,7 @@ public class NestedLoopContext extends AbstractExecutionSubContext implements Do
 
     @Override
     public int id() {
-        return nestedLoopPhase.executionPhaseId();
-    }
-
-    @Override
-    public void innerPrepare() {
-        flatProjectorChain.prepare();
+        return nestedLoopPhase.phaseId();
     }
 
     @Override

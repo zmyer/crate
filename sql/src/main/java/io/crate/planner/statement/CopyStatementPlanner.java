@@ -28,22 +28,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.crate.analyze.CopyFromAnalyzedStatement;
 import io.crate.analyze.CopyToAnalyzedStatement;
-import io.crate.analyze.relations.PlannedAnalyzedRelation;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.analyze.symbol.Symbols;
 import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.GeneratedReference;
 import io.crate.metadata.PartitionName;
 import io.crate.metadata.Reference;
 import io.crate.metadata.doc.DocSysColumns;
 import io.crate.metadata.doc.DocTableInfo;
+import io.crate.operation.projectors.TopN;
+import io.crate.planner.Merge;
 import io.crate.planner.Plan;
 import io.crate.planner.Planner;
 import io.crate.planner.consumer.ConsumerContext;
-import io.crate.planner.node.dml.CopyTo;
-import io.crate.planner.node.dql.CollectAndMerge;
+import io.crate.planner.node.dql.Collect;
 import io.crate.planner.node.dql.FileUriCollectPhase;
-import io.crate.planner.node.dql.MergePhase;
 import io.crate.planner.projection.MergeCountProjection;
 import io.crate.planner.projection.Projection;
 import io.crate.planner.projection.SourceIndexWriterProjection;
@@ -53,18 +51,14 @@ import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.inject.Singleton;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Singleton
 public class CopyStatementPlanner {
 
     private final ClusterService clusterService;
 
-    @Inject
     public CopyStatementPlanner(ClusterService clusterService) {
         this.clusterService = clusterService;
     }
@@ -146,7 +140,8 @@ public class CopyStatementPlanner {
             toCollect.add(symbol);
         }
         // add clusteredBy column (if not part of primaryKey)
-        if (clusteredByPrimaryKeyIdx == -1 && table.clusteredBy() != null && !DocSysColumns.ID.equals(table.clusteredBy())) {
+        if (clusteredByPrimaryKeyIdx == -1 && table.clusteredBy() != null &&
+            !DocSysColumns.ID.equals(table.clusteredBy())) {
             toCollect.add(table.getReference(table.clusteredBy()));
         }
         // add _raw or _doc
@@ -176,12 +171,8 @@ public class CopyStatementPlanner {
             analysis.settings().getAsBoolean("shared", null)
         );
 
-        return new CollectAndMerge(collectPhase, MergePhase.localMerge(
-            context.jobId(),
-            context.nextExecutionPhaseId(),
-            ImmutableList.<Projection>of(MergeCountProjection.INSTANCE),
-            collectPhase.executionNodes().size(),
-            collectPhase.outputTypes()));
+        Collect collect = new Collect(collectPhase, TopN.NO_LIMIT, 0, 1, 1, null);
+        return Merge.ensureOnHandler(collect, context, Collections.singletonList(MergeCountProjection.INSTANCE));
     }
 
     public Plan planCopyTo(CopyToAnalyzedStatement statement, Planner.Context context) {
@@ -199,22 +190,12 @@ public class CopyStatementPlanner {
             statement.outputNames(),
             outputFormat);
 
-        PlannedAnalyzedRelation plannedSubQuery = context.planSubRelation(statement.subQueryRelation(),
-            new ConsumerContext(statement, context));
-        if (plannedSubQuery == null) {
+        Plan plan = context.planSubRelation(statement.subQueryRelation(), new ConsumerContext(context));
+        if (plan == null) {
             return null;
         }
-
-        plannedSubQuery.addProjection(projection);
-
-        MergePhase mergePhase = MergePhase.localMerge(
-            context.jobId(),
-            context.nextExecutionPhaseId(),
-            ImmutableList.<Projection>of(MergeCountProjection.INSTANCE),
-            plannedSubQuery.resultPhase().executionNodes().size(),
-            Symbols.extractTypes(projection.outputs()));
-
-        return new CopyTo(context.jobId(), plannedSubQuery.plan(), mergePhase);
+        plan.addProjection(projection, null, null, 1, null);
+        return Merge.ensureOnHandler(plan, context, Collections.singletonList(MergeCountProjection.INSTANCE));
     }
 
     private static Collection<String> getExecutionNodes(DiscoveryNodes allNodes,
@@ -226,7 +207,7 @@ public class CopyStatementPlanner {
             @Override
             public void apply(DiscoveryNode value) {
                 if (nodeFilters.apply(value) && counter.getAndDecrement() > 0) {
-                    nodes.add(value.id());
+                    nodes.add(value.getId());
                 }
             }
         });

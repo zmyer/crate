@@ -22,36 +22,37 @@
 package io.crate.analyze.expressions;
 
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.crate.action.sql.SQLOperations;
-import io.crate.analyze.AnalysisMetaData;
-import io.crate.analyze.ParameterContext;
+import io.crate.action.sql.Option;
+import io.crate.action.sql.SessionContext;
+import io.crate.analyze.ParamTypeHints;
 import io.crate.analyze.relations.AnalyzedRelation;
-import io.crate.analyze.relations.AnalyzedRelationVisitor;
 import io.crate.analyze.relations.FullQualifedNameFieldProvider;
 import io.crate.analyze.relations.TableRelation;
 import io.crate.analyze.symbol.Field;
 import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.core.collections.Row;
 import io.crate.metadata.*;
-import io.crate.metadata.table.Operation;
 import io.crate.metadata.table.TableInfo;
 import io.crate.sql.parser.SqlParser;
-import io.crate.sql.tree.QualifiedName;
+import io.crate.sql.tree.*;
 import io.crate.test.integration.CrateUnitTest;
+import io.crate.testing.DummyRelation;
 import io.crate.testing.SqlExpressions;
 import io.crate.testing.T3;
-import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Map;
 
+import static io.crate.testing.SymbolMatchers.isField;
 import static io.crate.testing.TestingHelpers.getFunctions;
-import static io.crate.testing.TestingHelpers.isField;
+import static io.crate.testing.TestingHelpers.isSQL;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -62,39 +63,18 @@ import static org.mockito.Mockito.when;
  */
 public class ExpressionAnalyzerTest extends CrateUnitTest {
 
-    private AnalysisMetaData mockedAnalysisMetaData;
-    private ParameterContext emptyParameterContext;
     private ImmutableMap<QualifiedName, AnalyzedRelation> dummySources;
     private ExpressionAnalysisContext context;
-    private AnalysisMetaData analysisMetaData;
+    private ParamTypeHints paramTypeHints;
+    private Functions functions;
 
     @Before
     public void prepare() throws Exception {
-        mockedAnalysisMetaData = mock(AnalysisMetaData.class);
-        emptyParameterContext = ParameterContext.EMPTY;
-        dummySources = ImmutableMap.of(new QualifiedName("foo"), (AnalyzedRelation) new DummyRelation());
-        context = new ExpressionAnalysisContext(new StmtCtx());
-
-        analysisMetaData = new AnalysisMetaData(
-                getFunctions(),
-                mock(ReferenceInfos.class),
-                new NestedReferenceResolver() {
-                    @Override
-                    public ReferenceImplementation getImplementation(Reference refInfo) {
-                        return null;
-                    }
-                });
-    }
-
-    @Test
-    public void testUnsupportedExpressionIf() throws Exception {
-        expectedException.expect(UnsupportedOperationException.class);
-        expectedException.expectMessage("Unsupported expression IF(1, 3)");
-        ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(
-                mockedAnalysisMetaData, emptyParameterContext, new FullQualifedNameFieldProvider(dummySources), null);
-        ExpressionAnalysisContext expressionAnalysisContext = new ExpressionAnalysisContext(new StmtCtx());
-
-        expressionAnalyzer.convert(SqlParser.createExpression("IF ( 1 , 3 )"), expressionAnalysisContext);
+        paramTypeHints = ParamTypeHints.EMPTY;
+        DummyRelation dummyRelation = new DummyRelation("obj.x", "myObj.x", "myObj.x.AbC");
+        dummySources = ImmutableMap.of(new QualifiedName("foo"), dummyRelation);
+        context = new ExpressionAnalysisContext();
+        functions = getFunctions();
     }
 
     @Test
@@ -102,8 +82,8 @@ public class ExpressionAnalyzerTest extends CrateUnitTest {
         expectedException.expect(UnsupportedOperationException.class);
         expectedException.expectMessage("Unsupported expression current_time");
         ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(
-                mockedAnalysisMetaData, emptyParameterContext, new FullQualifedNameFieldProvider(dummySources), null);
-        ExpressionAnalysisContext expressionAnalysisContext = new ExpressionAnalysisContext(new StmtCtx());
+            functions, SessionContext.SYSTEM_SESSION, paramTypeHints, new FullQualifedNameFieldProvider(dummySources), null);
+        ExpressionAnalysisContext expressionAnalysisContext = new ExpressionAnalysisContext();
 
         expressionAnalyzer.convert(SqlParser.createExpression("current_time"), expressionAnalysisContext);
     }
@@ -111,12 +91,12 @@ public class ExpressionAnalyzerTest extends CrateUnitTest {
     @Test
     public void testQuotedSubscriptExpression() throws Exception {
         ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(
-                mockedAnalysisMetaData,
-                new ParameterContext(Row.EMPTY, Collections.<Row>emptyList(),
-                    null, EnumSet.of(SQLOperations.Option.ALLOW_QUOTED_SUBSCRIPT)),
-                new FullQualifedNameFieldProvider(dummySources),
-                null);
-        ExpressionAnalysisContext expressionAnalysisContext = new ExpressionAnalysisContext(new StmtCtx());
+            functions,
+            new SessionContext(0, EnumSet.of(Option.ALLOW_QUOTED_SUBSCRIPT), null),
+            paramTypeHints,
+            new FullQualifedNameFieldProvider(dummySources),
+            null);
+        ExpressionAnalysisContext expressionAnalysisContext = new ExpressionAnalysisContext();
 
         Field field1 = (Field) expressionAnalyzer.convert(SqlParser.createExpression("obj['x']"), expressionAnalysisContext);
         Field field2 = (Field) expressionAnalyzer.convert(SqlParser.createExpression("\"obj['x']\""), expressionAnalysisContext);
@@ -145,21 +125,43 @@ public class ExpressionAnalyzerTest extends CrateUnitTest {
     }
 
     @Test
+    public void testAnalyzeSubscriptFunctionCall() throws Exception {
+        // Test when use subscript function is used explicitly then it's handled (and validated)
+        // the same way it's handled when the subscript operator `[]` is used
+        ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(
+            functions,
+            new SessionContext(0, EnumSet.of(Option.ALLOW_QUOTED_SUBSCRIPT), null),
+            paramTypeHints,
+            new FullQualifedNameFieldProvider(dummySources),
+            null);
+        ExpressionAnalysisContext expressionAnalysisContext = new ExpressionAnalysisContext();
+        FunctionCall subscriptFunctionCall = new FunctionCall(
+            new QualifiedName("subscript"),
+            ImmutableList.of(
+                new ArrayLiteral(ImmutableList.of(new StringLiteral("obj"))),
+                new LongLiteral("1")));
+
+        Function function = (Function) expressionAnalyzer.convert(subscriptFunctionCall, expressionAnalysisContext);
+        assertEquals("subscript(_array(Literal{obj, type=string}),Literal{1, type=integer})", function.toString());
+    }
+
+    @Test
     public void testInSelfJoinCaseFunctionsThatLookTheSameMustNotReuseFunctionAllocation() throws Exception {
         TableInfo tableInfo = mock(TableInfo.class);
         when(tableInfo.getReference(new ColumnIdent("id"))).thenReturn(
-                new Reference(new ReferenceIdent(new TableIdent("doc", "t"), "id"), RowGranularity.DOC, DataTypes.INTEGER));
+            new Reference(new ReferenceIdent(new TableIdent("doc", "t"), "id"), RowGranularity.DOC, DataTypes.INTEGER));
+        when(tableInfo.ident()).thenReturn(new TableIdent("doc", "t"));
         TableRelation tr1 = new TableRelation(tableInfo);
         TableRelation tr2 = new TableRelation(tableInfo);
 
-        Map<QualifiedName, AnalyzedRelation> sources = ImmutableMap.<QualifiedName, AnalyzedRelation>of(
-                new QualifiedName("t1"), tr1,
-                new QualifiedName("t2"), tr2
+        Map<QualifiedName, AnalyzedRelation> sources = ImmutableMap.of(
+            new QualifiedName("t1"), tr1,
+            new QualifiedName("t2"), tr2
         );
         ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(
-                analysisMetaData, emptyParameterContext, new FullQualifedNameFieldProvider(sources), null);
-        Function andFunction = (Function)expressionAnalyzer.convert(
-                SqlParser.createExpression("not t1.id = 1 and not t2.id = 1"), context);
+            functions, SessionContext.SYSTEM_SESSION, paramTypeHints, new FullQualifedNameFieldProvider(sources), null);
+        Function andFunction = (Function) expressionAnalyzer.convert(
+            SqlParser.createExpression("not t1.id = 1 and not t2.id = 1"), context);
 
         Field t1Id = ((Field) ((Function) ((Function) andFunction.arguments().get(0)).arguments().get(0)).arguments().get(0));
         Field t2Id = ((Field) ((Function) ((Function) andFunction.arguments().get(1)).arguments().get(0)).arguments().get(0));
@@ -169,64 +171,47 @@ public class ExpressionAnalyzerTest extends CrateUnitTest {
     @Test
     public void testSwapFunctionLeftSide() throws Exception {
         SqlExpressions expressions = new SqlExpressions(T3.SOURCES);
-        Function cmp = (Function)expressions.normalize(expressions.asSymbol("8 + 5 > t1.x"));
+        Function cmp = (Function) expressions.normalize(expressions.asSymbol("8 + 5 > t1.x"));
         // the comparison was swapped so the field is on the left side
         assertThat(cmp.info().ident().name(), is("op_<"));
         assertThat(cmp.arguments().get(0), isField("x"));
     }
 
     @Test
+    public void testBetweenIsRewrittenToLteAndGte() throws Exception {
+        SqlExpressions expressions = new SqlExpressions(T3.SOURCES);
+        Symbol symbol = expressions.asSymbol("10 between 1 and 10");
+        assertThat(symbol, isSQL("((10 >= 1) AND (10 <= 10))"));
+    }
+
+    @Test
+    public void testBetweenNullIsRewrittenToLteAndGte() throws Exception {
+        SqlExpressions expressions = new SqlExpressions(T3.SOURCES);
+        Symbol symbol = expressions.asSymbol("10 between 1 and NULL");
+        assertThat(symbol, isSQL("((10 >= 1) AND (10 <= NULL))"));
+    }
+
+    @Test
     public void testNonDeterministicFunctionsAlwaysNew() throws Exception {
-        ExpressionAnalysisContext localContext = new ExpressionAnalysisContext(new StmtCtx());
+        ExpressionAnalysisContext localContext = new ExpressionAnalysisContext();
         FunctionInfo info1 = new FunctionInfo(
-                new FunctionIdent("inc", Arrays.<DataType>asList(DataTypes.BOOLEAN)),
-                DataTypes.INTEGER,
-                FunctionInfo.Type.SCALAR,
-                false,
-                false
+            new FunctionIdent("inc", Collections.singletonList(DataTypes.BOOLEAN)),
+            DataTypes.INTEGER,
+            FunctionInfo.Type.SCALAR,
+            FunctionInfo.NO_FEATURES
         );
-        Function fn1 = localContext.allocateFunction(info1, Arrays.<Symbol>asList(Literal.BOOLEAN_FALSE));
-        Function fn2 = localContext.allocateFunction(info1, Arrays.<Symbol>asList(Literal.BOOLEAN_FALSE));
-        Function fn3 = localContext.allocateFunction(info1, Arrays.<Symbol>asList(Literal.BOOLEAN_TRUE));
+        Function fn1 = localContext.allocateFunction(info1, Collections.singletonList(Literal.BOOLEAN_FALSE));
+        Function fn2 = localContext.allocateFunction(info1, Collections.singletonList(Literal.BOOLEAN_FALSE));
+        Function fn3 = localContext.allocateFunction(info1, Collections.singletonList(Literal.BOOLEAN_TRUE));
 
         // different instances
         assertThat(fn1, allOf(
-                not(sameInstance(fn2)),
-                not(sameInstance(fn3))
+            not(sameInstance(fn2)),
+            not(sameInstance(fn3))
 
         ));
         // but equal
         assertThat(fn1, is(equalTo(fn2)));
         assertThat(fn1, is(not(equalTo(fn3))));
-    }
-
-    private static class DummyRelation implements AnalyzedRelation {
-
-        public final Set<ColumnIdent> supportedReference = new HashSet<>();
-
-        public DummyRelation() {
-            supportedReference.add(ColumnIdent.fromPath("obj.x"));
-            supportedReference.add(ColumnIdent.fromPath("myObj.x"));
-            supportedReference.add(ColumnIdent.fromPath("myObj.x.AbC"));
-        }
-
-        @Override
-        public <C, R> R accept(AnalyzedRelationVisitor<C, R> visitor, C context) {
-            return null;
-        }
-
-        @Override
-        public Field getField(Path path, Operation operation) throws UnsupportedOperationException {
-            ColumnIdent columnIdent = (ColumnIdent) path;
-            if (supportedReference.contains(columnIdent)) {
-                return new Field(this, columnIdent, DataTypes.STRING);
-            }
-            return null;
-        }
-
-        @Override
-        public List<Field> fields() {
-            return null;
-        }
     }
 }

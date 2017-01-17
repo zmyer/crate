@@ -22,10 +22,11 @@
 package io.crate.planner.projection;
 
 import com.carrotsearch.hppc.IntSet;
+import com.google.common.base.Function;
 import io.crate.analyze.symbol.Symbol;
+import io.crate.collections.Lists2;
 import io.crate.metadata.TableIdent;
 import io.crate.planner.node.fetch.FetchSource;
-import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
@@ -88,6 +89,11 @@ public class FetchProjection extends Projection {
     }
 
     @Override
+    public void replaceSymbols(Function<Symbol, Symbol> replaceFunction) {
+        Lists2.replaceItems(outputSymbols, replaceFunction);
+    }
+
+    @Override
     public ProjectionType projectionType() {
         return ProjectionType.FETCH;
     }
@@ -116,12 +122,8 @@ public class FetchProjection extends Projection {
     }
 
     @Override
-    public void readFrom(StreamInput in) throws IOException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void writeTo(StreamOutput out) throws IOException {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("writeTo is not supported for " +
+                                                FetchProjection.class.getSimpleName());
     }
 }

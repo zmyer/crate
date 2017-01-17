@@ -33,11 +33,11 @@ import java.nio.file.Path;
 import static org.hamcrest.Matchers.is;
 
 @ESIntegTestCase.ClusterScope(numDataNodes = 0, numClientNodes = 0)
-public class GeoBackwardCompatibilityTest extends SQLTransportIntegrationTest{
+public class GeoBackwardCompatibilityTest extends SQLTransportIntegrationTest {
 
     @Before
     public void loadLegacy() throws IOException {
-        Path zippedIndexDir = getDataPath("/indices/bwc/bwc-index-0.54.9.zip");
+        Path zippedIndexDir = getDataPath("/indices/bwc/bwc-legacy_geo_point-0.54.9.zip");
         Settings nodeSettings = prepareBackwardsDataDir(zippedIndexDir);
         internalCluster().startNode(nodeSettings);
         ensureYellow();

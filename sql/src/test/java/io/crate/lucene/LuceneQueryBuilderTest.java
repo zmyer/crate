@@ -22,12 +22,12 @@
 package io.crate.lucene;
 
 import com.google.common.collect.ImmutableMap;
-import io.crate.analyze.EvaluatingNormalizer;
+import io.crate.action.sql.SessionContext;
 import io.crate.analyze.WhereClause;
 import io.crate.analyze.relations.AnalyzedRelation;
 import io.crate.analyze.relations.TableRelation;
+import io.crate.lucene.match.CrateRegexQuery;
 import io.crate.metadata.Functions;
-import io.crate.metadata.StmtCtx;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TestingTableInfo;
@@ -38,46 +38,58 @@ import io.crate.types.ArrayType;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.apache.lucene.queries.TermsQuery;
-import org.apache.lucene.sandbox.queries.regex.RegexQuery;
 import org.apache.lucene.search.*;
 import org.apache.lucene.spatial.prefix.IntersectsPrefixTreeQuery;
 import org.apache.lucene.spatial.prefix.WithinPrefixTreeQuery;
 import org.elasticsearch.Version;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.compress.CompressedXContent;
+import org.elasticsearch.common.inject.Injector;
+import org.elasticsearch.common.inject.ModulesBuilder;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.settings.SettingsModule;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.env.Environment;
+import org.elasticsearch.env.EnvironmentModule;
+import org.elasticsearch.index.Index;
+import org.elasticsearch.index.IndexNameModule;
+import org.elasticsearch.index.analysis.AnalysisModule;
+import org.elasticsearch.index.analysis.AnalysisService;
 import org.elasticsearch.index.cache.IndexCache;
 import org.elasticsearch.index.fielddata.IndexFieldData;
 import org.elasticsearch.index.fielddata.IndexFieldDataService;
 import org.elasticsearch.index.fielddata.IndexGeoPointFieldData;
+import org.elasticsearch.index.mapper.ArrayMapper;
 import org.elasticsearch.index.mapper.MappedFieldType;
 import org.elasticsearch.index.mapper.MapperService;
-import org.elasticsearch.search.internal.SearchContext;
+import org.elasticsearch.index.mapper.array.DynamicArrayFieldMapperBuilderFactoryProvider;
+import org.elasticsearch.index.settings.IndexSettingsModule;
+import org.elasticsearch.index.similarity.SimilarityLookupService;
+import org.elasticsearch.indices.IndicesModule;
+import org.elasticsearch.indices.analysis.IndicesAnalysisService;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.Answers;
 
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 
-import static org.elasticsearch.index.mapper.core.MapperTestUtils.newMapperService;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-
 public class LuceneQueryBuilderTest extends CrateUnitTest {
 
     private LuceneQueryBuilder builder;
-    private SearchContext searchContext;
     private IndexCache indexCache;
     private SqlExpressions expressions;
-    private EvaluatingNormalizer normalizer;
     private Map<QualifiedName, AnalyzedRelation> sources;
+    private IndexFieldDataService indexFieldDataService;
+    private MapperService mapperService;
 
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -85,53 +97,103 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
     @Before
     public void prepare() throws Exception {
         DocTableInfo users = TestingTableInfo.builder(new TableIdent(null, "users"), null)
-                .add("name", DataTypes.STRING)
-                .add("x", DataTypes.INTEGER)
-                .add("d", DataTypes.DOUBLE)
-                .add("d_array", new ArrayType(DataTypes.DOUBLE))
-                .add("y_array", new ArrayType(DataTypes.LONG))
-                .add("shape", DataTypes.GEO_SHAPE)
-                .add("point", DataTypes.GEO_POINT)
-                .build();
+            .add("name", DataTypes.STRING)
+            .add("x", DataTypes.INTEGER)
+            .add("d", DataTypes.DOUBLE)
+            .add("d_array", new ArrayType(DataTypes.DOUBLE))
+            .add("y_array", new ArrayType(DataTypes.LONG))
+            .add("shape", DataTypes.GEO_SHAPE)
+            .add("point", DataTypes.GEO_POINT)
+            .build();
         TableRelation usersTr = new TableRelation(users);
-        sources = ImmutableMap.<QualifiedName, AnalyzedRelation>of(new QualifiedName("users"), usersTr);
+        sources = ImmutableMap.of(new QualifiedName("users"), usersTr);
 
-        expressions = new SqlExpressions(sources);
-        normalizer = new EvaluatingNormalizer(expressions.analysisMD(), usersTr, true);
+        expressions = new SqlExpressions(sources, usersTr);
         builder = new LuceneQueryBuilder(expressions.getInstance(Functions.class));
-
-        searchContext = mock(SearchContext.class, Answers.RETURNS_MOCKS.get());
         indexCache = mock(IndexCache.class, Answers.RETURNS_MOCKS.get());
 
+        Path tempDir = createTempDir();
         Settings indexSettings = Settings.builder()
             .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT)
+            .put("path.home", tempDir)
             .build();
+        Index index = new Index(users.ident().indexName());
         when(indexCache.indexSettings()).thenReturn(indexSettings);
-        MapperService mapperService = newMapperService(temporaryFolder.newFolder().toPath(), indexSettings);
+        AnalysisService analysisService = createAnalysisService(indexSettings, index);
+        mapperService = createMapperService(index, indexSettings, analysisService);
 
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("default")
+        // @formatter:off
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("default")
                 .startObject("properties")
-                .startObject("point").field("type", "geo_point").endObject()
-                .startObject("shape").field("type", "geo_shape").endObject()
+                    .startObject("name").field("type", "string").endObject()
+                    .startObject("x").field("type", "integer").endObject()
+                    .startObject("d").field("type", "double").endObject()
+                    .startObject("point").field("type", "geo_point").endObject()
+                    .startObject("shape").field("type", "geo_shape").endObject()
+                    .startObject("d_array")
+                        .field("type", "array")
+                        .startObject("inner")
+                            .field("type", "double")
+                        .endObject()
+                    .endObject()
+                    .startObject("y_array")
+                        .field("type", "array")
+                        .startObject("inner")
+                            .field("type", "integer")
+                        .endObject()
+                    .endObject()
                 .endObject()
-                .endObject().endObject();
-        mapperService.merge("default", new CompressedXContent(xContentBuilder.bytes()), MapperService.MergeReason.MAPPING_UPDATE, true);
+            .endObject()
+            .endObject();
+        // @formatter:on
+        mapperService.merge("default",
+            new CompressedXContent(xContentBuilder.bytes()), MapperService.MergeReason.MAPPING_UPDATE, true);
 
-        when(searchContext.mapperService()).thenReturn(mapperService);
 
-        IndexFieldDataService indexFieldDataService = mock(IndexFieldDataService.class);
-        when(searchContext.fieldData()).thenReturn(indexFieldDataService);
+        indexFieldDataService = mock(IndexFieldDataService.class);
         IndexFieldData geoFieldData = mock(IndexGeoPointFieldData.class);
         when(geoFieldData.getFieldNames()).thenReturn(new MappedFieldType.Names("point"));
         when(indexFieldDataService.getForField(mapperService.smartNameFieldType("point"))).thenReturn(geoFieldData);
     }
 
+    private MapperService createMapperService(Index index, Settings indexSettings, AnalysisService analysisService) {
+        DynamicArrayFieldMapperBuilderFactoryProvider arrayMapperProvider =
+            new DynamicArrayFieldMapperBuilderFactoryProvider();
+        arrayMapperProvider.dynamicArrayFieldMapperBuilderFactory = new ArrayMapper.BuilderFactory();
+        IndicesModule indicesModule = new IndicesModule();
+        indicesModule.registerMapper(ArrayMapper.CONTENT_TYPE, new ArrayMapper.TypeParser());
+        return new MapperService(
+            index,
+            indexSettings,
+            analysisService,
+            new SimilarityLookupService(index, indexSettings),
+            null,
+            indicesModule.getMapperRegistry(),
+            arrayMapperProvider
+        );
+    }
+
+    private AnalysisService createAnalysisService(Settings indexSettings, Index index) {
+        Injector parentInjector = new ModulesBuilder()
+            .add(new SettingsModule(indexSettings), new EnvironmentModule(new Environment(indexSettings)))
+            .createInjector();
+        Injector injector = new ModulesBuilder().add(
+            new IndexSettingsModule(index, indexSettings),
+            new IndexNameModule(index),
+            new AnalysisModule(
+                indexSettings,
+                parentInjector.getInstance(IndicesAnalysisService.class))).createChildInjector(parentInjector);
+        return injector.getInstance(AnalysisService.class);
+    }
+
     private WhereClause asWhereClause(String expression) {
-        return new WhereClause(normalizer.normalize(expressions.asSymbol(expression), new StmtCtx()));
+        return new WhereClause(expressions.normalize(expressions.asSymbol(expression)));
     }
 
     private Query convert(WhereClause clause) {
-        return builder.convert(clause, searchContext.mapperService(), searchContext.fieldData(), indexCache).query;
+        return builder.convert(clause, mapperService, indexFieldDataService, indexCache).query;
     }
 
     private Query convert(String expression) {
@@ -152,8 +214,9 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
                 .add("x", type)
                 .build();
             TableRelation tableRelation = new TableRelation(tableInfo);
-            Map<QualifiedName, AnalyzedRelation> tableSources = ImmutableMap.<QualifiedName, AnalyzedRelation>of(new QualifiedName(tableInfo.ident().name()), tableRelation);
-            SqlExpressions sqlExpressions = new SqlExpressions(tableSources, new Object[]{null});
+            Map<QualifiedName, AnalyzedRelation> tableSources = ImmutableMap.of(new QualifiedName(tableInfo.ident().name()), tableRelation);
+            SqlExpressions sqlExpressions = new SqlExpressions(
+                tableSources, tableRelation, new Object[]{null}, SessionContext.SYSTEM_SESSION);
 
             Query query = convert(new WhereClause(sqlExpressions.normalize(sqlExpressions.asSymbol("x = ?"))));
 
@@ -169,7 +232,7 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
     @Test
     public void testWhereRefEqRef() throws Exception {
         Query query = convert("name = name");
-        assertThat(query, instanceOf(LuceneQueryBuilder.Visitor.FunctionFilter.class));
+        assertThat(query, instanceOf(GenericFunctionQuery.class));
     }
 
     @Test
@@ -185,14 +248,14 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
         assertThat(query, instanceOf(BooleanQuery.class));
         BooleanQuery booleanQuery = (BooleanQuery) query;
         assertThat(booleanQuery.clauses().get(0).getQuery(), instanceOf(TermsQuery.class));
-        assertThat(booleanQuery.clauses().get(1).getQuery(), instanceOf(LuceneQueryBuilder.Visitor.FunctionFilter.class));
+        assertThat(booleanQuery.clauses().get(1).getQuery(), instanceOf(GenericFunctionQuery.class));
     }
 
     @Test
     public void testEqOnTwoArraysBecomesGenericFunctionQueryAllValuesNull() throws Exception {
-        SqlExpressions sqlExpressions = new SqlExpressions(sources, new Object[]{new Object[] { null, null, null }});
-        Query query = convert(new WhereClause(normalizer.normalize(sqlExpressions.asSymbol("y_array = ?"), new StmtCtx())));
-        assertThat(query, instanceOf(LuceneQueryBuilder.Visitor.FunctionFilter.class));
+        SqlExpressions sqlExpressions = new SqlExpressions(sources, new Object[]{new Object[]{null, null, null}});
+        Query query = convert(new WhereClause(expressions.normalize(sqlExpressions.asSymbol("y_array = ?"))));
+        assertThat(query, instanceOf(GenericFunctionQuery.class));
     }
 
     @Test
@@ -200,11 +263,11 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
         Object[] values = new Object[2000]; // should trigger the TooManyClauses exception
         Arrays.fill(values, 10L);
         SqlExpressions sqlExpressions = new SqlExpressions(sources, new Object[]{values});
-        Query query = convert(new WhereClause(normalizer.normalize(sqlExpressions.asSymbol("y_array = ?"), new StmtCtx())));
+        Query query = convert(new WhereClause(expressions.normalize(sqlExpressions.asSymbol("y_array = ?"))));
         assertThat(query, instanceOf(BooleanQuery.class));
         BooleanQuery booleanQuery = (BooleanQuery) query;
         assertThat(booleanQuery.clauses().get(0).getQuery(), instanceOf(TermsQuery.class));
-        assertThat(booleanQuery.clauses().get(1).getQuery(), instanceOf(LuceneQueryBuilder.Visitor.FunctionFilter.class));
+        assertThat(booleanQuery.clauses().get(1).getQuery(), instanceOf(GenericFunctionQuery.class));
     }
 
     @Test
@@ -234,8 +297,8 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
     public void testRegexQueryFast() throws Exception {
         Query query = convert("name ~ '[a-z]'");
         assertThat(query, instanceOf(ConstantScoreQuery.class));
-        // TODO: FIX ME!
-        //assertThat(((ConstantScoreQuery)query).getFilter(), instanceOf(RegexpFilter.class));
+        ConstantScoreQuery scoreQuery = (ConstantScoreQuery) query;
+        assertThat(scoreQuery.getQuery(), instanceOf(RegexpQuery.class));
     }
 
     /**
@@ -245,7 +308,7 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
     @Test
     public void testRegexQueryPcre() throws Exception {
         Query query = convert("name ~ '\\D'");
-        assertThat(query, instanceOf(RegexQuery.class));
+        assertThat(query, instanceOf(CrateRegexQuery.class));
     }
 
     @Test
@@ -264,7 +327,8 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
     @Test
     public void testAnyEqArrayReference() throws Exception {
         Query query = convert("1.5 = any(d_array)");
-        assertThat(query.toString(), is("d_array:[1.5 TO 1.5]"));
+        assertThat(query, instanceOf(TermQuery.class));
+        assertThat(query.toString(), startsWith("d_array"));
     }
 
     @Test
@@ -343,12 +407,16 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
     public void testLessThanAnyOnArrayLiteral() throws Exception {
         Query ltQuery2 = convert("name < any (['a', 'b', 'c'])");
         assertThat(ltQuery2, instanceOf(BooleanQuery.class));
-        BooleanQuery ltBQuery = (BooleanQuery)ltQuery2;
+        BooleanQuery ltBQuery = (BooleanQuery) ltQuery2;
         assertThat(ltBQuery.toString(), is("(name:{* TO a} name:{* TO b} name:{* TO c})~1"));
     }
 
     @Test
     public void testSqlLikeToLuceneWildcard() throws Exception {
+        assertThat(LuceneQueryBuilder.convertSqlLikeToLuceneWildcard("%\\\\%"), is("*\\\\*"));
+        assertThat(LuceneQueryBuilder.convertSqlLikeToLuceneWildcard("%\\\\_"), is("*\\\\?"));
+        assertThat(LuceneQueryBuilder.convertSqlLikeToLuceneWildcard("%\\%"), is("*%"));
+
         assertThat(LuceneQueryBuilder.convertSqlLikeToLuceneWildcard("%me"), is("*me"));
         assertThat(LuceneQueryBuilder.convertSqlLikeToLuceneWildcard("\\%me"), is("%me"));
         assertThat(LuceneQueryBuilder.convertSqlLikeToLuceneWildcard("*me"), is("\\*me"));
@@ -390,22 +458,55 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
         assertThat(query, instanceOf(WithinPrefixTreeQuery.class));
     }
 
+    // FIXME: Enable once https://github.com/elastic/elasticsearch/issues/20333 is resolved
+    /*
     @Test
     public void testWithinFunctionTooFewPoints() throws Exception {
         expectedException.expect(IllegalArgumentException.class);
         expectedException.expectMessage("at least 4 polygon points required");
         convert("within(point, {type='LineString', coordinates=[[0.0, 0.0], [1.0, 1.0]]})");
     }
+    */
 
     @Test
     public void testWithinFunction() throws Exception {
         Query eqWithinQuery = convert("within(point, {type='LineString', coordinates=[[0.0, 0.0], [1.0, 1.0], [2.0, 1.0]]})");
-        assertThat(eqWithinQuery.toString(), is("GeoPointInPolygonQuery: field=point: Points: [0.0, 0.0] [1.0, 1.0] [2.0, 1.0] [0.0, 0.0] "));
+        assertThat(eqWithinQuery.toString(), is("GeoPolygonQuery(point, [0.0,0.0, 1.0,1.0, 1.0,2.0])"));
+        // FIXME: Change to the following test once https://github.com/elastic/elasticsearch/issues/20333 is resolved
+        //assertThat(eqWithinQuery.toString(), is("GeoPointInPolygonQuery: field=point: Points: [0.0, 0.0] [1.0, 1.0] [2.0, 1.0] [0.0, 0.0] "));
     }
+
+    @Test
+    public void testLikeWithBothSidesReferences() throws Exception {
+        Query query = convert("name like name");
+        assertThat(query, instanceOf(GenericFunctionQuery.class));
+    }
+
     @Test
     public void testWithinFunctionWithShapeReference() throws Exception {
         // shape references cannot use the inverted index, so use generic function here
         Query eqWithinQuery = convert("within(point, shape)");
-        assertThat(eqWithinQuery, instanceOf(LuceneQueryBuilder.Visitor.FunctionFilter.class));
+        assertThat(eqWithinQuery, instanceOf(GenericFunctionQuery.class));
+    }
+
+    @Test
+    public void testWhereInIsOptimized() throws Exception {
+        Query query = convert("name in ('foo', 'bar')");
+        assertThat(query, instanceOf(TermsQuery.class));
+        assertThat(query.toString(), is("name:bar name:foo"));
+    }
+
+    @Test
+    public void testMatchQueryTermMustNotBeNull() throws Exception {
+        expectedException.expect(IllegalArgumentException.class);
+        expectedException.expectMessage("cannot use NULL as query term in match predicate");
+        convert("match(name, null)");
+    }
+
+    @Test
+    public void testMatchQueryTermMustBeALiteral() throws Exception {
+        expectedException.expect(IllegalArgumentException.class);
+        expectedException.expectMessage("queryTerm must be a literal");
+        convert("match(name, name)");
     }
 }

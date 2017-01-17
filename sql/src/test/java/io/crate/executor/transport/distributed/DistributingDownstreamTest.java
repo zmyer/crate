@@ -31,12 +31,12 @@ import io.crate.executor.transport.Transports;
 import io.crate.jobs.JobContextService;
 import io.crate.jobs.PageDownstreamContext;
 import io.crate.test.integration.CrateUnitTest;
+import io.crate.testing.RowGenerator;
 import io.crate.testing.RowSender;
 import io.crate.types.DataTypes;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.logging.Loggers;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
@@ -45,11 +45,16 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.mock;
 
@@ -77,11 +82,11 @@ public class DistributingDownstreamTest extends CrateUnitTest {
         final SettableFuture<Boolean> allRowsReceived = SettableFuture.create();
         final List<Row> receivedRows = Collections.synchronizedList(new ArrayList<Row>());
         TransportDistributedResultAction transportDistributedResultAction = new TransportDistributedResultAction(
-                mock(Transports.class),
-                mock(JobContextService.class),
-                mock(ThreadPool.class),
-                mock(TransportService.class),
-                Settings.EMPTY) {
+            mock(Transports.class),
+            mock(JobContextService.class),
+            mock(ThreadPool.class),
+            mock(TransportService.class),
+            Settings.EMPTY) {
 
 
             @Override
@@ -108,19 +113,19 @@ public class DistributingDownstreamTest extends CrateUnitTest {
             }
         };
 
-        Streamer[] streamers = new Streamer[] {DataTypes.STRING.streamer() };
+        Streamer[] streamers = new Streamer[]{DataTypes.STRING.streamer()};
         int pageSize = 10;
         final DistributingDownstream distributingDownstream = new DistributingDownstream(
-                Loggers.getLogger(PageDownstreamContext.class),
-                UUID.randomUUID(),
-                new BroadcastingBucketBuilder(streamers, 1),
-                1,
-                (byte) 0,
-                0,
-                ImmutableList.of("n1"),
-                transportDistributedResultAction,
-                streamers,
-                pageSize
+            Loggers.getLogger(PageDownstreamContext.class),
+            UUID.randomUUID(),
+            new BroadcastingBucketBuilder(streamers, 1),
+            1,
+            (byte) 0,
+            0,
+            ImmutableList.of("n1"),
+            transportDistributedResultAction,
+            streamers,
+            pageSize
         );
 
         final List<Row> rows = new ArrayList<>();
@@ -143,15 +148,15 @@ public class DistributingDownstreamTest extends CrateUnitTest {
 
     @Test
     public void testTwoDownstreamsOneFinishedOneNeedsMoreDoesNotGetStuck() throws Exception {
-        Streamer[] streamers = new Streamer[] {DataTypes.INTEGER.streamer() };
+        Streamer[] streamers = new Streamer[]{DataTypes.INTEGER.streamer()};
 
         final AtomicInteger requestsReceived = new AtomicInteger(0);
         TransportDistributedResultAction transportDistributedResultAction = new TransportDistributedResultAction(
-                mock(Transports.class),
-                mock(JobContextService.class),
-                mock(ThreadPool.class),
-                mock(TransportService.class),
-                Settings.EMPTY) {
+            mock(Transports.class),
+            mock(JobContextService.class),
+            mock(ThreadPool.class),
+            mock(TransportService.class),
+            Settings.EMPTY) {
 
 
             @Override
@@ -166,31 +171,59 @@ public class DistributingDownstreamTest extends CrateUnitTest {
         };
 
         DistributingDownstream dd = new DistributingDownstream(
-                Loggers.getLogger(DistributingDownstream.class),
-                UUID.randomUUID(),
-                new BroadcastingBucketBuilder(streamers, 2),
-                1,
-                (byte) 0,
-                0,
-                ImmutableList.of("n1", "n2"),
-                transportDistributedResultAction,
-                streamers,
-                2
+            Loggers.getLogger(DistributingDownstream.class),
+            UUID.randomUUID(),
+            new BroadcastingBucketBuilder(streamers, 2),
+            1,
+            (byte) 0,
+            0,
+            ImmutableList.of("n1", "n2"),
+            transportDistributedResultAction,
+            streamers,
+            2
         );
-        dd.prepare();
-
         RowSender rowSender = new RowSender(
-                Arrays.<Row>asList(
-                        new Row1(1),
-                        new Row1(2),
-                        new Row1(3),
-                        new Row1(4),
-                        new Row1(5)
-                ),
-                dd,
-                MoreExecutors.directExecutor()
+            RowGenerator.range(1, 6),
+            dd,
+            MoreExecutors.directExecutor()
         );
         rowSender.run();
         assertThat(requestsReceived.get(), is(3));
+    }
+
+    @Test
+    public void testKillFailureIsForwarded() throws Exception {
+        Streamer[] streamers = new Streamer[]{DataTypes.INTEGER.streamer()};
+        AtomicReference<Throwable> throwableReceived = new AtomicReference<>();
+        TransportDistributedResultAction transportDistributedResultAction = new TransportDistributedResultAction(
+            mock(Transports.class),
+            mock(JobContextService.class),
+            mock(ThreadPool.class),
+            mock(TransportService.class),
+            Settings.EMPTY) {
+
+            @Override
+            public void pushResult(String node, final DistributedResultRequest request, final ActionListener<DistributedResultResponse> listener) {
+                if (request.isKilled() && request.throwable() != null) {
+                    throwableReceived.set(request.throwable());
+                }
+            }
+        };
+
+        DistributingDownstream dd = new DistributingDownstream(
+            Loggers.getLogger(DistributingDownstream.class),
+            UUID.randomUUID(),
+            new BroadcastingBucketBuilder(streamers, 2),
+            1,
+            (byte) 0,
+            0,
+            ImmutableList.of("n1", "n2"),
+            transportDistributedResultAction,
+            streamers,
+            2
+        );
+        dd.kill(new IllegalStateException("dummy"));
+
+        assertThat(throwableReceived.get(), instanceOf(IllegalStateException.class));
     }
 }

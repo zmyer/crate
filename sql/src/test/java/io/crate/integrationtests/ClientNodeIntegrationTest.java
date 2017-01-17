@@ -22,6 +22,7 @@
 
 package io.crate.integrationtests;
 
+import io.crate.action.sql.SQLOperations;
 import io.crate.testing.SQLTransportExecutor;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.test.ESIntegTestCase;
@@ -34,25 +35,30 @@ public class ClientNodeIntegrationTest extends SQLTransportIntegrationTest {
 
     public ClientNodeIntegrationTest() {
         super(new SQLTransportExecutor(
-                new SQLTransportExecutor.ClientProvider() {
-                    @Override
-                    public Client client() {
-                        // make sure we use a client node (started with client=true)
-                        return internalCluster().clientNodeClient();
-                    }
-
-                    @Override
-                    public String pgUrl() {
-                        return null;
-                    }
+            new SQLTransportExecutor.ClientProvider() {
+                @Override
+                public Client client() {
+                    // make sure we use a client node (started with client=true)
+                    return internalCluster().clientNodeClient();
                 }
+
+                @Override
+                public String pgUrl() {
+                    return null;
+                }
+
+                @Override
+                public SQLOperations sqlOperations() {
+                    return internalCluster().getInstance(SQLOperations.class);
+                }
+            }
         ));
     }
 
     /**
      * Test that requests to all nodes (e.g. sys.nodes) will work if run on a client node
-     *  (Without a patch, ES will prevent client-to-client connections)
-     *  related patch: https://github.com/crate/elasticsearch/commit/f0c180e9ea5f84a4540e982c9e5c6af0be2c8143
+     * (Without a patch, ES will prevent client-to-client connections)
+     * related patch: https://github.com/crate/elasticsearch/commit/f0c180e9ea5f84a4540e982c9e5c6af0be2c8143
      */
     @Test
     public void testNodesSQLRequestOnClientNode() throws Exception {

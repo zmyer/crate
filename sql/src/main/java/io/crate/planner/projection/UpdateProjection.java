@@ -21,6 +21,7 @@
 
 package io.crate.planner.projection;
 
+import com.google.common.base.Function;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.Symbols;
 import org.elasticsearch.common.io.stream.StreamInput;
@@ -31,13 +32,6 @@ import java.io.IOException;
 import java.util.Arrays;
 
 public class UpdateProjection extends DMLProjection {
-
-    public static final ProjectionFactory<UpdateProjection> FACTORY = new ProjectionFactory<UpdateProjection>() {
-        @Override
-        public UpdateProjection newInstance() {
-            return new UpdateProjection();
-        }
-    };
 
     private Symbol[] assignments;
     // All values of this list are expected to be a FQN columnIdent.
@@ -55,7 +49,22 @@ public class UpdateProjection extends DMLProjection {
         this.requiredVersion = requiredVersion;
     }
 
-    public UpdateProjection() {
+    public UpdateProjection(StreamInput in) throws IOException {
+        super(in);
+        int assignmentColumnsSize = in.readVInt();
+        assignmentsColumns = new String[assignmentColumnsSize];
+        for (int i = 0; i < assignmentColumnsSize; i++) {
+            assignmentsColumns[i] = in.readString();
+        }
+        int assignmentsSize = in.readVInt();
+        assignments = new Symbol[assignmentsSize];
+        for (int i = 0; i < assignmentsSize; i++) {
+            assignments[i] = Symbols.fromStream(in);
+        }
+        requiredVersion = in.readVLong();
+        if (requiredVersion == 0) {
+            requiredVersion = null;
+        }
     }
 
     public String[] assignmentsColumns() {
@@ -69,6 +78,14 @@ public class UpdateProjection extends DMLProjection {
     @Nullable
     public Long requiredVersion() {
         return requiredVersion;
+    }
+
+    @Override
+    public void replaceSymbols(Function<Symbol, Symbol> replaceFunction) {
+        for (int i = 0; i < assignments.length; i++) {
+            assignments[i] = replaceFunction.apply(assignments[i]);
+        }
+        uidSymbol = replaceFunction.apply(uidSymbol);
     }
 
     @Override
@@ -107,24 +124,6 @@ public class UpdateProjection extends DMLProjection {
         return result;
     }
 
-    @Override
-    public void readFrom(StreamInput in) throws IOException {
-        super.readFrom(in);
-        int assignmentColumnsSize = in.readVInt();
-        assignmentsColumns = new String[assignmentColumnsSize];
-        for (int i = 0; i < assignmentColumnsSize; i++) {
-            assignmentsColumns[i] = in.readString();
-        }
-        int assignmentsSize = in.readVInt();
-        assignments = new Symbol[assignmentsSize];
-        for (int i = 0; i < assignmentsSize; i++) {
-            assignments[i] = Symbols.fromStream(in);
-        }
-        requiredVersion = in.readVLong();
-        if (requiredVersion == 0) {
-            requiredVersion = null;
-        }
-    }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {

@@ -22,11 +22,9 @@
 package io.crate.metadata.blob;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.crate.analyze.AlterBlobTableParameterInfo;
 import io.crate.analyze.TableParameterInfo;
 import io.crate.analyze.WhereClause;
-import io.crate.analyze.symbol.DynamicReference;
 import io.crate.metadata.*;
 import io.crate.metadata.table.Operation;
 import io.crate.metadata.table.ShardedTable;
@@ -55,23 +53,22 @@ public class BlobTableInfo implements TableInfo, ShardedTable {
     private final LinkedHashSet<Reference> columns = new LinkedHashSet<>();
     private final BytesRef blobsPath;
     private final TableParameterInfo tableParameterInfo;
-    private ImmutableMap<String,Object> tableParameters;
+    private final Map<String, Object> tableParameters;
 
-    public static final Map<ColumnIdent, Reference> INFOS = new LinkedHashMap<>();
+    private static final Map<ColumnIdent, Reference> INFOS = new LinkedHashMap<>();
 
-    private static final ImmutableList<ColumnIdent> primaryKey = ImmutableList.of(
-            new ColumnIdent("digest"));
-    private final static List<Tuple<String, DataType>> staticColumns = ImmutableList.<Tuple<String,DataType>>builder()
-                .add(new Tuple<String, DataType>("digest", DataTypes.STRING))
-                .add(new Tuple<String, DataType>("last_modified", DataTypes.TIMESTAMP))
-                .build();
+    private static final ImmutableList<ColumnIdent> PRIMARY_KEY = ImmutableList.of(new ColumnIdent("digest"));
+    private final static List<Tuple<String, DataType>> STATIC_COLUMNS = ImmutableList.<Tuple<String, DataType>>builder()
+        .add(new Tuple<String, DataType>("digest", DataTypes.STRING))
+        .add(new Tuple<String, DataType>("last_modified", DataTypes.TIMESTAMP))
+        .build();
 
     public BlobTableInfo(TableIdent ident,
                          String index,
                          ClusterService clusterService,
                          int numberOfShards,
                          BytesRef numberOfReplicas,
-                         ImmutableMap<String, Object> tableParameters,
+                         Map<String, Object> tableParameters,
                          BytesRef blobsPath) {
         this.ident = ident;
         this.index = index;
@@ -130,10 +127,10 @@ public class BlobTableInfo implements TableInfo, ShardedTable {
     public Routing getRouting(WhereClause whereClause, @Nullable String preference) {
         Map<String, Map<String, List<Integer>>> locations = new TreeMap<>();
         GroupShardsIterator shardIterators = clusterService.operationRouting().searchShards(
-                clusterService.state(),
-                new String[]{index},
-                null,
-                preference
+            clusterService.state(),
+            new String[]{index},
+            null,
+            preference
         );
         ShardRouting shardRouting;
         for (ShardIterator shardIterator : shardIterators) {
@@ -146,7 +143,7 @@ public class BlobTableInfo implements TableInfo, ShardedTable {
 
     @Override
     public List<ColumnIdent> primaryKey() {
-        return primaryKey;
+        return PRIMARY_KEY;
     }
 
     @Override
@@ -162,11 +159,7 @@ public class BlobTableInfo implements TableInfo, ShardedTable {
     @Nullable
     @Override
     public ColumnIdent clusteredBy() {
-        return primaryKey.get(0);
-    }
-
-    public DynamicReference getDynamic(ColumnIdent ident) {
-        return null;
+        return PRIMARY_KEY.get(0);
     }
 
     @Override
@@ -175,13 +168,12 @@ public class BlobTableInfo implements TableInfo, ShardedTable {
     }
 
     private void registerStaticColumns() {
-        for (Tuple<String, DataType> column : staticColumns) {
-            Reference info = new Reference(new ReferenceIdent(ident(), column.v1(), null),
-                    RowGranularity.DOC, column.v2());
-            if (info.ident().isColumn()) {
-                columns.add(info);
-            }
-            INFOS.put(info.ident().columnIdent(), info);
+        for (Tuple<String, DataType> column : STATIC_COLUMNS) {
+            Reference ref = new Reference(
+                new ReferenceIdent(ident(), column.v1(), null), RowGranularity.DOC, column.v2());
+            assert ref.ident().isColumn() : "only top-level columns should be added to columns list";
+            columns.add(ref);
+            INFOS.put(ref.ident().columnIdent(), ref);
         }
     }
 
@@ -193,7 +185,7 @@ public class BlobTableInfo implements TableInfo, ShardedTable {
         return tableParameterInfo;
     }
 
-    public ImmutableMap<String, Object> tableParameters() {
+    public Map<String, Object> tableParameters() {
         return tableParameters;
     }
 

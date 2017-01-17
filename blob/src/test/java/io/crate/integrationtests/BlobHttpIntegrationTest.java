@@ -23,8 +23,11 @@ package io.crate.integrationtests;
 
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
-import io.crate.blob.v2.BlobIndices;
+import io.crate.blob.BlobTransferStatus;
+import io.crate.blob.BlobTransferTarget;
+import io.crate.blob.v2.BlobAdminClient;
 import io.crate.test.utils.Blobs;
 import org.apache.http.Header;
 import org.apache.http.client.methods.*;
@@ -38,9 +41,11 @@ import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.http.HttpServerTransport;
+import org.junit.After;
 import org.junit.Before;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.*;
@@ -49,6 +54,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.core.Is.is;
 
 public abstract class BlobHttpIntegrationTest extends BlobIntegrationTestBase {
@@ -58,27 +64,49 @@ public abstract class BlobHttpIntegrationTest extends BlobIntegrationTestBase {
 
     protected CloseableHttpClient httpClient = HttpClients.createDefault();
 
+    static {
+        System.setProperty("tests.short_timeouts", "true");
+    }
+
     @Before
     public void setup() throws ExecutionException, InterruptedException {
         Iterable<HttpServerTransport> transports = internalCluster().getInstances(HttpServerTransport.class);
         Iterator<HttpServerTransport> httpTransports = transports.iterator();
         address = ((InetSocketTransportAddress) httpTransports.next().boundAddress().publishAddress()).address();
         address2 = ((InetSocketTransportAddress) httpTransports.next().boundAddress().publishAddress()).address();
-        BlobIndices blobIndices = internalCluster().getInstance(BlobIndices.class);
+        BlobAdminClient blobAdminClient = internalCluster().getInstance(BlobAdminClient.class);
 
         Settings indexSettings = Settings.builder()
-                .put(IndexMetaData.SETTING_NUMBER_OF_REPLICAS, 0)
-                .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, 2)
-                .build();
-        blobIndices.createBlobTable("test", indexSettings).get();
-        blobIndices.createBlobTable("test_blobs2", indexSettings).get();
+            .put(IndexMetaData.SETTING_NUMBER_OF_REPLICAS, 0)
+            .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, 2)
+            .build();
+        blobAdminClient.createBlobTable("test", indexSettings).get();
+        blobAdminClient.createBlobTable("test_blobs2", indexSettings).get();
 
         client().admin().indices().prepareCreate("test_no_blobs")
-                .setSettings(
-                        Settings.builder()
-                                .put("number_of_shards", 2)
-                                .put("number_of_replicas", 0).build()).execute().actionGet();
+            .setSettings(
+                Settings.builder()
+                    .put("number_of_shards", 2)
+                    .put("number_of_replicas", 0).build()).execute().actionGet();
         ensureGreen();
+    }
+
+    @After
+    public void assertNoActiveTransfersRemaining() throws Exception {
+        Iterable<BlobTransferTarget> transferTargets = internalCluster().getInstances(BlobTransferTarget.class);
+        final Field activeTransfersField = BlobTransferTarget.class.getDeclaredField("activeTransfers");
+        activeTransfersField.setAccessible(true);
+        assertBusy(() -> {
+            for (BlobTransferTarget transferTarget : transferTargets) {
+                Map<UUID, BlobTransferStatus> activeTransfers = null;
+                try {
+                    activeTransfers = (Map<UUID, BlobTransferStatus>) activeTransfersField.get(transferTarget);
+                    assertThat(activeTransfers.keySet(), empty());
+                } catch (IllegalAccessException e) {
+                    throw Throwables.propagate(e);
+                }
+            }
+        });
     }
 
     protected String blobUri(String digest) {
@@ -124,8 +152,8 @@ public abstract class BlobHttpIntegrationTest extends BlobIntegrationTestBase {
                         Integer statusCode = res.getStatusLine().getStatusCode();
                         String resultContent = EntityUtils.toString(res.getEntity());
                         if (!resultContent.equals(expected)) {
-                            logger.warn(String.format(Locale.ENGLISH, "incorrect response %d -- length: %d expected: %d\n",
-                                    indexerId, resultContent.length(), expected.length()));
+                            logger.warn(String.format(Locale.ENGLISH, "incorrect response %d -- length: %d expected: %d%n",
+                                indexerId, resultContent.length(), expected.length()));
                         }
                         results.put(indexerId, (statusCode >= 200 && statusCode < 300 &&
                                                 expected.equals(resultContent)));
@@ -138,7 +166,7 @@ public abstract class BlobHttpIntegrationTest extends BlobIntegrationTestBase {
             };
             thread.start();
         }
-        latch.await(30L, TimeUnit.SECONDS);
+        assertThat(latch.await(30L, TimeUnit.SECONDS), is(true));
         return Iterables.all(results.values(), new Predicate<Boolean>() {
             @Override
             public boolean apply(Boolean input) {

@@ -36,9 +36,9 @@ public class LimitedExponentialBackoff extends BackoffPolicy {
     private final int limit;
 
     public LimitedExponentialBackoff(int startValue, int maxIterations, int limit) {
-        assert startValue >= 0;
-        assert maxIterations > 0;
-        assert limit > 0;
+        assert startValue >= 0 : "startValue should be >= 0";
+        assert maxIterations > 0 : "maxIterations should be > 0";
+        assert limit > 0 : "limit should be > 0";
         this.startValue = startValue;
         this.maxIterations = maxIterations;
         this.limit = limit;
@@ -50,24 +50,21 @@ public class LimitedExponentialBackoff extends BackoffPolicy {
 
     private static class LimitedExponentialBackoffIterator implements Iterator<TimeValue> {
 
+        private static final float FACTOR = 1.8f;
+
         private final int startValue;
         private final int maxIterations;
         private final int limit;
         private int currentIterations;
-        private final float factor = 1.8f;
 
-        public LimitedExponentialBackoffIterator(int limit) {
-            this(0, Integer.MAX_VALUE, limit);
-        }
-
-        public LimitedExponentialBackoffIterator(int startValue, int maxIterations, int limit) {
+        private LimitedExponentialBackoffIterator(int startValue, int maxIterations, int limit) {
             this.startValue = startValue;
             this.maxIterations = maxIterations;
             this.limit = limit;
         }
 
-        public int calculate(int iteration) {
-            return Math.min(limit, (int) Math.pow(iteration / Math.E, factor));
+        private int calculate(int iteration) {
+            return Math.min(limit, (int) Math.pow(iteration / Math.E, FACTOR));
         }
 
         @Override
@@ -78,7 +75,8 @@ public class LimitedExponentialBackoff extends BackoffPolicy {
         @Override
         public TimeValue next() {
             if (!hasNext()) {
-                throw new NoSuchElementException("Reached maximum amount of backoff iterations. Only " + maxIterations + " iterations allowed.");
+                throw new NoSuchElementException(
+                    "Reached maximum amount of backoff iterations. Only " + maxIterations + " iterations allowed.");
             }
             int result = startValue + calculate(currentIterations);
             currentIterations++;
@@ -87,7 +85,8 @@ public class LimitedExponentialBackoff extends BackoffPolicy {
 
         @Override
         public void remove() {
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException("remove is not supported for " +
+                                                    LimitedExponentialBackoff.class.getSimpleName());
         }
 
     }

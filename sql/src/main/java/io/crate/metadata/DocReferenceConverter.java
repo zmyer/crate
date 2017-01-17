@@ -39,11 +39,11 @@ public class DocReferenceConverter {
     private final static Predicate<Reference> DEFAULT_PREDICATE = new Predicate<Reference>() {
         @Override
         public boolean apply(@Nullable Reference input) {
-            assert input != null;
+            assert input != null : "input must not be null";
 
             ReferenceIdent ident = input.ident();
             String schema = ident.tableIdent().schema();
-            return ReferenceInfos.isDefaultOrCustomSchema(schema);
+            return Schemas.isDefaultOrCustomSchema(schema);
         }
     };
 
@@ -61,7 +61,7 @@ public class DocReferenceConverter {
         }
         if (reference.granularity() == RowGranularity.DOC) {
             return reference.getRelocated(
-                    new ReferenceIdent(ident.tableIdent(), ident.columnIdent().prepend(DocSysColumns.DOC.name())));
+                new ReferenceIdent(ident.tableIdent(), ident.columnIdent().prepend(DocSysColumns.DOC.name())));
         }
         return reference;
     }
@@ -69,7 +69,7 @@ public class DocReferenceConverter {
     private static class Visitor extends ReplacingSymbolVisitor<Predicate<Reference>> {
 
         public Visitor() {
-            super(false);
+            super(ReplaceMode.COPY);
         }
 
         @Override

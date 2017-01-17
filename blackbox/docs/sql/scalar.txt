@@ -5,19 +5,7 @@
 Scalar Functions
 ================
 
-Scalar functions return a single data value (not a table).
-
-.. note::
-
-    In DELETE statements scalar functions cannot be used in the WHERE
-    clause unless otherwise described in the function description below.
-
-    In the case it is stated below that the scalar function can always be used
-    in a WHERE clause it is still not possible to compare one scalar function
-    with another in DELETE statements.
-
-See below for a list of available scalar functions.
-
+Scalar functions return a single value (not a table).
 
 String Functions
 ================
@@ -25,8 +13,8 @@ String Functions
 concat('first_arg', second_arg, [ parameter , ... ]) returns string
 -------------------------------------------------------------------
 
-The ``concat`` function takes two or more arguments and will return the text
-representations of all the arguments concatenated. NULL values are ignored.
+Concatenates a variable number of arguments into a single string. It ignores
+``NULL`` values.
 
 ::
 
@@ -39,7 +27,7 @@ representations of all the arguments concatenated. NULL values are ignored.
     SELECT 1 row in set (... sec)
 
 
-There is also a special concat operator ``||`` which can also be used::
+You can also use the ``||`` operator::
 
     cr> select 'foo' || 'bar' from sys.cluster;
     +----------------------+
@@ -53,8 +41,10 @@ There is also a special concat operator ``||`` which can also be used::
 format('format_string', parameter, [ parameter , ... ]) returns string
 ----------------------------------------------------------------------
 
-The ``format`` function takes a format string and a variable number of
-arguments and returns a formatted string::
+Formats a string similar to the C function ``printf``. For details about the
+format string syntax, see `formatter`_
+
+::
 
     cr> select format('%s.%s', schema_name, table_name) from sys.shards
     ... where table_name = 'locations'
@@ -79,14 +69,14 @@ arguments and returns a formatted string::
     +---------------------+
     SELECT 2 rows in set (... sec)
 
-For details about the format string syntax see `formatter`_
 
 substr('string', from, [ count ]) returns string
 ------------------------------------------------
 
-The ``substr`` function extracts a substring from a given string
-starting at character ``from``. It takes an optional argument ``count``
-which defines the length of the substring::
+Extracts a part of a string. ``from`` specifies where to start and ``count``
+the length of the part.
+
+::
 
     cr> select substr(name, 3, 2) from sys.nodes
     ... limit 1;
@@ -103,12 +93,9 @@ which defines the length of the substring::
 char_length('string') returns integer
 -------------------------------------
 
-The ``char_length`` function returns the number of characters in the string.
+Counts the number of characters in a string.
 
-A multibyte character counts as a single character. This means if a string
-contains two bytes character it will be counted as a single character.
-
-Example::
+::
 
     cr> select char_length('crate.io') from sys.cluster;
     +-------------------------+
@@ -117,6 +104,8 @@ Example::
     |                       8 |
     +-------------------------+
     SELECT 1 row in set (... sec)
+
+Each character counts only once, regardless of its byte size.
 
 ::
 
@@ -134,15 +123,14 @@ Example::
 bit_length('string') returns integer
 ------------------------------------
 
-The ``bit_length`` function returns the number of bits in the input string.
+Counts the number of bits in a string.
 
 .. note::
 
-    Crate.io internally uses UTF-8 encoded strings. This means that a single
-    character may be represented as single byte (e.g. most ascii characters)
-    or up to 4 bytes (e.g. emoji or other unicode characters).
+    Crate.io uses UTF-8 encoding internally, which uses between 1 and 4 bytes
+    per character.
 
-Example::
+::
 
     cr> select bit_length('crate.io') from sys.cluster;
     +------------------------+
@@ -168,10 +156,9 @@ Example::
 octet_length('string') returns integer
 --------------------------------------
 
-The ``octet_length`` function returns the number of bytes (octets) in the input
-string.
+Counts the number of bytes (octets) in a string.
 
-Example::
+::
 
     cr> select octet_length('crate.io') from sys.cluster;
     +--------------------------+
@@ -195,8 +182,7 @@ Example::
 lower('string') returns string
 ------------------------------
 
-The ``lower`` function transforms any upper case characters into their
-corresponding lower case versions. ``lower`` however does not perform
+Converts all characters to lowercase. ``lower`` does not perform
 locale-sensitive or context-sensitive mappings.
 
 ::
@@ -214,8 +200,7 @@ locale-sensitive or context-sensitive mappings.
 upper('string') returns string
 ------------------------------
 
-The ``upper`` function transforms any lower case characters into their
-corresponding upper case versions. ``upper`` however does not perform
+Converts all characters to uppercase. ``upper`` does not perform
 locale-sensitive or context-sensitive mappings.
 
 ::
@@ -238,8 +223,7 @@ Date/Time Functions
 date_trunc('interval', ['timezone',] timestamp) returns timestamp
 -----------------------------------------------------------------
 
-The ``date_trunc`` function truncates a timestamp to a given interval
-for a specific timezone.
+Limits a timestamps precision to a given interval.
 
 Valid intervals are:
 
@@ -282,7 +266,7 @@ day based histogram in the ``Europe/Moscow`` timezone::
     +---------------+---------------+
     SELECT 3 rows in set (... sec)
 
-If the time zone is not specified, truncation is based on UTC time::
+If you don't specify a time zone, ``truncate`` uses UTC time::
 
     cr> select date_trunc('day', date) as day, count(*) as num_locations
     ... from locations
@@ -632,6 +616,41 @@ Example::
 Due to a limitation on the :ref:`geo_shape_data_type` datatype
 this function cannot be used in the :ref:`sql_reference_order_by`.
 
+
+latitude/longitude(geo_point) returns double
+--------------------------------------------
+
+The ``latitude`` and ``longitude`` function return the coordinates of latitude
+or longitude of a point, or ``NULL`` if not available. The input must be a
+column of type ``geo_point``, a valid WKT string or a double-array. See
+:ref:`geo_point_data_type` for more information on the implicit type casting of
+geo points.
+
+Example::
+
+    cr> select mountain, height, longitude(coordinates) as "lon", latitude(coordinates) as "lat"
+    ... from sys.summits order by height desc limit 1;
+    +------------+--------+---------+---------+
+    | mountain   | height |     lon |     lat |
+    +------------+--------+---------+---------+
+    | Mont Blanc |   4808 | 6.86444 | 45.8325 |
+    +------------+--------+---------+---------+
+    SELECT 1 row in set (... sec)
+
+Below is an example of the latitude/longitude functions which make use of the
+implicit type casting from strings to geo point::
+
+    cr> select latitude('POINT (10 20)'), longitude([10.0, 20.0]);
+    +---------------------------+------------------------+
+    | latitude('POINT (10 20)') | longitude([10.0,20.0]) |
+    +---------------------------+------------------------+
+    |                      20.0 |                   10.0 |
+    +---------------------------+------------------------+
+    SELECT 1 row in set (... sec)
+
+
+.. _mathematical_functions:
+
 Mathematical Functions
 ======================
 
@@ -644,11 +663,11 @@ abs(number)
 Returns the absolute value of the given number in the datatype of the given number::
 
     cr> select abs(214748.0998), abs(0), abs(-214748) from sys.cluster;
-    +------------------+--------+--------------+
-    | abs(214748.0998) | abs(0) | abs(-214748) |
-    +------------------+--------+--------------+
-    |      214748.0998 |      0 |       214748 |
-    +------------------+--------+--------------+
+    +------------------+--------+---------------+
+    | abs(214748.0998) | abs(0) | abs(- 214748) |
+    +------------------+--------+---------------+
+    |      214748.0998 |      0 |        214748 |
+    +------------------+--------+---------------+
     SELECT 1 row in set (... sec)
 
 
@@ -749,6 +768,24 @@ The second argument (``b``) is optional. If not present, base 10 is used::
     The same is true for arguments which lead to a ``division by zero``, as
     e.g. log(10, 1) does.
 
+power(a: number, b: number) returns double
+------------------------------------------
+
+Returns the given argument ``a`` raised to the power of argument ``b``.
+
+The return type of the power function is always double, even when both the
+inputs are integral types, in order to be consistent across positive and
+negative exponents (which will yield decimal types)
+
+See below for an example:
+
+    cr> SELECT power(2,3) FROM sys.cluster;
+    +-------------+
+    | power(2, 3) |
+    +-------------+
+    |         8.0 |
+    +-------------+
+    SELECT 1 row in set (... sec)
 
 random() returns double
 -----------------------
@@ -855,7 +892,7 @@ See below for an example::
 
     cr> SELECT acos(-1) FROM sys.cluster;
     +-------------------+
-    |          acos(-1) |
+    |         acos(- 1) |
     +-------------------+
     | 3.141592653589793 |
     +-------------------+
@@ -1188,25 +1225,24 @@ The ``array_unique`` function merges two arrays into one array with unique eleme
 
 ::
 
-    cr> select array_unique([1,2,3],[3,4,5,6]) from sys.cluster;
-    +----------------------------------+
-    | array_unique([1,2,3], [3,4,5,6]) |
-    +----------------------------------+
-    | [1, 2, 3, 4, 5, 6]               |
-    +----------------------------------+
+    cr> select array_unique([1, 2, 3], [3, 4, 4]) from sys.cluster;
+    +--------------------------------+
+    | array_unique([1,2,3], [3,4,4]) |
+    +--------------------------------+
+    | [1, 2, 3, 4]                   |
+    +--------------------------------+
     SELECT 1 row in set (... sec)
 
 
-It can be used with one argument
+If the arrays have different types all elements will be cast to the element
+type of the first array with a defined type::
 
-::
-
-    cr> select array_unique([1,2,3,3,4,5,6,7,5,6,9,10]) from sys.cluster;
-    +------------------------------------------+
-    | array_unique([1,2,3,3,4,5,6,7,5,6,9,10]) |
-    +------------------------------------------+
-    | [1, 2, 3, 4, 5, 6, 7, 9, 10]             |
-    +------------------------------------------+
+    cr> select array_unique([10, 20], [10.2, 20.3]) from sys.cluster;
+    +------------------------------------+
+    | array_unique([10,20], [10.2,20.3]) |
+    +------------------------------------+
+    | [10, 20]                           |
+    +------------------------------------+
     SELECT 1 row in set (... sec)
 
 
@@ -1263,8 +1299,140 @@ It can be used to remove elements from array fields.
     +------------------------------+
     SELECT 1 row in set (... sec)
 
-Conditional Functions
-=====================
+Conditional Functions and Expressions
+=====================================
+
+case when ... then ... end
+--------------------------
+
+The ``case`` expression is a generic conditional expression similar to
+if/else statements in other programming languages and can be used
+wherever an expression is valid.
+
+::
+
+  CASE WHEN condition THEN result
+       [WHEN ...]
+       [ELSE result]
+  END
+
+Each *condition* expression must result in a boolean value. If the
+condition's result is true, the value of the *result* expression
+that follows the condition will be the final result of the ``case``
+expression and the subsequent ``when`` branches will not be
+processed. If the condition's result is not true, any subsequent
+``when`` clauses are examined in the same manner. If no ``when``
+condition yields true, the value of the ``case`` expression is the
+result of the ``else`` clause. If the ``else`` clause is omitted and
+no condition is true, the result is null.
+
+
+.. Hidden: create table case_example
+
+    cr> create table case_example (id long);
+    CREATE OK, 1 row affected (... sec)
+    cr> insert into case_example (id) values (0),(1),(2),(3);
+    INSERT OK, 4 rows affected (... sec)
+    cr> refresh table case_example
+    REFRESH OK, 1 row affected (... sec)
+
+
+Example:
+::
+
+    cr> select id,
+    ...   case when id = 0 then 'zero'
+    ...        when id % 2 = 0 then 'even'
+    ...        else 'odd'
+    ...   end as parity
+    ... from case_example order by id;
+    +----+--------+
+    | id | parity |
+    +----+--------+
+    |  0 | zero   |
+    |  1 | odd    |
+    |  2 | even   |
+    |  3 | odd    |
+    +----+--------+
+    SELECT 4 rows in set (... sec)
+
+As a variant, a ``case`` expression can be written using the *simple*
+form:
+::
+
+  CASE expression
+       WHEN value THEN result
+       [WHEN ...]
+       [ELSE result]
+  END
+
+Example:
+::
+
+    cr> select id,
+    ...   case id when 0 then 'zero'
+    ...           when 1 then 'one'
+    ...           else 'other'
+    ...   end as description
+    ... from case_example order by id;
+    +----+-------------+
+    | id | description |
+    +----+-------------+
+    |  0 | zero        |
+    |  1 | one         |
+    |  2 | other       |
+    |  3 | other       |
+    +----+-------------+
+    SELECT 4 rows in set (... sec)
+
+
+.. note::
+
+   All *result* expressions must result in the same data type.
+
+.. Hidden: drop table case_example
+
+    cr> drop table case_example;
+    DROP OK, 1 row affected (... sec)
+
+if(condition, result [, default])
+---------------------------------
+
+The ``if`` function is a conditional function comparing to *if*
+statements of most other programming languages. If the given
+*condition* expresion evaluates to `true`, the *result* expression is
+evaluated and it's value is returned. If the *condition* evaluates to
+`false`, the *result* expression is not evaluated and the optional
+given *default* expression is evaluated instead and it's value will be
+returned. If the *default* argument is omitted, NULL will be returned instead.
+
+.. Hidden: create table if_example
+
+    cr> create table if_example (id long);
+    CREATE OK, 1 row affected (... sec)
+    cr> insert into if_example (id) values (0),(1),(2),(3);
+    INSERT OK, 4 rows affected (... sec)
+    cr> refresh table if_example
+    REFRESH OK, 1 row affected (... sec)
+
+::
+
+   cr> select id, if(id = 0, 'zero', 'other') as description from if_example order by id;
+    +----+-------------+
+    | id | description |
+    +----+-------------+
+    |  0 | zero        |
+    |  1 | other       |
+    |  2 | other       |
+    |  3 | other       |
+    +----+-------------+
+    SELECT 4 rows in set (... sec)
+
+
+.. Hidden: drop table if_example
+
+    cr> drop table if_example;
+    DROP OK, 1 row affected (... sec)
 
 coalesce('first_arg', second_arg [, ... ]) returns same type as arguments
 -------------------------------------------------------------------------
@@ -1334,16 +1502,48 @@ have the same value, returns NULL; otherwise returns the first argument.
 
 ::
 
-    cr> select nullif(schema_name, 'sys')
+    cr> select nullif(table_schema, 'sys')
     ...   from information_schema.tables
     ...   where table_name='nodes';
-    +----------------------------+
-    | nullif(schema_name, 'sys') |
-    +----------------------------+
-    | NULL                       |
-    +----------------------------+
+    +-----------------------------+
+    | nullif(table_schema, 'sys') |
+    +-----------------------------+
+    | NULL                        |
+    +-----------------------------+
     SELECT 1 row in set (... sec)
 
+
+System Information Functions
+============================
+
+CURRENT_SCHEMA returns STRING
+-----------------------------
+
+The ``CURRENT_SCHEMA`` system information function returns the name of the
+current schema of the session. If no current schema is set, this function will
+return the default schema, which is ``doc``.
+
+The default schema can be set when using the `JDBC <https://crate.io/docs/reference/jdbc/#jdbc-url-format>`_
+and `HTTP clients <https://crate.io/docs/reference/protocols/http.html#default-schema>`_
+such as `Crate PDO`_.
+
+The ``CURRENT_SCHEMA`` function has a special SQL syntax, meaning that it must
+be called without trailing parenthesis (``()``). However, Crate also supports
+the optional parenthesis.
+
+Synopsis::
+
+    CURRENT_SCHEMA [ ( ) ]
+
+Example::
+
+    cr> SELECT CURRENT_SCHEMA;
+    +----------------+
+    | current_schema |
+    +----------------+
+    |            doc |
+    +----------------+
+    SELECT 1 row in set (... sec)
 
 
 .. rubric:: Footnotes
@@ -1354,3 +1554,4 @@ have the same value, returns NULL; otherwise returns the first argument.
 .. _Java Regular Expressions: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
 .. _`MySQL date_format`: http://dev.mysql.com/doc/refman/5.6/en/date-and-time-functions.html#function_date-format
 .. _`Haversine formula`: https://en.wikipedia.org/wiki/Haversine_formula
+.. _`Crate PDO`: https://crate.io/docs/reference/pdo/usage.html#dsn

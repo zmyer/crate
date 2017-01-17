@@ -61,11 +61,11 @@ public class FetchPhaseTest {
         Reference name = new Reference(nameIdent, RowGranularity.DOC, DataTypes.STRING);
 
         FetchPhase orig = new FetchPhase(
-                1,
-                ImmutableSet.<String>of("node1", "node2"),
-                bases,
-                tableIndices,
-                ImmutableList.of(name)
+            1,
+            ImmutableSet.<String>of("node1", "node2"),
+            bases,
+            tableIndices,
+            ImmutableList.of(name)
         );
 
         BytesStreamOutput out = new BytesStreamOutput();
@@ -74,8 +74,8 @@ public class FetchPhaseTest {
         StreamInput in = StreamInput.wrap(out.bytes());
         FetchPhase streamed = (FetchPhase) ExecutionPhases.fromStream(in);
 
-        assertThat(orig.executionPhaseId(), is(streamed.executionPhaseId()));
-        assertThat(orig.executionNodes(), is(streamed.executionNodes()));
+        assertThat(orig.phaseId(), is(streamed.phaseId()));
+        assertThat(orig.nodeIds(), is(streamed.nodeIds()));
         assertThat(orig.fetchRefs(), is(streamed.fetchRefs()));
         assertThat(orig.bases(), is(streamed.bases()));
         assertThat(orig.tableIndices(), is(streamed.tableIndices()));

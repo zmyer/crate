@@ -22,22 +22,20 @@
 package io.crate.planner.consumer;
 
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.crate.analyze.InsertFromSubQueryAnalyzedStatement;
+import io.crate.analyze.QuerySpec;
 import io.crate.analyze.relations.AnalyzedRelation;
 import io.crate.analyze.relations.AnalyzedRelationVisitor;
-import io.crate.analyze.relations.PlannedAnalyzedRelation;
 import io.crate.analyze.relations.QueriedDocTable;
+import io.crate.analyze.relations.QueriedRelation;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.analyze.symbol.Symbols;
+import io.crate.exceptions.UnsupportedFeatureException;
 import io.crate.metadata.DocReferenceConverter;
+import io.crate.planner.Merge;
+import io.crate.planner.Plan;
 import io.crate.planner.Planner;
-import io.crate.planner.node.dml.InsertFromSubQuery;
-import io.crate.planner.node.dql.MergePhase;
 import io.crate.planner.projection.ColumnIndexWriterProjection;
 import io.crate.planner.projection.MergeCountProjection;
-import io.crate.planner.projection.Projection;
 import org.elasticsearch.common.settings.Settings;
 
 import java.util.List;
@@ -48,7 +46,7 @@ public class InsertFromSubQueryConsumer implements Consumer {
     private static final Visitor VISITOR = new Visitor();
 
     @Override
-    public PlannedAnalyzedRelation consume(AnalyzedRelation relation, ConsumerContext context) {
+    public Plan consume(AnalyzedRelation relation, ConsumerContext context) {
         return VISITOR.process(relation, context);
     }
 
@@ -57,46 +55,46 @@ public class InsertFromSubQueryConsumer implements Consumer {
         private static final ToSourceLookupConverter SOURCE_LOOKUP_CONVERTER = new ToSourceLookupConverter();
 
         @Override
-        public PlannedAnalyzedRelation visitInsertFromQuery(InsertFromSubQueryAnalyzedStatement statement,
-                                                            ConsumerContext context) {
+        public Plan visitInsertFromQuery(InsertFromSubQueryAnalyzedStatement statement,
+                                         ConsumerContext context) {
 
             ColumnIndexWriterProjection indexWriterProjection = new ColumnIndexWriterProjection(
-                    statement.tableInfo().ident(),
-                    null,
-                    statement.tableInfo().primaryKey(),
-                    statement.columns(),
-                    statement.onDuplicateKeyAssignments(),
-                    statement.primaryKeySymbols(),
-                    statement.tableInfo().partitionedBy(),
-                    statement.partitionedBySymbols(),
-                    statement.tableInfo().clusteredBy(),
-                    statement.clusteredByIdx(),
-                    Settings.EMPTY,
-                    statement.tableInfo().isPartitioned()
+                statement.tableInfo().ident(),
+                null,
+                statement.tableInfo().primaryKey(),
+                statement.columns(),
+                statement.onDuplicateKeyAssignments(),
+                statement.primaryKeySymbols(),
+                statement.tableInfo().partitionedBy(),
+                statement.partitionedBySymbols(),
+                statement.tableInfo().clusteredBy(),
+                statement.clusteredBySymbol(),
+                Settings.EMPTY,
+                statement.tableInfo().isPartitioned()
             );
 
             Planner.Context plannerContext = context.plannerContext();
-            SOURCE_LOOKUP_CONVERTER.process(statement.subQueryRelation(), null);
-            PlannedAnalyzedRelation plannedSubQuery = plannerContext.planSubRelation(statement.subQueryRelation(), context);
+            QueriedRelation subRelation = statement.subQueryRelation();
+            QuerySpec subQuerySpec = subRelation.querySpec();
+
+            // We'd have to enable paging & add a mergePhase to the sub-plan which applies the ordering/limit before
+            // the indexWriterProjection can be added
+            if (subQuerySpec.limit().isPresent() || subQuerySpec.offset().isPresent() || subQuerySpec.orderBy().isPresent()) {
+                throw new UnsupportedFeatureException("Using limit, offset or order by is not " +
+                                                      "supported on insert using a sub-query");
+            }
+            SOURCE_LOOKUP_CONVERTER.process(subRelation, null);
+            Plan plannedSubQuery = plannerContext.planSubRelation(subRelation, context);
             if (plannedSubQuery == null) {
                 return null;
             }
-
-            plannedSubQuery.addProjection(indexWriterProjection);
-
-            MergePhase mergeNode = null;
-            if (plannedSubQuery.resultIsDistributed()) {
-                // add local merge Node which aggregates the distributed results
-                MergeCountProjection mergeCountProjection = MergeCountProjection.INSTANCE;
-                mergeNode = MergePhase.localMerge(
-                        plannerContext.jobId(),
-                        plannerContext.nextExecutionPhaseId(),
-                        ImmutableList.<Projection>of(mergeCountProjection),
-                        plannedSubQuery.resultPhase().executionNodes().size(),
-                        Symbols.extractTypes(indexWriterProjection.outputs()));
-                mergeNode.executionNodes(Sets.newHashSet(plannerContext.clusterService().localNode().id()));
+            plannedSubQuery.addProjection(indexWriterProjection, null, null, 1, null);
+            Plan plan = Merge.ensureOnHandler(plannedSubQuery, plannerContext);
+            if (plan == plannedSubQuery) {
+                return plan;
             }
-            return new InsertFromSubQuery(plannedSubQuery.plan(), mergeNode, plannerContext.jobId());
+            plan.addProjection(MergeCountProjection.INSTANCE, null, null, 1, null);
+            return plan;
         }
     }
 

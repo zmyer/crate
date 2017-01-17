@@ -23,6 +23,7 @@
 package io.crate.test.utils;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
@@ -33,7 +34,7 @@ public class Blobs {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-1");
             digest.reset();
-            digest.update(content.getBytes());
+            digest.update(content.getBytes(StandardCharsets.UTF_8));
             return digest.digest();
         } catch (NoSuchAlgorithmException e) {
             return null;
@@ -46,6 +47,6 @@ public class Blobs {
 
     public static String url(InetSocketAddress address, String tableAndDigest) {
         return String.format(Locale.ENGLISH, "http://%s:%s/_blobs/%s",
-                address.getHostName(), address.getPort(), tableAndDigest);
+            address.getHostName(), address.getPort(), tableAndDigest);
     }
 }

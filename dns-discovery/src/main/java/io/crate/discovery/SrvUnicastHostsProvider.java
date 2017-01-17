@@ -71,7 +71,7 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
                 hostname = parts[0];
                 if (parts.length > 1) {
                     try {
-                        port = Integer.valueOf(parts[1]);
+                        port = Integer.parseInt(parts[1]);
                     } catch (Exception e) {
                         logger.warn("Resolver port '{}' is not an integer. Using default port 53", parts[1]);
                     }
@@ -135,7 +135,8 @@ public class SrvUnicastHostsProvider extends AbstractComponent implements Unicas
                 TransportAddress[] addresses = transportService.addressesFromString(address, 1);
                 for (TransportAddress transportAddress : addresses) {
                     logger.trace("adding {}, transport_address {}", address, transportAddress);
-                    discoNodes.add(new DiscoveryNode("#srv-" + address, transportAddress, version.minimumCompatibilityVersion()));
+                    discoNodes.add(new DiscoveryNode(
+                        "#srv-" + address, transportAddress, version.minimumCompatibilityVersion()));
                 }
             } catch (Exception e) {
                 logger.warn("failed to add {}, address {}", e, address);

@@ -24,7 +24,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import io.crate.Build;
 import io.crate.Version;
-import io.crate.metadata.*;
+import io.crate.metadata.ColumnIdent;
+import io.crate.metadata.Reference;
+import io.crate.metadata.RowGranularity;
+import io.crate.metadata.SimpleObjectExpression;
 import io.crate.monitor.DummyExtendedNodeInfo;
 import io.crate.monitor.MonitorModule;
 import io.crate.operation.Input;
@@ -74,17 +77,15 @@ import java.util.Map;
 
 import static io.crate.testing.TestingHelpers.mapToSortedString;
 import static io.crate.testing.TestingHelpers.refInfo;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class SysNodesExpressionsTest extends CrateUnitTest {
 
     private static final Settings NODE_SETTINGS = Settings.builder()
-            .put(MonitorModule.NODE_INFO_EXTENDED_TYPE, "dummy")
-            .build();
+        .put(MonitorModule.NODE_INFO_EXTENDED_TYPE, "dummy")
+        .build();
 
     private Injector injector;
     private NodeSysExpression resolver;
@@ -108,9 +109,7 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
             OsStats osStats = mock(OsStats.class);
             when(osService.stats()).thenReturn(osStats);
 
-            ByteSizeValue byteSizeValue = mock(ByteSizeValue.class);
-            when(byteSizeValue.bytes()).thenReturn(12345342234L);
-            when(byteSizeValue.toString()).thenReturn("11.4gb");
+            ByteSizeValue byteSizeValue = new ByteSizeValue(12345342234L);
 
             OsStats.Mem mem = mock(OsStats.Mem.class);
             when(osStats.getMem()).thenReturn(mem);
@@ -164,7 +163,7 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
             TransportAddress transportAddress = new InetSocketTransportAddress(localhost, 44300);
             when(node.address()).thenReturn(transportAddress);
             when(node.attributes()).thenReturn(
-                    ImmutableMap.<String, String>builder().put("http_address", "http://localhost:44200").build()
+                ImmutableMap.<String, String>builder().put("http_address", "http://localhost:44200").build()
             );
 
 
@@ -190,8 +189,7 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
             JvmService jvmService = mock(JvmService.class);
             JvmStats jvmStats = mock(JvmStats.class);
             JvmStats.Mem jvmStatsMem = mock(JvmStats.Mem.class);
-            ByteSizeValue heapByteSizeValueMax = mock(ByteSizeValue.class);
-            when(heapByteSizeValueMax.bytes()).thenReturn(123456L);
+            ByteSizeValue heapByteSizeValueMax = new ByteSizeValue(123456L);
             when(jvmStatsMem.getHeapMax()).thenReturn(heapByteSizeValueMax);
             when(jvmStatsMem.getHeapUsed()).thenReturn(heapByteSizeValueMax);
 
@@ -204,30 +202,15 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
         }
     }
 
-    /**
-     * Resolve canonical path (platform independent)
-     *
-     * @param path the path to be resolved (e.g. /dev/sda1)
-     * @return full canonical path (e.g. linux will resolve to /dev/sda1, windows to C:\dev\sda1)
-     */
-    private String resolveCanonicalPath(String path) {
-        try {
-            return new File(path).getCanonicalPath();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
     @Before
     public void prepare() throws Exception {
         MonitorModule monitorModule = new MonitorModule(NODE_SETTINGS);
         monitorModule.addExtendedNodeInfoType("dummy", DummyExtendedNodeInfo.class);
 
         injector = new ModulesBuilder().add(
-                new TestModule(true),
-                monitorModule,
-                new SysNodeExpressionModule()
+            new TestModule(true),
+            monitorModule,
+            new SysNodeExpressionModule()
         ).createInjector();
         resolver = injector.getInstance(NodeSysExpression.class);
     }
@@ -311,10 +294,10 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
         Map<String, Object> v = mem.value();
 
         assertEquals(12345342234L, v.get("free"));
-        assertEquals(new Short("78"), v.get("free_percent"));
+        assertEquals(Short.valueOf("78"), v.get("free_percent"));
 
         assertEquals(12345342234L, v.get("used"));
-        assertEquals(new Short("22"), v.get("used_percent"));
+        assertEquals(Short.valueOf("22"), v.get("used_percent"));
     }
 
     @Test
@@ -343,20 +326,20 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
         Object[] disks = (Object[]) v.get("disks");
         assertThat(disks.length, is(2));
         Map<String, Object> disk0 = (Map<String, Object>) disks[0];
-        assertThat((String) disk0.get("dev"), is(resolveCanonicalPath("/dev/sda1")));
+        assertThat((String) disk0.get("dev"), is("/dev/sda1"));
         assertThat((Long) disk0.get("size"), is(42L));
 
         Map<String, Object> disk1 = (Map<String, Object>) disks[1];
-        assertThat((String) disk1.get("dev"), is(resolveCanonicalPath("/dev/sda2")));
+        assertThat((String) disk1.get("dev"), is("/dev/sda2"));
         assertThat((Long) disk0.get("used"), is(42L));
 
         Object[] data = (Object[]) v.get("data");
         assertThat(data.length, is(2));
-        assertThat((String) ((Map<String, Object>) data[0]).get("dev"), is(resolveCanonicalPath("/dev/sda1")));
-        assertThat((String) ((Map<String, Object>) data[0]).get("path"), is(resolveCanonicalPath("/foo")));
+        assertThat((String) ((Map<String, Object>) data[0]).get("dev"), is("/dev/sda1"));
+        assertThat((String) ((Map<String, Object>) data[0]).get("path"), is("/foo"));
 
-        assertThat((String) ((Map<String, Object>) data[1]).get("dev"), is(resolveCanonicalPath("/dev/sda2")));
-        assertThat((String) ((Map<String, Object>) data[1]).get("path"), is(resolveCanonicalPath("/bar")));
+        assertThat((String) ((Map<String, Object>) data[1]).get("dev"), is("/dev/sda2"));
+        assertThat((String) ((Map<String, Object>) data[1]).get("path"), is("/bar"));
 
         refInfo = refInfo("sys.nodes.fs", DataTypes.STRING, RowGranularity.NODE, "data", "dev");
         NestedObjectExpression fsRef =
@@ -394,10 +377,10 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
 
         Map<String, Object> networkStats = networkRef.value();
         assertThat(mapToSortedString(networkStats),
-                is("probe_timestamp=0, tcp={" +
-                   "connections={accepted=42, curr_established=42, dropped=42, embryonic_dropped=42, initiated=42}, " +
-                   "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}" +
-                   "}"));
+            is("probe_timestamp=0, tcp={" +
+               "connections={accepted=42, curr_established=42, dropped=42, embryonic_dropped=42, initiated=42}, " +
+               "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}" +
+               "}"));
     }
 
     @Test
@@ -410,8 +393,8 @@ public class SysNodesExpressionsTest extends CrateUnitTest {
 
         assertThat(tcpStats, instanceOf(Map.class));
         assertThat(mapToSortedString(tcpStats),
-                is("connections={accepted=42, curr_established=42, dropped=42, embryonic_dropped=42, initiated=42}, " +
-                   "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}"));
+            is("connections={accepted=42, curr_established=42, dropped=42, embryonic_dropped=42, initiated=42}, " +
+               "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}"));
     }
 
     @Test

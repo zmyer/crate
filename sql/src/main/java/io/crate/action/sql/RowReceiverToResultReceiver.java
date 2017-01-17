@@ -34,7 +34,6 @@ public class RowReceiverToResultReceiver implements RowReceiver {
     private long rowCount = 0;
 
     private ResumeHandle resumeHandle = null;
-    private RowReceiver.Result nextRowResult = Result.CONTINUE;
 
     public RowReceiverToResultReceiver(ResultReceiver resultReceiver, int maxRows) {
         this.resultReceiver = resultReceiver;
@@ -49,7 +48,7 @@ public class RowReceiverToResultReceiver implements RowReceiver {
         if (maxRows > 0 && rowCount % maxRows == 0) {
             return Result.PAUSE;
         }
-        return nextRowResult;
+        return Result.CONTINUE;
     }
 
     @Override
@@ -65,17 +64,12 @@ public class RowReceiverToResultReceiver implements RowReceiver {
 
     @Override
     public void fail(Throwable throwable) {
-        nextRowResult = Result.STOP;
         resultReceiver.fail(throwable);
     }
 
     @Override
     public void kill(Throwable throwable) {
         fail(throwable);
-    }
-
-    @Override
-    public void prepare() {
     }
 
     @Override

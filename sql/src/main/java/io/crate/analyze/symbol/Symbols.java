@@ -24,11 +24,7 @@ package io.crate.analyze.symbol;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import io.crate.Streamer;
-import io.crate.exceptions.ConversionException;
-import io.crate.metadata.ColumnIdent;
-import io.crate.metadata.GeneratedReference;
-import io.crate.metadata.Reference;
-import io.crate.operation.Input;
+import io.crate.metadata.*;
 import io.crate.types.DataType;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
@@ -42,14 +38,14 @@ public class Symbols {
     private static final HasColumnVisitor HAS_COLUMN_VISITOR = new HasColumnVisitor();
 
     public static final com.google.common.base.Function<Symbol, DataType> TYPES_FUNCTION =
-            new com.google.common.base.Function<Symbol, DataType>() {
-                @Nullable
-                @Override
-                public DataType apply(@Nullable Symbol input) {
-                    assert input != null : "can't convert null symbol to dataType";
-                    return input.valueType();
-                }
-            };
+        new com.google.common.base.Function<Symbol, DataType>() {
+            @Nullable
+            @Override
+            public DataType apply(@Nullable Symbol input) {
+                assert input != null : "can't convert null symbol to dataType";
+                return input.valueType();
+            }
+        };
 
     public static final Predicate<Symbol> IS_GENERATED_COLUMN = new Predicate<Symbol>() {
         @Override
@@ -95,18 +91,6 @@ public class Symbols {
         return false;
     }
 
-    public static Collection<Object> addValuesToCollection(Collection<Object> collection, DataType targetType, List<Symbol> symbols) {
-        for (Symbol symbol : symbols) {
-            assert symbol instanceof Input : "each symbol must be a literal to extract values";
-            try {
-                collection.add(targetType.value(((Input) symbol).value()));
-            } catch (IllegalArgumentException | ClassCastException e) {
-                throw new ConversionException(((Input) symbol).value(), targetType);
-            }
-        }
-        return collection;
-    }
-
     public static void toStream(Collection<? extends Symbol> symbols, StreamOutput out) throws IOException {
         out.writeVInt(symbols.size());
         for (Symbol symbol : symbols) {
@@ -132,10 +116,7 @@ public class Symbols {
     }
 
     public static Symbol fromStream(StreamInput in) throws IOException {
-        Symbol symbol = SymbolType.values()[in.readVInt()].newInstance();
-        symbol.readFrom(in);
-
-        return symbol;
+        return SymbolType.VALUES.get(in.readVInt()).newInstance(in);
     }
 
     private static class HasColumnVisitor extends SymbolVisitor<ColumnIdent, Boolean> {
@@ -167,5 +148,26 @@ public class Symbols {
         public Boolean visitReference(Reference symbol, ColumnIdent context) {
             return context.equals(symbol.ident().columnIdent());
         }
+    }
+
+    private static class FieldReplaceVisitor
+        extends ReplacingSymbolVisitor<com.google.common.base.Function<? super Field, ? extends Symbol>> {
+
+        public final static FieldReplaceVisitor INSTANCE = new FieldReplaceVisitor();
+
+        private FieldReplaceVisitor() {
+            super(ReplaceMode.COPY);
+        }
+
+        @Override
+        public Symbol visitField(Field field,
+                                 com.google.common.base.Function<? super Field, ? extends Symbol> replaceFunction) {
+            return replaceFunction.apply(field);
+        }
+    }
+
+    public static Symbol replaceField(Symbol symbol,
+                                      com.google.common.base.Function<? super Field, ? extends Symbol> replaceFunction) {
+        return FieldReplaceVisitor.INSTANCE.process(symbol, replaceFunction);
     }
 }

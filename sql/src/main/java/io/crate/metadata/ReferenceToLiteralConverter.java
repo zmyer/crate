@@ -76,21 +76,21 @@ public class ReferenceToLiteralConverter extends ReplacingSymbolVisitor<Referenc
 
                     //noinspection unchecked
                     value = XContentMapValues.extractValue(
-                            columnIdent.fqn(), (Map) values[inputColumn.index()]);
+                        columnIdent.fqn(), (Map) values[inputColumn.index()]);
                 } else {
                     value = values[inputColumn.index()];
                 }
-                return Literal.newLiteral(dataType, dataType.value(value));
+                return Literal.of(dataType, dataType.value(value));
             }
 
             DataType dataType = reference.valueType();
-            return Literal.newLiteral(dataType, dataType.value(null));
+            return Literal.of(dataType, dataType.value(null));
         }
 
     }
 
     public ReferenceToLiteralConverter() {
-        super(false);
+        super(ReplaceMode.COPY);
     }
 
     @Override

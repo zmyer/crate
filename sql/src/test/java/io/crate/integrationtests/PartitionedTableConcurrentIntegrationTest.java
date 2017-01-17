@@ -23,9 +23,9 @@
 package io.crate.integrationtests;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.crate.action.sql.SQLResponse;
 import io.crate.core.collections.Bucket;
 import io.crate.metadata.PartitionName;
+import io.crate.testing.SQLResponse;
 import io.crate.testing.SQLTransportExecutor;
 import io.crate.testing.UseJdbc;
 import org.apache.lucene.util.BytesRef;
@@ -73,8 +73,8 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
         ensureYellow();
 
         execute("insert into t (name, p) values (?, ?)", new Object[][]{
-                new Object[]{"Marvin", "a"},
-                new Object[]{"Trillian", "a"},
+            new Object[]{"Marvin", "a"},
+            new Object[]{"Trillian", "a"},
         });
         execute("refresh table t");
         execute("set global stats.enabled=true");
@@ -115,7 +115,7 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
         List<String> nodeIds = new ArrayList<>(2);
         for (DiscoveryNode node : nodes) {
             if (node.dataNode()) {
-                nodeIds.add(node.id());
+                nodeIds.add(node.getId());
             }
         }
         final Map<String, String> nodeSwap = new HashMap<>(2);
@@ -141,18 +141,18 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
                         }
                         String toNode = nodeSwap.get(shardRouting.currentNodeId());
                         clusterRerouteRequestBuilder.add(new MoveAllocationCommand(
-                                shardRouting.shardId(),
-                                shardRouting.currentNodeId(),
-                                toNode));
+                            shardRouting.shardId(),
+                            shardRouting.currentNodeId(),
+                            toNode));
                         numMoves++;
                     }
 
                     if (numMoves > 0) {
                         clusterRerouteRequestBuilder.execute().actionGet();
                         client().admin().cluster().prepareHealth()
-                                .setWaitForEvents(Priority.LANGUID)
-                                .setWaitForRelocatingShards(0)
-                                .setTimeout(ACCEPTABLE_RELOCATION_TIME).execute().actionGet();
+                            .setWaitForEvents(Priority.LANGUID)
+                            .setWaitForRelocatingShards(0)
+                            .setTimeout(ACCEPTABLE_RELOCATION_TIME).execute().actionGet();
                         relocations.countDown();
                     }
                 }
@@ -268,7 +268,7 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
 
         final CountDownLatch deleteLatch = new CountDownLatch(1);
         final String partitionName = new PartitionName("parted",
-                Collections.singletonList(new BytesRef(String.valueOf(idToDelete)))
+            Collections.singletonList(new BytesRef(String.valueOf(idToDelete)))
         ).asIndexName();
         final Object[] deleteArgs = new Object[]{idToDelete};
         Thread deleteThread = new Thread(new Runnable() {
@@ -278,7 +278,7 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
                 while (!deleted) {
                     try {
                         MetaData metaData = client().admin().cluster().prepareState().execute().actionGet()
-                                .getState().metaData();
+                            .getState().metaData();
                         if (metaData.indices().get(partitionName) != null) {
                             execute("delete from parted where id = ?", deleteArgs);
                             deleted = true;

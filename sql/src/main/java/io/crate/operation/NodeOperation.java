@@ -22,8 +22,6 @@
 package io.crate.operation;
 
 import com.google.common.collect.ImmutableList;
-import io.crate.planner.distribution.DistributionInfo;
-import io.crate.planner.distribution.DistributionType;
 import io.crate.planner.distribution.UpstreamPhase;
 import io.crate.planner.node.ExecutionPhase;
 import io.crate.planner.node.ExecutionPhases;
@@ -36,8 +34,8 @@ import org.elasticsearch.common.logging.Loggers;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 public class NodeOperation implements Streamable {
 
@@ -66,45 +64,37 @@ public class NodeOperation implements Streamable {
 
     public static NodeOperation withoutDownstream(ExecutionPhase executionPhase) {
         return new NodeOperation(executionPhase,
-                ImmutableList.<String>of(),
-                ExecutionPhase.NO_EXECUTION_PHASE,
-                (byte) 0);
+            ImmutableList.<String>of(),
+            ExecutionPhase.NO_EXECUTION_PHASE,
+            (byte) 0);
     }
 
     public static NodeOperation withDownstream(ExecutionPhase executionPhase,
                                                ExecutionPhase downstreamExecutionPhase,
                                                byte inputId,
                                                String localNodeId) {
-        if (downstreamExecutionPhase.executionNodes().isEmpty()) {
-            if (executionPhase instanceof UpstreamPhase && executionPhase.executionNodes().size() == 1
-                    && executionPhase.executionNodes().contains(localNodeId)) {
-                ((UpstreamPhase) executionPhase).distributionInfo(DistributionInfo.DEFAULT_SAME_NODE);
-                LOGGER.trace("Phase uses SAME_NODE downstream, reason: ON HANDLER, executionNodes: {}, phase: {}", executionPhase.executionNodes(), executionPhase);
-                return new NodeOperation(
-                        executionPhase,
-                        ImmutableList.<String>of(),
-                        downstreamExecutionPhase.executionPhaseId(),
-                        inputId);
+        if (downstreamExecutionPhase.nodeIds().isEmpty()) {
+            List<String> downstreamNodes;
+            if (executionPhase instanceof UpstreamPhase && executionPhase.nodeIds().size() == 1
+                && executionPhase.nodeIds().contains(localNodeId)) {
+                LOGGER.trace("Phase uses SAME_NODE downstream, reason: ON HANDLER, executionNodes: {}, phase: {}",
+                    executionPhase.nodeIds(), executionPhase);
+
+                downstreamNodes = Collections.emptyList();
+            } else {
+                downstreamNodes = Collections.singletonList(ExecutionPhase.DIRECT_RETURN_DOWNSTREAM_NODE);
             }
             return new NodeOperation(
-                    executionPhase,
-                    ImmutableList.of(ExecutionPhase.DIRECT_RETURN_DOWNSTREAM_NODE),
-                    downstreamExecutionPhase.executionPhaseId(),
-                    inputId);
+                executionPhase,
+                downstreamNodes,
+                downstreamExecutionPhase.phaseId(),
+                inputId);
         } else {
-            if (executionPhase instanceof UpstreamPhase) {
-                UpstreamPhase upstreamPhase = (UpstreamPhase) executionPhase;
-                if (executionPhase.executionNodes().size() == 1
-                        && executionPhase.executionNodes().equals(downstreamExecutionPhase.executionNodes())) {
-                    upstreamPhase.distributionInfo(DistributionInfo.DEFAULT_SAME_NODE);
-                    LOGGER.trace("Phase uses SAME_NODE downstream, reason: ON DOWNSTRREAM NODE, executionNodes: {}, phase: {}", executionPhase.executionNodes(), executionPhase);
-                }
-            }
-
-            return new NodeOperation(executionPhase,
-                    downstreamExecutionPhase.executionNodes(),
-                    downstreamExecutionPhase.executionPhaseId(),
-                    inputId);
+            return new NodeOperation(
+                executionPhase,
+                downstreamExecutionPhase.nodeIds(),
+                downstreamExecutionPhase.phaseId(),
+                inputId);
         }
     }
 
@@ -149,10 +139,10 @@ public class NodeOperation implements Streamable {
     @Override
     public String toString() {
         return "NodeOp{ " + ExecutionPhases.debugPrint(executionPhase) +
-                ", downstreamNodes=" + downstreamNodes +
-                ", downstreamPhase=" + downstreamExecutionPhaseId +
-                ", downstreamInputId=" + downstreamExecutionPhaseInputId +
-                '}';
+               ", downstreamNodes=" + downstreamNodes +
+               ", downstreamPhase=" + downstreamExecutionPhaseId +
+               ", downstreamInputId=" + downstreamExecutionPhaseInputId +
+               '}';
     }
 
     public byte downstreamExecutionPhaseInputId() {

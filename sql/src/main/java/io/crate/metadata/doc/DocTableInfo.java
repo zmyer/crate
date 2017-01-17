@@ -24,7 +24,7 @@ package io.crate.metadata.doc;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
-import io.crate.analyze.AlterPartitionedTableParameterInfo;
+import io.crate.analyze.PartitionedTableParameterInfo;
 import io.crate.analyze.TableParameterInfo;
 import io.crate.analyze.WhereClause;
 import io.crate.analyze.symbol.DynamicReference;
@@ -56,6 +56,13 @@ import java.util.*;
 import java.util.concurrent.*;
 
 
+/**
+ * Represents a user table.
+ * <p>
+ *     A user table either maps to 1 lucene index (if not partitioned)
+ *     Or to multiple indices (if partitioned, or an alias)
+ * </p>
+ */
 public class DocTableInfo implements TableInfo, ShardedTable {
 
     private static final ESLogger logger = Loggers.getLogger(DocTableInfo.class);
@@ -114,7 +121,8 @@ public class DocTableInfo implements TableInfo, ShardedTable {
                         Set<Operation> supportedOperations,
                         ExecutorService executorService) {
         this.indexNameExpressionResolver = indexNameExpressionResolver;
-        assert (partitionedBy.size() == partitionedByColumns.size()) : "partitionedBy and partitionedByColumns must have same amount of items in list";
+        assert (partitionedBy.size() ==
+                partitionedByColumns.size()) : "partitionedBy and partitionedByColumns must have same amount of items in list";
         this.clusterService = clusterService;
         this.columns = columns;
         this.partitionedByColumns = partitionedByColumns;
@@ -138,9 +146,9 @@ public class DocTableInfo implements TableInfo, ShardedTable {
         this.columnPolicy = columnPolicy;
         this.supportedOperations = supportedOperations;
         if (isPartitioned) {
-            tableParameterInfo = new AlterPartitionedTableParameterInfo();
+            tableParameterInfo = PartitionedTableParameterInfo.INSTANCE;
         } else {
-            tableParameterInfo = new TableParameterInfo();
+            tableParameterInfo = TableParameterInfo.INSTANCE;
         }
         // scale the fetchrouting timeout by n# of partitions
         this.routingFetchTimeout = new TimeValue(5 * Math.max(1, this.partitions.size()), TimeUnit.SECONDS);
@@ -203,13 +211,13 @@ public class DocTableInfo implements TableInfo, ShardedTable {
         Map<String, Set<String>> routingMap = null;
         if (whereClause.clusteredBy().isPresent()) {
             routingMap = indexNameExpressionResolver.resolveSearchRouting(
-                    clusterState, whereClause.routingValues(), routingIndices);
+                clusterState, whereClause.routingValues(), routingIndices);
         }
         return clusterService.operationRouting().searchShards(
-                clusterState,
-                routingIndices,
-                routingMap,
-                preference
+            clusterState,
+            routingIndices,
+            routingMap,
+            preference
         );
     }
 
@@ -240,36 +248,36 @@ public class DocTableInfo implements TableInfo, ShardedTable {
         ClusterStateObserver observer = new ClusterStateObserver(clusterService, routingFetchTimeout, logger);
         final SettableFuture<Routing> routingSettableFuture = SettableFuture.create();
         observer.waitForNextChange(
-                new FetchRoutingListener(routingSettableFuture, whereClause, preference),
-                new ClusterStateObserver.ChangePredicate() {
+            new FetchRoutingListener(routingSettableFuture, whereClause, preference),
+            new ClusterStateObserver.ChangePredicate() {
 
-                    @Override
-                    public boolean apply(ClusterState previousState, ClusterState.ClusterStateStatus previousStatus, ClusterState newState, ClusterState.ClusterStateStatus newStatus) {
-                        return validate(newState);
+                @Override
+                public boolean apply(ClusterState previousState, ClusterState.ClusterStateStatus previousStatus, ClusterState newState, ClusterState.ClusterStateStatus newStatus) {
+                    return validate(newState);
+                }
+
+                @Override
+                public boolean apply(ClusterChangedEvent changedEvent) {
+                    return validate(changedEvent.state());
+                }
+
+                private boolean validate(ClusterState state) {
+                    final Map<String, Map<String, List<Integer>>> locations = new TreeMap<>();
+
+                    GroupShardsIterator shardIterators;
+                    try {
+                        shardIterators = getShardIterators(whereClause, preference, state);
+                    } catch (IndexNotFoundException e) {
+                        return true;
                     }
 
-                    @Override
-                    public boolean apply(ClusterChangedEvent changedEvent) {
-                        return validate(changedEvent.state());
-                    }
+                    final List<ShardId> missingShards = new ArrayList<>(0);
+                    fillLocationsFromShardIterators(locations, shardIterators, missingShards);
 
-                    private boolean validate(ClusterState state) {
-                        final Map<String, Map<String, List<Integer>>> locations = new TreeMap<>();
+                    return missingShards.isEmpty();
+                }
 
-                        GroupShardsIterator shardIterators;
-                        try {
-                            shardIterators = getShardIterators(whereClause, preference, state);
-                        } catch (IndexNotFoundException e) {
-                            return true;
-                        }
-
-                        final List<ShardId> missingShards = new ArrayList<>(0);
-                        fillLocationsFromShardIterators(locations, shardIterators, missingShards);
-
-                        return missingShards.isEmpty();
-                    }
-
-                });
+            });
 
         try {
             return routingSettableFuture.get();
@@ -339,8 +347,9 @@ public class DocTableInfo implements TableInfo, ShardedTable {
 
     /**
      * columns this table is partitioned by.
-     *
+     * <p>
      * guaranteed to be in the same order as defined in CREATE TABLE statement
+     *
      * @return always a list, never null
      */
     public List<Reference> partitionedByColumns() {
@@ -349,8 +358,9 @@ public class DocTableInfo implements TableInfo, ShardedTable {
 
     /**
      * column names of columns this table is partitioned by (in dotted syntax).
-     *
+     * <p>
      * guaranteed to be in the same order as defined in CREATE TABLE statement
+     *
      * @return always a list, never null
      */
     public List<ColumnIdent> partitionedBy() {
@@ -364,7 +374,7 @@ public class DocTableInfo implements TableInfo, ShardedTable {
     /**
      * returns <code>true</code> if this table is a partitioned table,
      * <code>false</code> otherwise
-     *
+     * <p>
      * if so, {@linkplain #partitions()} returns infos about the concrete indices that make
      * up this virtual partitioned table
      */
@@ -399,7 +409,7 @@ public class DocTableInfo implements TableInfo, ShardedTable {
         return columnPolicy;
     }
 
-    public TableParameterInfo tableParameterInfo () {
+    public TableParameterInfo tableParameterInfo() {
         return tableParameterInfo;
     }
 

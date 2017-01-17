@@ -25,23 +25,24 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.crate.Constants;
+import io.crate.analyze.EvaluatingNormalizer;
 import io.crate.analyze.symbol.InputColumn;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.ValueSymbolVisitor;
 import io.crate.analyze.where.DocKeys;
+import io.crate.collections.Lists2;
+import io.crate.core.collections.Row;
 import io.crate.executor.JobTask;
 import io.crate.executor.transport.TransportActionProvider;
 import io.crate.jobs.AbstractExecutionSubContext;
 import io.crate.jobs.JobContextService;
 import io.crate.jobs.JobExecutionContext;
-import io.crate.metadata.ColumnIdent;
-import io.crate.metadata.Functions;
-import io.crate.metadata.PartitionName;
-import io.crate.metadata.Reference;
+import io.crate.metadata.*;
 import io.crate.metadata.doc.DocSysColumns;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.operation.projectors.*;
 import io.crate.planner.node.dql.ESGet;
+import io.crate.planner.projection.OrderedTopNProjection;
 import io.crate.planner.projection.Projection;
 import io.crate.planner.projection.TopNProjection;
 import org.apache.lucene.util.BytesRef;
@@ -62,7 +63,7 @@ import java.util.*;
 public class ESGetTask extends JobTask {
 
     private final static SymbolToFieldExtractor<GetResponse> SYMBOL_TO_FIELD_EXTRACTOR =
-            new SymbolToFieldExtractor<>(new GetResponseFieldExtractorFactory());
+        new SymbolToFieldExtractor<>(new GetResponseFieldExtractorFactory());
 
     private final static Set<ColumnIdent> FETCH_SOURCE_COLUMNS = ImmutableSet.of(DocSysColumns.DOC, DocSysColumns.RAW);
     private final ProjectorFactory projectorFactory;
@@ -94,30 +95,35 @@ public class ESGetTask extends JobTask {
             this.downstream = downstream;
         }
 
+        @Nullable
         protected abstract Request prepareRequest(ESGet node, FetchSourceContext fsc);
 
         @Override
         protected void innerStart() {
-            transportAction.execute(request, this);
+            if (request == null) {
+                // request can be null if id is null -> since primary keys cannot be null this is a no-match
+                downstream.finish(RepeatHandle.UNSUPPORTED);
+                close();
+            } else {
+                transportAction.execute(request, this);
+            }
         }
     }
 
     private static class MultiGetJobContext extends JobContext<TransportMultiGetAction, MultiGetRequest, MultiGetResponse> {
 
-
         MultiGetJobContext(ESGetTask task,
                            TransportMultiGetAction transportAction,
                            RowReceiver downstream) {
             super(task, transportAction, downstream);
-            assert task.esGet.docKeys().size() > 1;
-            assert task.projectorFactory != null;
+            assert task.esGet.docKeys().size() > 1 : "number of docKeys must be > 1";
+            assert task.projectorFactory != null : "task.projectorFactory must not be null";
         }
 
         @Override
         protected void innerPrepare() throws Exception {
             FlatProjectorChain projectorChain = getFlatProjectorChain(downstream);
             downstream = projectorChain.firstProjector();
-            projectorChain.prepare();
         }
 
         private FlatProjectorChain getFlatProjectorChain(RowReceiver downstream) {
@@ -131,18 +137,24 @@ public class ESGetTask extends JobTask {
                         orderBySymbols.add(new InputColumn(i));
                     }
                 }
-                TopNProjection topNProjection = new TopNProjection(
-                    task.esGet.limit(),
-                    task.esGet.offset(),
-                    orderBySymbols,
-                    task.esGet.reverseFlags(),
-                    task.esGet.nullsFirst()
-                );
-                topNProjection.outputs(InputColumn.numInputs(task.esGet.outputs().size()));
+                Projection projection;
+                if (task.esGet.sortSymbols().isEmpty()) {
+                    projection = new TopNProjection(
+                        task.esGet.limit(), task.esGet.offset(), InputColumn.numInputs(task.esGet.outputs().size()));
+                } else {
+                    projection = new OrderedTopNProjection(
+                        task.esGet.limit(),
+                        task.esGet.offset(),
+                        InputColumn.numInputs(task.esGet.outputs().size()),
+                        orderBySymbols,
+                        task.esGet.reverseFlags(),
+                        task.esGet.nullsFirst()
+                    );
+                }
                 return FlatProjectorChain.withAttachedDownstream(
                     task.projectorFactory,
                     null,
-                    ImmutableList.<Projection>of(topNProjection),
+                    ImmutableList.of(projection),
                     downstream,
                     task.jobId()
                 );
@@ -195,11 +207,13 @@ public class ESGetTask extends JobTask {
         protected MultiGetRequest prepareRequest(ESGet node, FetchSourceContext fsc) {
             MultiGetRequest multiGetRequest = new MultiGetRequest();
             for (DocKeys.DocKey key : node.docKeys()) {
-                MultiGetRequest.Item item = new MultiGetRequest.Item(
-                    indexName(node.tableInfo(), key.partitionValues().orNull()), Constants.DEFAULT_MAPPING_TYPE, key.id());
-                item.fetchSourceContext(fsc);
-                item.routing(key.routing());
-                multiGetRequest.add(item);
+                if (key.id() != null) {
+                    MultiGetRequest.Item item = new MultiGetRequest.Item(
+                        indexName(node.tableInfo(), key.partitionValues().orNull()), Constants.DEFAULT_MAPPING_TYPE, key.id());
+                    item.fetchSourceContext(fsc);
+                    item.routing(key.routing());
+                    multiGetRequest.add(item);
+                }
             }
             multiGetRequest.realtime(true);
             return multiGetRequest;
@@ -214,7 +228,7 @@ public class ESGetTask extends JobTask {
                             TransportGetAction transportAction,
                             RowReceiver downstream) {
             super(task, transportAction, downstream);
-            assert task.esGet.docKeys().size() == 1;
+            assert task.esGet.docKeys().size() == 1 : "numer of docKeys must be 1";
             this.row = new FieldExtractorRow<>(task.extractors);
         }
 
@@ -226,8 +240,12 @@ public class ESGetTask extends JobTask {
         @Override
         protected GetRequest prepareRequest(ESGet node, FetchSourceContext fsc) {
             DocKeys.DocKey docKey = node.docKeys().getOnlyKey();
+            String id = docKey.id();
+            if (id == null) {
+                return null;
+            }
             GetRequest getRequest = new GetRequest(indexName(node.tableInfo(), docKey.partitionValues().orNull()),
-                Constants.DEFAULT_MAPPING_TYPE, docKey.id());
+                Constants.DEFAULT_MAPPING_TYPE, id);
             getRequest.fetchSourceContext(fsc);
             getRequest.realtime(true);
             getRequest.routing(docKey.routing());
@@ -250,13 +268,12 @@ public class ESGetTask extends JobTask {
                 // this means we have no matching document
                 downstream.finish(RepeatHandle.UNSUPPORTED);
                 close();
-            } else{
+            } else {
                 downstream.fail(e);
                 close(e);
             }
         }
     }
-
 
     public ESGetTask(Functions functions,
                      ProjectorFactory projectorFactory,
@@ -269,16 +286,20 @@ public class ESGetTask extends JobTask {
         this.esGet = esGet;
         this.jobContextService = jobContextService;
 
-        assert esGet.docKeys().size() > 0;
+        assert esGet.docKeys().size() > 0 : "number of docKeys must be > 0";
         assert esGet.limit() != 0 : "shouldn't execute ESGetTask if limit is 0";
 
+        EvaluatingNormalizer normalizer = EvaluatingNormalizer.functionOnlyNormalizer(functions, ReplaceMode.MUTATE);
+        for (DocKeys.DocKey docKey : esGet.docKeys()) {
+            normalizer.normalizeInplace(docKey.values(), null);
+        }
         GetResponseContext ctx = new GetResponseContext(functions, esGet);
         extractors = getFieldExtractors(esGet, ctx);
         fsc = getFetchSourceContext(ctx.references());
     }
 
     @Override
-    public void execute(RowReceiver rowReceiver) {
+    public void execute(RowReceiver rowReceiver, Row parameters) {
         JobContext jobContext;
         if (esGet.docKeys().size() == 1) {
             jobContext = new SingleGetJobContext(this, transportActionProvider.transportGetAction(), rowReceiver);
@@ -312,11 +333,10 @@ public class ESGetTask extends JobTask {
     }
 
     private static List<Function<GetResponse, Object>> getFieldExtractors(ESGet node, GetResponseContext ctx) {
-        List<Function<GetResponse, Object>> extractors = new ArrayList<>(node.outputs().size() + node.sortSymbols().size());
-        for (Symbol symbol : node.outputs()) {
-            extractors.add(SYMBOL_TO_FIELD_EXTRACTOR.convert(symbol, ctx));
-        }
-        for (Symbol symbol : node.sortSymbols()) {
+        List<Function<GetResponse, Object>> extractors = new ArrayList<>(
+            node.outputs().size() + node.sortSymbols().size());
+        List<Symbol> concatenated = Lists2.concatUnique(node.outputs(), node.sortSymbols());
+        for (Symbol symbol : concatenated) {
             extractors.add(SYMBOL_TO_FIELD_EXTRACTOR.convert(symbol, ctx));
         }
         return extractors;
@@ -324,7 +344,7 @@ public class ESGetTask extends JobTask {
 
     public static String indexName(DocTableInfo tableInfo, @Nullable List<BytesRef> values) {
         if (tableInfo.isPartitioned()) {
-            assert values != null;
+            assert values != null : "values must not be null";
             return new PartitionName(tableInfo.ident(), values).asIndexName();
         } else {
             return tableInfo.ident().indexName();
@@ -388,7 +408,7 @@ public class ESGetTask extends JobTask {
                         };
                 }
             } else if (context.node.tableInfo().isPartitioned()
-                    && context.node.tableInfo().partitionedBy().contains(reference.ident().columnIdent())) {
+                       && context.node.tableInfo().partitionedBy().contains(reference.ident().columnIdent())) {
                 final int pos = context.node.tableInfo().primaryKey().indexOf(reference.ident().columnIdent());
                 if (pos >= 0) {
                     return new Function<GetResponse, Object>() {
@@ -403,7 +423,7 @@ public class ESGetTask extends JobTask {
                 @Override
                 public Object apply(GetResponse response) {
                     Map<String, Object> sourceAsMap = response.getSourceAsMap();
-                    assert sourceAsMap != null;
+                    assert sourceAsMap != null : "sourceAsMap must not be null";
                     return reference.valueType().value(XContentMapValues.extractValue(field, sourceAsMap));
                 }
             };

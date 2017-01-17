@@ -24,7 +24,9 @@ package io.crate.operation.scalar.arithmetic;
 import io.crate.operation.scalar.AbstractScalarFunctionsTest;
 import org.junit.Test;
 
-import static io.crate.testing.TestingHelpers.isFunction;
+import static io.crate.testing.SymbolMatchers.isFunction;
+import static io.crate.testing.SymbolMatchers.isLiteral;
+
 
 public class AbsFunctionTest extends AbstractScalarFunctionsTest {
 
@@ -39,12 +41,17 @@ public class AbsFunctionTest extends AbstractScalarFunctionsTest {
 
     @Test
     public void testWrongType() throws Exception {
-        expectedException.expectMessage("invalid datatype string for abs function");
+        expectedException.expectMessage("unknown function: abs(string)");
         assertEvaluate("abs('foo')", null);
     }
 
     @Test
     public void testNormalizeReference() throws Exception {
         assertNormalize("abs(id)", isFunction("abs"));
+    }
+
+    @Test
+    public void testNormalizeNull() throws Exception {
+        assertNormalize("abs(null)", isLiteral(null));
     }
 }

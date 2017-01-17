@@ -23,10 +23,8 @@ package io.crate.planner.node.dml;
 
 import io.crate.analyze.symbol.Symbol;
 import io.crate.metadata.Reference;
-import io.crate.planner.PlanAndPlannedAnalyzedRelation;
 import io.crate.planner.PlanVisitor;
-import io.crate.planner.distribution.UpstreamPhase;
-import io.crate.planner.projection.Projection;
+import io.crate.planner.UnnestablePlan;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.lucene.uid.Versions;
 
@@ -34,22 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class UpsertById extends PlanAndPlannedAnalyzedRelation {
-
-    @Override
-    public void addProjection(Projection projection) {
-        throw new UnsupportedOperationException("Adding a projection to upsertById is not supported");
-    }
-
-    @Override
-    public boolean resultIsDistributed() {
-        return false;
-    }
-
-    @Override
-    public UpstreamPhase resultPhase() {
-        throw new UnsupportedOperationException("UpsertById doesn't have a resultPhase");
-    }
+public class UpsertById extends UnnestablePlan {
 
     /**
      * A single update item.
@@ -66,11 +49,11 @@ public class UpsertById extends PlanAndPlannedAnalyzedRelation {
         private Object[] insertValues;
 
         Item(String index,
-                    String id,
-                    String routing,
-                    @Nullable Symbol[] updateAssignments,
-                    @Nullable Long version,
-                    @Nullable Object[] insertValues) {
+             String id,
+             String routing,
+             @Nullable Symbol[] updateAssignments,
+             @Nullable Long version,
+             @Nullable Object[] insertValues) {
             this.index = index;
             this.id = id;
             this.routing = routing;

@@ -30,7 +30,6 @@ public class CrateIndexModule extends AbstractModule {
 
     @Override
     protected void configure() {
-        bind(CrateDocIndexService.class).asEagerSingleton();
         bind(DynamicArrayFieldMapperBuilderFactory.class).to(ArrayMapper.BuilderFactory.class).asEagerSingleton();
     }
 }

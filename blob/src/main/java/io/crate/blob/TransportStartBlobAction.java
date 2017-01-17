@@ -21,11 +21,9 @@
 
 package io.crate.blob;
 
-import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.replication.TransportReplicationAction;
 import org.elasticsearch.cluster.ClusterService;
-import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.action.index.MappingUpdatedAction;
 import org.elasticsearch.cluster.action.shard.ShardStateAction;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
@@ -34,13 +32,12 @@ import org.elasticsearch.cluster.routing.ShardIterator;
 import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.shard.ShardId;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 public class TransportStartBlobAction
-        extends TransportReplicationAction<StartBlobRequest, StartBlobRequest, StartBlobResponse> {
+    extends TransportReplicationAction<StartBlobRequest, StartBlobRequest, StartBlobResponse> {
 
     private final BlobTransferTarget transferTarget;
 
@@ -56,8 +53,8 @@ public class TransportStartBlobAction
                                     ActionFilters actionFilters,
                                     IndexNameExpressionResolver indexNameExpressionResolver) {
         super(settings, StartBlobAction.NAME, transportService, clusterService,
-                indicesService, threadPool, shardStateAction, mappingUpdatedAction, actionFilters,
-                indexNameExpressionResolver, StartBlobRequest.class, StartBlobRequest.class, ThreadPool.Names.INDEX);
+            indicesService, threadPool, shardStateAction, mappingUpdatedAction, actionFilters,
+            indexNameExpressionResolver, StartBlobRequest.class, StartBlobRequest.class, ThreadPool.Names.INDEX);
 
         this.transferTarget = transferTarget;
         logger.trace("Constructor");
@@ -74,7 +71,7 @@ public class TransportStartBlobAction
                                                                                  StartBlobRequest request) throws Throwable {
         logger.trace("shardOperationOnPrimary {}", request);
         final StartBlobResponse response = newResponseInstance();
-        transferTarget.startTransfer(request.shardId().id(), request, response);
+        transferTarget.startTransfer(request, response);
         return new Tuple<>(response, request);
     }
 
@@ -82,13 +79,13 @@ public class TransportStartBlobAction
     protected void shardOperationOnReplica(StartBlobRequest request) {
         logger.trace("shardOperationOnReplica operating on replica {}", request);
         final StartBlobResponse response = newResponseInstance();
-        transferTarget.startTransfer(request.shardId().id(), request, response);
+        transferTarget.startTransfer(request, response);
     }
 
     @Override
     protected void resolveRequest(MetaData metaData, String concreteIndex, StartBlobRequest request) {
         ShardIterator shardIterator = clusterService.operationRouting().indexShards(
-                clusterService.state(), concreteIndex, null, request.id(), null);
+            clusterService.state(), concreteIndex, null, request.id(), null);
         request.setShardId(shardIterator.shardId());
     }
 

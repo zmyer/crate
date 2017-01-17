@@ -45,15 +45,15 @@ public class GeneratedColumnComparisonReplacer {
 
 
     private static final Map<String, String> ROUNDING_FUNCTION_MAPPING = ImmutableMap.of(
-            GtOperator.NAME, GteOperator.NAME,
-            LtOperator.NAME, LteOperator.NAME
+        GtOperator.NAME, GteOperator.NAME,
+        LtOperator.NAME, LteOperator.NAME
     );
 
     private static final Set<String> ROUNDING_FUNCTIONS = ImmutableSet.of(
-            CeilFunction.NAME,
-            FloorFunction.NAME,
-            RoundFunction.NAME,
-            DateTruncFunction.NAME
+        CeilFunction.NAME,
+        FloorFunction.NAME,
+        RoundFunction.NAME,
+        DateTruncFunction.NAME
     );
 
     private static final ComparisonReplaceVisitor COMPARISON_REPLACE_VISITOR = new ComparisonReplaceVisitor();
@@ -66,7 +66,7 @@ public class GeneratedColumnComparisonReplacer {
 
         private final static ReferenceReplacer REFERENCE_REPLACER = new ReferenceReplacer();
 
-        public static class Context {
+        static class Context {
             private final Multimap<Reference, GeneratedReference> referencedRefsToGeneratedColumn;
 
             public Context(Multimap<Reference, GeneratedReference> referencedRefsToGeneratedColumn) {
@@ -74,11 +74,11 @@ public class GeneratedColumnComparisonReplacer {
             }
         }
 
-        public ComparisonReplaceVisitor() {
-            super(false);
+        ComparisonReplaceVisitor() {
+            super(ReplaceMode.COPY);
         }
 
-        public Symbol addComparisons(Symbol symbol, DocTableInfo tableInfo) {
+        Symbol addComparisons(Symbol symbol, DocTableInfo tableInfo) {
             Multimap<Reference, GeneratedReference> referencedSingleReferences = extractGeneratedReferences(tableInfo);
             if (referencedSingleReferences.isEmpty()) {
                 return symbol;
@@ -134,7 +134,7 @@ public class GeneratedColumnComparisonReplacer {
                 Function generatedFunction = (Function) generatedReference.generatedExpression();
                 String operatorName = function.info().ident().name();
                 if (!operatorName.equals(EqOperator.NAME)) {
-                    if (!generatedFunction.info().comparisonReplacementPossible()) {
+                    if (!generatedFunction.info().features().contains(FunctionInfo.Feature.COMPARISON_REPLACEMENT)) {
                         return null;
                     }
                     // rewrite operator
@@ -148,7 +148,7 @@ public class GeneratedColumnComparisonReplacer {
 
                 Symbol wrapped = wrapInGenerationExpression(comparedAgainst, generatedReference);
                 FunctionInfo comparisonFunctionInfo = new FunctionInfo(new FunctionIdent(operatorName,
-                        Arrays.asList(generatedReference.valueType(), wrapped.valueType())), DataTypes.BOOLEAN);
+                    Arrays.asList(generatedReference.valueType(), wrapped.valueType())), DataTypes.BOOLEAN);
                 return new Function(comparisonFunctionInfo, Arrays.asList(generatedReference, wrapped));
 
             }
@@ -157,7 +157,7 @@ public class GeneratedColumnComparisonReplacer {
 
         private Symbol wrapInGenerationExpression(Symbol wrapMeLikeItsHot, Reference generatedReference) {
             ReferenceReplacer.Context ctx = new ReferenceReplacer.Context(wrapMeLikeItsHot,
-                    ((GeneratedReference) generatedReference).referencedReferences().get(0));
+                ((GeneratedReference) generatedReference).referencedReferences().get(0));
             return REFERENCE_REPLACER.process(((GeneratedReference) generatedReference).generatedExpression(), ctx);
         }
 
@@ -176,7 +176,7 @@ public class GeneratedColumnComparisonReplacer {
 
     private static class ReferenceReplacer extends ReplacingSymbolVisitor<ReferenceReplacer.Context> {
 
-        public static class Context {
+        static class Context {
 
             private final Symbol replaceWith;
             private final Reference toReplace;
@@ -187,8 +187,8 @@ public class GeneratedColumnComparisonReplacer {
             }
         }
 
-        public ReferenceReplacer() {
-            super(false);
+        ReferenceReplacer() {
+            super(ReplaceMode.COPY);
         }
 
         @Override

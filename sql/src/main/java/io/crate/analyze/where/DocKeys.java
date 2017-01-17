@@ -49,7 +49,7 @@ public class DocKeys implements Iterable<DocKeys.DocKey> {
         private final List<Symbol> key;
         private String id;
 
-        public DocKey(int pos) {
+        private DocKey(int pos) {
             key = docKeys.get(pos);
         }
 
@@ -104,7 +104,7 @@ public class DocKeys implements Iterable<DocKeys.DocKey> {
                    int clusteredByIdx,
                    @Nullable List<Integer> partitionIdx) {
         this.partitionIdx = partitionIdx;
-        assert ((docKeys != null) && (!docKeys.isEmpty()));
+        assert docKeys != null && !docKeys.isEmpty() : "docKeys must not be null nor empty";
         if (withVersions) {
             this.width = docKeys.get(0).size() - 1;
         } else {
@@ -146,9 +146,9 @@ public class DocKeys implements Iterable<DocKeys.DocKey> {
 
             @Override
             public void remove() {
-                throw new UnsupportedOperationException();
+                throw new UnsupportedOperationException("remove is not supported for " +
+                                                        DocKeys.class.getSimpleName() + "$iterator");
             }
         };
     }
-
 }

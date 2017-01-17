@@ -24,18 +24,23 @@ package io.crate.planner
 
 import io.crate.analyze.symbol.Literal
 import io.crate.metadata.doc.DocSysColumns
-import io.crate.planner.node.dql.CollectAndMerge
+import io.crate.planner.node.dql.Collect
 import io.crate.planner.node.dql.FileUriCollectPhase
 import io.crate.planner.projection.SourceIndexWriterProjection
+import io.crate.test.integration.CrateUnitTest
+import io.crate.testing.SQLExecutor
 import io.crate.testing.T3
 import org.apache.lucene.util.BytesRef
+import org.elasticsearch.test.cluster.NoopClusterService
 import org.junit.Test
 
-class CopyFromPlannerTest extends AbstractPlannerTest {
+class CopyFromPlannerTest extends CrateUnitTest {
+
+    SQLExecutor e = SQLExecutor.builder(new NoopClusterService()).enableDefaultTables().build();
 
     @Test
     public void testCopyFromPlan() throws Exception {
-        CollectAndMerge plan = plan("copy users from '/path/to/file.extension'");
+        Collect plan =  e.plan("copy users from '/path/to/file.extension'");
         assert plan.collectPhase() instanceof FileUriCollectPhase;
 
         FileUriCollectPhase collectPhase = (FileUriCollectPhase)plan.collectPhase();
@@ -44,46 +49,47 @@ class CopyFromPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testCopyFromNumReadersSetting() throws Exception {
-        CollectAndMerge plan = plan("copy users from '/path/to/file.extension' with (num_readers=1)");
+        Collect plan = e.plan("copy users from '/path/to/file.extension' with (num_readers=1)");
         assert plan.collectPhase() instanceof FileUriCollectPhase
         FileUriCollectPhase collectPhase = (FileUriCollectPhase) plan.collectPhase();
-        assert collectPhase.executionNodes().size() == 1
+        assert collectPhase.nodeIds().size() == 1
     }
 
     @Test
     public void testCopyFromPlanWithParameters() throws Exception {
-        CollectAndMerge collectAndMerge = plan("copy users from '/path/to/file.ext' with (bulk_size=30, compression='gzip', shared=true)");
-        assert collectAndMerge.collectPhase() instanceof FileUriCollectPhase
-        FileUriCollectPhase collectPhase = (FileUriCollectPhase)collectAndMerge.collectPhase();
+        Collect collect = e.plan("copy users " +
+                "from '/path/to/file.ext' with (bulk_size=30, compression='gzip', shared=true)");
+        assert collect.collectPhase() instanceof FileUriCollectPhase
+        FileUriCollectPhase collectPhase = (FileUriCollectPhase)collect.collectPhase();
         SourceIndexWriterProjection indexWriterProjection = (SourceIndexWriterProjection) collectPhase.projections().get(0);
         assert indexWriterProjection.bulkActions() == 30
         assert collectPhase.compression() == "gzip"
         assert collectPhase.sharedStorage()
 
         // verify defaults:
-        collectAndMerge = plan("copy users from '/path/to/file.ext'");
-        collectPhase = (FileUriCollectPhase)collectAndMerge.collectPhase();
+        collect = e.plan("copy users from '/path/to/file.ext'");
+        collectPhase = (FileUriCollectPhase)collect.collectPhase();
         assert collectPhase.compression() == null;
         assert collectPhase.sharedStorage() == null;
     }
 
     @Test
     public void test_IdIsNotCollectedOrUsedAsClusteredBy() throws Exception {
-        CollectAndMerge collectAndMerge = plan("copy t1 from '/path/file.ext'");
+        Collect collect = (Collect) e.plan("copy t1 from '/path/file.ext'");
         SourceIndexWriterProjection projection =
-                (SourceIndexWriterProjection) collectAndMerge.collectPhase().projections().get(0);
+                (SourceIndexWriterProjection) collect.collectPhase().projections().get(0);
         assert projection.clusteredBy() == null;
-        assert collectAndMerge.collectPhase().toCollect() == [T3.T1_INFO.getReference(DocSysColumns.RAW)]
+        assert collect.collectPhase().toCollect() == [T3.T1_INFO.getReference(DocSysColumns.RAW)]
     }
 
     @Test (expected = IllegalArgumentException.class)
     public void testCopyFromPlanWithInvalidParameters() throws Exception {
-        plan("copy users from '/path/to/file.ext' with (bulk_size=-28)");
+        e.plan("copy users from '/path/to/file.ext' with (bulk_size=-28)");
     }
 
     @Test
     public void testNodeFiltersNoMatch() throws Exception {
-        CollectAndMerge cm = plan("copy users from '/path' with (node_filters={name='foobar'})");
-        assert cm.collectPhase().executionNodes() == []
+        Collect cm = (Collect) e.plan("copy users from '/path' with (node_filters={name='foobar'})");
+        assert cm.collectPhase().nodeIds() == []
     }
 }

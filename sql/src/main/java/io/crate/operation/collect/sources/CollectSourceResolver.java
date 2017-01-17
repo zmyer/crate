@@ -22,13 +22,12 @@
 
 package io.crate.operation.collect.sources;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.crate.analyze.EvaluatingNormalizer;
 import io.crate.executor.transport.TransportActionProvider;
 import io.crate.metadata.Functions;
-import io.crate.metadata.NestedReferenceResolver;
 import io.crate.metadata.PartitionName;
+import io.crate.metadata.ReplaceMode;
 import io.crate.metadata.RowGranularity;
 import io.crate.metadata.information.InformationSchemaInfo;
 import io.crate.metadata.pg_catalog.PgCatalogSchemaInfo;
@@ -36,9 +35,10 @@ import io.crate.metadata.sys.SysClusterTableInfo;
 import io.crate.metadata.sys.SysNodesTableInfo;
 import io.crate.metadata.sys.SysSchemaInfo;
 import io.crate.metadata.table.TableInfo;
-import io.crate.operation.ImplementationSymbolVisitor;
+import io.crate.operation.InputFactory;
 import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.collect.JobCollectContext;
+import io.crate.operation.collect.RowsCollector;
 import io.crate.operation.projectors.ProjectionToProjectorVisitor;
 import io.crate.operation.projectors.ProjectorFactory;
 import io.crate.operation.projectors.RowReceiver;
@@ -60,8 +60,7 @@ import java.util.*;
 @Singleton
 public class CollectSourceResolver {
 
-    private static final VoidCollectSource VOID_COLLECT_SERVICE = new VoidCollectSource();
-
+    private final CollectSource emptyCollectSource;
     private final Map<String, CollectSource> nodeDocCollectSources = new HashMap<>();
     private final ShardCollectSource shardCollectSource;
     private final CollectSource fileCollectSource;
@@ -73,7 +72,6 @@ public class CollectSourceResolver {
     public CollectSourceResolver(ClusterService clusterService,
                                  IndexNameExpressionResolver indexNameExpressionResolver,
                                  Functions functions,
-                                 NestedReferenceResolver clusterReferenceResolver,
                                  Settings settings,
                                  ThreadPool threadPool,
                                  TransportActionProvider transportActionProvider,
@@ -89,22 +87,22 @@ public class CollectSourceResolver {
                                  NodeStatsCollectSource nodeStatsCollectSource) {
         this.clusterService = clusterService;
 
-        ImplementationSymbolVisitor nodeImplementationSymbolVisitor = new ImplementationSymbolVisitor(functions);
-        EvaluatingNormalizer normalizer = new EvaluatingNormalizer(functions, RowGranularity.NODE, clusterReferenceResolver);
+        EvaluatingNormalizer normalizer = EvaluatingNormalizer.functionOnlyNormalizer(functions, ReplaceMode.COPY);
         ProjectorFactory projectorFactory = new ProjectionToProjectorVisitor(
-                clusterService,
-                functions,
-                indexNameExpressionResolver,
-                threadPool,
-                settings,
-                transportActionProvider,
-                bulkRetryCoordinatorPool,
-                nodeImplementationSymbolVisitor,
-                normalizer
+            clusterService,
+            functions,
+            indexNameExpressionResolver,
+            threadPool,
+            settings,
+            transportActionProvider,
+            bulkRetryCoordinatorPool,
+            new InputFactory(functions),
+            normalizer
         );
         this.shardCollectSource = shardCollectSource;
         this.fileCollectSource = new ProjectorSetupCollectSource(fileCollectSource, projectorFactory);
         this.tableFunctionSource = new ProjectorSetupCollectSource(tableFunctionCollectSource, projectorFactory);
+        this.emptyCollectSource = new ProjectorSetupCollectSource(new VoidCollectSource(), projectorFactory);
 
         nodeDocCollectSources.put(SysClusterTableInfo.IDENT.fqn(), new ProjectorSetupCollectSource(singleRowSource, projectorFactory));
 
@@ -139,8 +137,10 @@ public class CollectSourceResolver {
 
         @Override
         public CollectSource visitRoutedCollectPhase(RoutedCollectPhase phase, Void context) {
-            assert phase.isRouted() : "collectPhase must contain a routing";
-            String localNodeId = clusterService.state().nodes().localNodeId();
+            if (!phase.isRouted()) {
+                return emptyCollectSource;
+            }
+            String localNodeId = clusterService.state().nodes().getLocalNodeId();
             Set<String> routingNodes = phase.routing().nodes();
             if (!routingNodes.contains(localNodeId)) {
                 throw new IllegalStateException("unsupported routing");
@@ -162,9 +162,10 @@ public class CollectSourceResolver {
             }
             if (phase.maxRowGranularity() == RowGranularity.DOC && PartitionName.isPartition(indexName)) {
                 // partitioned table without any shards; nothing to collect
-                return VOID_COLLECT_SERVICE;
+                return emptyCollectSource;
             }
-            assert indexShards.size() == 1 : "routing without shards that operates on non user-tables may only contain 1 index/table";
+            assert indexShards.size() ==
+                   1 : "routing without shards that operates on non user-tables may only contain 1 index/table";
             CollectSource collectSource = nodeDocCollectSources.get(indexName);
             if (collectSource == null) {
                 throw new IllegalStateException("Can't resolve CollectService for collectPhase: " + phase);
@@ -181,7 +182,7 @@ public class CollectSourceResolver {
 
         @Override
         public Collection<CrateCollector> getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
-            return ImmutableList.of();
+            return Collections.singletonList(RowsCollector.empty(downstream));
         }
     }
 }

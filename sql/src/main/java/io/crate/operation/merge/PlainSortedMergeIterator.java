@@ -32,7 +32,7 @@ import static com.google.common.collect.Iterators.peekingIterator;
 /**
  * MergingIterator like it is used in guava Iterators.mergedSort
  * It has (limited) shared object support.
- *
+ * <p>
  * And it also has a merge function with which additional backing iterators can be added to enable paging
  */
 class PlainSortedMergeIterator<TKey, TRow> extends UnmodifiableIterator<TRow> implements SortedMergeIterator<TKey, TRow> {
@@ -84,7 +84,7 @@ class PlainSortedMergeIterator<TKey, TRow> extends UnmodifiableIterator<TRow> im
     @Override
     public TRow next() {
         if (!hasNext()) {
-            throw new NoSuchElementException();
+            throw new NoSuchElementException("no more rows should exist");
         }
         lastUsedIter = queue.remove();
         return lastUsedIter.next();

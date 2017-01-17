@@ -30,7 +30,6 @@ import io.crate.core.collections.BucketPage;
 import io.crate.operation.PageConsumeListener;
 import io.crate.operation.PageDownstream;
 import io.crate.operation.PageResultListener;
-import io.crate.operation.projectors.FlatProjectorChain;
 import org.elasticsearch.common.logging.ESLogger;
 
 import javax.annotation.Nonnull;
@@ -43,9 +42,10 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
 
     private final Object lock = new Object();
     private final String nodeName;
+    private final boolean traceEnabled;
     private String name;
     private final PageDownstream pageDownstream;
-    private final Streamer<?>[] streamer;
+    private final Streamer<?>[] streamers;
     private final RamAccountingContext ramAccountingContext;
     private final int numBuckets;
     private final ArrayList<SettableFuture<Bucket>> bucketFutures;
@@ -53,30 +53,26 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     private final BitSet exhausted;
     private final ArrayList<PageResultListener> listeners = new ArrayList<>();
 
-    @Nullable
-    private final FlatProjectorChain projectorChain;
-
     public PageDownstreamContext(ESLogger logger,
                                  String nodeName,
                                  int id,
                                  String name,
                                  PageDownstream pageDownstream,
-                                 Streamer<?>[] streamer,
+                                 Streamer<?>[] streamers,
                                  RamAccountingContext ramAccountingContext,
-                                 int numBuckets,
-                                 @Nullable FlatProjectorChain projectorChain) {
+                                 int numBuckets) {
         super(id, logger);
         this.nodeName = nodeName;
         this.name = name;
         this.pageDownstream = pageDownstream;
-        this.streamer = streamer;
+        this.streamers = streamers;
         this.ramAccountingContext = ramAccountingContext;
         this.numBuckets = numBuckets;
-        this.projectorChain = projectorChain;
         bucketFutures = new ArrayList<>(numBuckets);
         allFuturesSet = new BitSet(numBuckets);
         exhausted = new BitSet(numBuckets);
         initBucketFutures();
+        traceEnabled = logger.isTraceEnabled();
     }
 
     private void initBucketFutures() {
@@ -107,8 +103,8 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
             traceLog("method=setBucket", bucketIdx);
             if (allFuturesSet.get(bucketIdx)) {
                 pageDownstream.fail(new IllegalStateException(String.format(Locale.ENGLISH,
-                        "Same bucket of a page set more than once. node=%s method=setBucket phaseId=%d bucket=%d",
-                        nodeName, id, bucketIdx)));
+                    "Same bucket of a page set more than once. node=%s method=setBucket phaseId=%d bucket=%d",
+                    nodeName, id, bucketIdx)));
                 return;
             }
 
@@ -130,40 +126,56 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     }
 
     private void traceLog(String msg, int bucketIdx) {
-        if (logger.isTraceEnabled()) {
+        if (traceEnabled) {
             logger.trace("{} phaseId={} bucket={}", msg, id, bucketIdx);
         }
     }
 
     private void traceLog(String msg, int bucketIdx, Throwable t) {
-        if (logger.isTraceEnabled()) {
+        if (traceEnabled) {
             logger.trace("{} phaseId={} bucket={} throwable={}", msg, id, bucketIdx, t);
         }
     }
 
     @Override
-    public synchronized void failure(int bucketIdx, Throwable throwable) {
-        // can't trigger failure on pageDownstream immediately as it would remove the context which the other
-        // upstreams still require
+    public void failure(int bucketIdx, Throwable throwable) {
+        traceLog("method=failure", bucketIdx, throwable);
         synchronized (lock) {
-            traceLog("method=failure", bucketIdx, throwable);
             if (allFuturesSet.get(bucketIdx)) {
                 pageDownstream.fail(new IllegalStateException(String.format(Locale.ENGLISH,
-                        "Same bucket of a page set more than once. node=%s method=failure phaseId=%d bucket=%d",
-                        nodeName, id(), bucketIdx)));
+                    "Same bucket of a page set more than once. node=%s method=failure phaseId=%d bucket=%d",
+                    nodeName, id(), bucketIdx)));
                 return;
             }
-            if (pageEmpty()) {
-                traceLog("calling nextPage. method=failure", bucketIdx);
-                pageDownstream.nextPage(new BucketPage(bucketFutures), new ResultListenerBridgingConsumeListener());
-            }
-            setExhaustedUpstreams();
-
-            exhausted.set(bucketIdx);
-            bucketFutures.get(bucketIdx).setException(throwable);
-            allFuturesSet.set(bucketIdx);
-            clearPageIfFull(bucketIdx);
+            setBucketFailure(bucketIdx, throwable);
         }
+    }
+
+    @Override
+    public void killed(int bucketIdx, Throwable throwable) {
+        traceLog("method=killed", bucketIdx, throwable);
+        synchronized (lock) {
+            if (allFuturesSet.get(bucketIdx)) {
+                traceLog("method=killed future already set", bucketIdx);
+                return;
+            }
+            setBucketFailure(bucketIdx, throwable);
+        }
+    }
+
+    private void setBucketFailure(int bucketIdx, Throwable throwable) {
+        // can't trigger failure on pageDownstream immediately as it would remove the context which the other
+        // upstreams still require
+        if (pageEmpty()) {
+            traceLog("calling nextPage. method=setBucketFailure", bucketIdx);
+            pageDownstream.nextPage(new BucketPage(bucketFutures), new ResultListenerBridgingConsumeListener());
+        }
+        setExhaustedUpstreams();
+
+        exhausted.set(bucketIdx);
+        bucketFutures.get(bucketIdx).setException(throwable);
+        allFuturesSet.set(bucketIdx);
+        clearPageIfFull(bucketIdx);
     }
 
     private void clearPageIfFull(int bucketIdx) {
@@ -187,32 +199,28 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     }
 
     @Override
-    public Streamer<?>[] streamer() {
-        return streamer;
+    public Streamer<?>[] streamers() {
+        return streamers;
     }
 
     @Override
     protected void innerClose(@Nullable Throwable throwable) {
-        if (throwable == null){
+        if (throwable == null) {
             pageDownstream.finish();
         } else {
             pageDownstream.fail(throwable);
         }
-
-        future.bytesUsed(ramAccountingContext.totalBytes());
-        ramAccountingContext.close();
     }
 
     @Override
     protected void innerKill(@Nonnull Throwable t) {
-        innerClose(t);
+        pageDownstream.kill(t);
     }
 
     @Override
-    public void innerPrepare() {
-        if (projectorChain != null) {
-            projectorChain.prepare();
-        }
+    public void cleanup() {
+        future.bytesUsed(ramAccountingContext.totalBytes());
+        ramAccountingContext.close();
     }
 
     @Override
@@ -254,7 +262,7 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         public void needMore() {
             boolean allExhausted = allExhausted();
             synchronized (listeners) {
-                if (logger.isTraceEnabled()) {
+                if (traceEnabled) {
                     logger.trace("phase={} allExhausted={}", id, allExhausted);
                     logger.trace("calling needMore on all listeners({}) phase={}", listeners.size(), id);
                 }
@@ -275,7 +283,7 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         @Override
         public void finish() {
             synchronized (listeners) {
-                if (logger.isTraceEnabled()) {
+                if (traceEnabled) {
                     logger.trace("calling finish() on all listeners({}) phase={}", listeners.size(), id);
                 }
                 for (PageResultListener listener : listeners) {

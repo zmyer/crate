@@ -25,33 +25,35 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import io.crate.analyze.symbol.*;
+import io.crate.analyze.symbol.ValueSymbolVisitor;
 import io.crate.analyze.where.DocKeys;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Buckets;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.Sorted;
 import io.crate.metadata.*;
-import io.crate.operation.Input;
 import io.crate.operation.aggregation.impl.AggregationImplModule;
 import io.crate.operation.operator.OperatorModule;
 import io.crate.operation.predicate.PredicateModule;
 import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.operation.tablefunctions.TableFunctionModule;
-import io.crate.sql.Identifiers;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.inject.ModulesBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.threadpool.ThreadPool;
-import org.hamcrest.*;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
+import org.hamcrest.TypeSafeDiagnosingMatcher;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Array;
@@ -64,10 +66,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.Matchers.contains;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.*;
 
 public class TestingHelpers {
@@ -133,7 +132,7 @@ public class TestingHelpers {
             out.print("]");
         } else if (o instanceof Map) {
             out.print("{");
-            out.print(MAP_JOINER.join(Sorted.sortRecursive((Map<String, Object>)o, true)));
+            out.print(MAP_JOINER.join(Sorted.sortRecursive((Map<String, Object>) o, true)));
             out.print("}");
         } else {
             out.print(o.toString());
@@ -149,11 +148,11 @@ public class TestingHelpers {
 
     public static Functions getFunctions() {
         return new ModulesBuilder()
-                .add(new AggregationImplModule())
-                .add(new PredicateModule())
-                .add(new TableFunctionModule())
-                .add(new ScalarFunctionModule())
-                .add(new OperatorModule()).createInjector().getInstance(Functions.class);
+            .add(new AggregationImplModule())
+            .add(new PredicateModule())
+            .add(new TableFunctionModule())
+            .add(new ScalarFunctionModule())
+            .add(new OperatorModule()).createInjector().getInstance(Functions.class);
     }
 
     public static Reference createReference(String columnName, DataType dataType) {
@@ -166,9 +165,9 @@ public class TestingHelpers {
 
     public static Reference createReference(String tableName, ColumnIdent columnIdent, DataType dataType) {
         return new Reference(
-                new ReferenceIdent(new TableIdent(null, tableName), columnIdent),
-                RowGranularity.DOC,
-                dataType);
+            new ReferenceIdent(new TableIdent(null, tableName), columnIdent),
+            RowGranularity.DOC,
+            dataType);
     }
 
     public static String readFile(String path) throws IOException {
@@ -176,50 +175,19 @@ public class TestingHelpers {
         return new BytesRef(encoded).utf8ToString();
     }
 
-    public static Matcher<Symbol> isLiteral(Object expectedValue) {
-        return isLiteral(expectedValue, null);
-    }
-
-    public static Matcher<Symbol> hasDataType(DataType type) {
-        return new FeatureMatcher<Symbol, DataType>(equalTo(type), "valueType", "valueType") {
-            @Override
-            protected DataType featureValueOf(Symbol actual) {
-                return actual.valueType();
-            }
-        };
-    }
-
-    private static Matcher<Symbol> hasValue(Object expectedValue) {
-        return new FeatureMatcher<Symbol, Object>(equalTo(expectedValue), "value", "value") {
-            @Override
-            protected Object featureValueOf(Symbol actual) {
-                return ((Input) actual).value();
-            }
-        };
-    }
-
-    public static Matcher<Symbol> isLiteral(Object expectedValue, @Nullable final DataType type) {
-        if (expectedValue instanceof String) {
-            expectedValue = new BytesRef(((String) expectedValue));
-        }
-        if (type == null) {
-            return Matchers.allOf(Matchers.instanceOf(Literal.class), hasValue(expectedValue));
-        }
-        return Matchers.allOf(Matchers.instanceOf(Literal.class), hasValue(expectedValue), hasDataType(type));
-    }
 
     private static final com.google.common.base.Function<Object, Object> bytesRefToString =
-            new com.google.common.base.Function<Object, Object>() {
+        new com.google.common.base.Function<Object, Object>() {
 
-                @Nullable
-                @Override
-                public Object apply(@Nullable Object input) {
-                    if (input instanceof BytesRef) {
-                        return ((BytesRef) input).utf8ToString();
-                    }
-                    return input;
+            @Nullable
+            @Override
+            public Object apply(@Nullable Object input) {
+                if (input instanceof BytesRef) {
+                    return ((BytesRef) input).utf8ToString();
                 }
-            };
+                return input;
+            }
+        };
 
     public static Matcher<Row> isNullRow() {
         return isRow((Object) null);
@@ -235,18 +203,18 @@ public class TestingHelpers {
             protected boolean matchesSafely(Row item, Description mismatchDescription) {
                 if (item.size() != expected.size()) {
                     mismatchDescription.appendText("row size does not match: ")
-                            .appendValue(item.size()).appendText(" != ").appendValue(expected.size());
+                        .appendValue(item.size()).appendText(" != ").appendValue(expected.size());
                     return false;
                 }
                 for (int i = 0; i < item.size(); i++) {
                     Object actual = bytesRefToString.apply(item.get(i));
                     if (!Objects.equals(expected.get(i), actual)) {
                         mismatchDescription.appendText("value at pos ")
-                                .appendValue(i)
-                                .appendText(" does not match: ")
-                                .appendValue(expected.get(i))
-                                .appendText(" != ")
-                                .appendValue(actual);
+                            .appendValue(i)
+                            .appendText(" does not match: ")
+                            .appendValue(expected.get(i))
+                            .appendText(" != ")
+                            .appendValue(actual);
                         return false;
                     }
                 }
@@ -256,7 +224,7 @@ public class TestingHelpers {
             @Override
             public void describeTo(Description description) {
                 description.appendText("is Row with cells: ")
-                        .appendValue(expected);
+                    .appendValue(expected);
             }
         };
     }
@@ -271,7 +239,7 @@ public class TestingHelpers {
             @Override
             protected boolean matchesSafely(DocKeys.DocKey item, Description mismatchDescription) {
                 List objects = Lists.transform(
-                        Lists.transform(item.values(), ValueSymbolVisitor.VALUE.function), bytesRefToString);
+                    Lists.transform(item.values(), ValueSymbolVisitor.VALUE.function), bytesRefToString);
                 if (!expected.equals(objects)) {
                     mismatchDescription.appendText("is DocKey with values: ").appendValue(objects);
                     return false;
@@ -282,184 +250,7 @@ public class TestingHelpers {
             @Override
             public void describeTo(Description description) {
                 description.appendText("is DocKey with values: ")
-                        .appendValue(expected);
-            }
-        };
-    }
-
-
-
-    public static Matcher<Symbol> isInputColumn(final Integer index) {
-        return both(Matchers.<Symbol>instanceOf(InputColumn.class)).and(
-                new FeatureMatcher<Symbol, Integer>(equalTo(index), "index", "index") {
-                    @Override
-                    protected Integer featureValueOf(Symbol actual) {
-                        return ((InputColumn) actual).index();
-                    }
-                });
-    }
-
-    public static Matcher<Symbol> isField(final String expectedName) {
-        return isField(expectedName, null);
-    }
-
-    public static Matcher<Symbol> isField(final String expectedName, @Nullable final DataType dataType) {
-        return new TypeSafeDiagnosingMatcher<Symbol>() {
-
-            @Override
-            public boolean matchesSafely(Symbol item, Description desc) {
-                if (!(item instanceof Field)) {
-                    desc.appendText("not a Field: ").appendText(item.getClass().getName());
-                    return false;
-                }
-                String name = ((Field) item).path().outputName();
-                if (!name.equals(expectedName)) {
-                    desc.appendText("different path ").appendValue(name);
-                    return false;
-                }
-                if (dataType != null && !((Field) item).valueType().equals(dataType)) {
-                    desc.appendText("different type ").appendValue(dataType.toString());
-                }
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                StringBuilder builder = new StringBuilder("a Field with path ").append(expectedName);
-                if (dataType != null) {
-                    builder.append(" and type").append(dataType.toString());
-                }
-                description.appendText(builder.toString());
-            }
-        };
-    }
-
-    public static Matcher<Symbol> isFetchRef(int docIdIdx, String ref) {
-        return isFetchRef(isInputColumn(docIdIdx), isReference(ref));
-    }
-
-    public static Matcher<Symbol> isFetchRef(Matcher<Symbol> docIdMatcher, Matcher<Symbol> refMatcher) {
-
-        FeatureMatcher<Symbol, Symbol> m1 = new FeatureMatcher<Symbol, Symbol>(
-                docIdMatcher, "docId", "docId"
-        ) {
-            @Override
-            protected Symbol featureValueOf(Symbol actual) {
-                return ((FetchReference) actual).docId();
-            }
-        };
-
-        FeatureMatcher<Symbol, Symbol> m2 = new FeatureMatcher<Symbol, Symbol>(
-                refMatcher, "ref", "ref"
-        ) {
-            @Override
-            protected Symbol featureValueOf(Symbol actual) {
-                return ((FetchReference) actual).ref();
-            }
-        };
-        return allOf(Matchers.<Symbol>instanceOf(FetchReference.class), m1, m2);
-
-    }
-
-    public static Matcher<Symbol> isReference(String expectedName) {
-        return isReference(expectedName, null);
-    }
-
-    public static Matcher<Symbol> isReference(final String expectedName, @Nullable final DataType dataType) {
-        return new TypeSafeDiagnosingMatcher<Symbol>() {
-
-            @Override
-            public boolean matchesSafely(Symbol item, Description desc) {
-                if (!(item instanceof Reference)) {
-                    desc.appendText("not a Reference: ").appendText(item.getClass().getName());
-                    return false;
-                }
-                String name = ((Reference) item).ident().columnIdent().outputName();
-                if (!name.equals(Identifiers.quoteIfNeeded(expectedName))) {
-                    desc.appendText("different name ").appendValue(name);
-                    return false;
-                }
-                if (dataType != null && !item.valueType().equals(dataType)) {
-                    desc.appendText("different type ").appendValue(dataType.toString());
-                }
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                StringBuilder builder = new StringBuilder("a Reference with name ").append(expectedName);
-                if (dataType != null) {
-                    builder.append(" and type").append(dataType.toString());
-                }
-                description.appendText(builder.toString());
-            }
-        };
-    }
-
-    public static Matcher<Symbol> isFunction(final String name, Matcher<Symbol>... argMatchers) {
-        FeatureMatcher<Symbol, Collection<Symbol>> ma = new FeatureMatcher<Symbol, Collection<Symbol>>(
-                contains(argMatchers), "args", "args") {
-            @Override
-            protected Collection<Symbol> featureValueOf(Symbol actual) {
-                return ((Function) actual).arguments();
-            }
-        };
-        return both(isFunction(name)).and(ma);
-    }
-
-    public static Matcher<Symbol> isFunction(String name) {
-        FeatureMatcher<Symbol, String> mn = new FeatureMatcher<Symbol, String>(
-                equalTo(name), "name", "name") {
-            @Override
-            protected String featureValueOf(Symbol actual) {
-                return ((Function) actual).info().ident().name();
-            }
-        };
-        return both(Matchers.<Symbol>instanceOf(Function.class)).and(mn);
-    }
-
-    public static Matcher<Symbol> isFunction(final String name, @Nullable final List<DataType> argumentTypes) {
-        return new TypeSafeDiagnosingMatcher<Symbol>() {
-            @Override
-            public boolean matchesSafely(Symbol item, Description mismatchDescription) {
-                if (!(item instanceof Function)) {
-                    mismatchDescription.appendText("not a Function: ").appendValue(item.getClass().getName());
-                    return false;
-                }
-                FunctionIdent actualIdent = ((Function) item).info().ident();
-                if (!actualIdent.name().equals(name)) {
-                    mismatchDescription.appendText("wrong Function: ").appendValue(actualIdent.name());
-                    return false;
-                }
-                if (argumentTypes != null) {
-                    if (actualIdent.argumentTypes().size() != argumentTypes.size()) {
-                        mismatchDescription.appendText("wrong number of arguments: ").appendValue(actualIdent.argumentTypes().size());
-                        return false;
-                    }
-
-                    List<DataType> types = ((Function) item).info().ident().argumentTypes();
-                    for (int i = 0, typesSize = types.size(); i < typesSize; i++) {
-                        DataType type = types.get(i);
-                        DataType expected = argumentTypes.get(i);
-                        if (!expected.equals(type)) {
-                            mismatchDescription.appendText("argument ").appendValue(
-                                    i + 1).appendText(" has wrong type ").appendValue(type.toString());
-                            return false;
-                        }
-                    }
-                }
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("is function ").appendText(name);
-                if (argumentTypes != null) {
-                    description.appendText(" with argument types: ");
-                    for (DataType type : argumentTypes) {
-                        description.appendText(type.toString()).appendText(" ");
-                    }
-                }
+                    .appendValue(expected);
             }
         };
     }
@@ -557,13 +348,13 @@ public class TestingHelpers {
         return result;
     }
 
-    public static <T, K extends Comparable> Matcher<Iterable<T>> isSortedBy(final com.google.common.base.Function<T,K> extractSortingKeyFunction) {
+    public static <T, K extends Comparable> Matcher<Iterable<? extends T>> isSortedBy(final com.google.common.base.Function<T, K> extractSortingKeyFunction) {
         return isSortedBy(extractSortingKeyFunction, false, null);
     }
 
-    public static <T, K extends Comparable> Matcher<Iterable<T>> isSortedBy(final com.google.common.base.Function<T,K> extractSortingKeyFunction,
-                                                                            final boolean descending,
-                                                                            @Nullable final Boolean nullsFirst) {
+    public static <T, K extends Comparable> Matcher<Iterable<? extends T>> isSortedBy(final com.google.common.base.Function<T, K> extractSortingKeyFunction,
+                                                                                      final boolean descending,
+                                                                                      @Nullable final Boolean nullsFirst) {
         Ordering<K> ordering = Ordering.natural();
         if (descending) {
             ordering = ordering.reverse();
@@ -575,9 +366,9 @@ public class TestingHelpers {
         }
         final Ordering<K> ord = ordering;
 
-        return new TypeSafeDiagnosingMatcher<Iterable<T>>() {
+        return new TypeSafeDiagnosingMatcher<Iterable<? extends T>>() {
             @Override
-            protected boolean matchesSafely(Iterable<T> item, Description mismatchDescription) {
+            protected boolean matchesSafely(Iterable<? extends T> item, Description mismatchDescription) {
                 K previous = null;
                 int i = 0;
                 for (T elem : item) {
@@ -585,12 +376,12 @@ public class TestingHelpers {
                     if (previous != null) {
                         if (ord.compare(previous, current) > 0) {
                             mismatchDescription
-                                    .appendText("element ").appendValue(current)
-                                    .appendText(" at position ").appendValue(i)
-                                    .appendText(" is ")
-                                    .appendText(descending ? "bigger" : "smaller")
-                                    .appendText(" than previous element ")
-                                    .appendValue(previous);
+                                .appendText("element ").appendValue(current)
+                                .appendText(" at position ").appendValue(i)
+                                .appendText(" is ")
+                                .appendText(descending ? "bigger" : "smaller")
+                                .appendText(" than previous element ")
+                                .appendValue(previous);
                             return false;
                         }
                     }
@@ -612,13 +403,13 @@ public class TestingHelpers {
         };
     }
 
-    public static Matcher<Iterable<Row>> hasSortedRows(final int sortingPos, final boolean reverse, @Nullable final Boolean nullsFirst) {
-        return TestingHelpers.<Row, Comparable>isSortedBy(new com.google.common.base.Function<Row, Comparable>() {
+    public static Matcher<Iterable<? extends Row>> hasSortedRows(final int sortingPos, final boolean reverse, @Nullable final Boolean nullsFirst) {
+        return TestingHelpers.isSortedBy(new com.google.common.base.Function<Row, Comparable>() {
             @Nullable
             @Override
             public Comparable apply(@Nullable Row input) {
                 assert input != null;
-                return (Comparable)input.get(sortingPos);
+                return (Comparable) input.get(sortingPos);
             }
         }, reverse, nullsFirst);
     }
@@ -637,7 +428,7 @@ public class TestingHelpers {
 
     /**
      * Convert {@param s} into UTF8 encoded BytesRef with random offset and extra length
-     *
+     * <p>
      * This should be preferred over `new BytesRef` in tests to make sure that implementations using BytesRef
      * handle offset and length correctly (use {@link BytesRef#length} instead of {@link BytesRef#bytes#length}
      */
@@ -652,5 +443,16 @@ public class TestingHelpers {
         random.nextBytes(buffer);
         System.arraycopy(strBytes, 0, buffer, offset, strBytes.length);
         return new BytesRef(buffer, offset, strBytes.length);
+    }
+
+    /**
+     * Converts file path separators of a string into canonical form
+     * e.g. Windows: "/test/" --> "\test\"
+     *      UNIX: "/test/"   --> "/test/"
+     * @param str The string that contains file path separator
+     * @return the resolved string
+     */
+    public static String resolveCanonicalString(String str) {
+        return str.replaceAll("/", java.util.regex.Matcher.quoteReplacement(File.separator));
     }
 }

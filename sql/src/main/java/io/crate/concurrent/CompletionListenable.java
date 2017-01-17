@@ -22,8 +22,9 @@
 
 package io.crate.concurrent;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
 public interface CompletionListenable {
 
-    void addListener(CompletionListener listener);
-
+    ListenableFuture<?> completionFuture();
 }

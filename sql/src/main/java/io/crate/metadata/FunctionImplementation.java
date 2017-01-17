@@ -21,11 +21,12 @@
 
 package io.crate.metadata;
 
+import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.Symbol;
 
 import javax.annotation.Nullable;
 
-public interface FunctionImplementation<SymbolType extends Symbol> {
+public interface FunctionImplementation {
 
     FunctionInfo info();
 
@@ -33,9 +34,9 @@ public interface FunctionImplementation<SymbolType extends Symbol> {
      * Normalize a symbol into a simplified form.
      * This may return the symbol as is if it cannot be normalized.
      *
-     * @param stmtCtx context which is shared across normalizeSymbol calls during a statement-lifecycle.
+     * @param transactionContext context which is shared across normalizeSymbol calls during a statement-lifecycle.
      *                This will only be present if normalizeSymbol is called on the handler node.
      *                normalizeSymbol calls during execution won't receive a StmtCtx
      */
-    Symbol normalizeSymbol(SymbolType symbol, @Nullable StmtCtx stmtCtx);
+    Symbol normalizeSymbol(Function function, @Nullable TransactionContext transactionContext);
 }

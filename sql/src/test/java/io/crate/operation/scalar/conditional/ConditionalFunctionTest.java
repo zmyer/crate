@@ -76,14 +76,66 @@ public class ConditionalFunctionTest extends AbstractScalarFunctionsTest {
     @Test
     public void testNullIf() throws Exception {
         assertEvaluate("nullif(10, 12)", 10L);
-        assertEvaluate("nullif(name, 'foo')", null, Literal.newLiteral("foo"));
+        assertEvaluate("nullif(name, 'foo')", null, Literal.of("foo"));
         assertEvaluate("nullif(null, 'foo')", null);
     }
 
     @Test
     public void testNullIfInvalidArgsLength() throws Exception {
         expectedException.expect(UnsupportedOperationException.class);
-        expectedException.expectMessage("invalid size of arguments, 2 expected");
+        expectedException.expectMessage("unknown function: nullif(long, long, long)");
         assertEvaluate("nullif(1, 2, 3)", null);
+    }
+
+    @Test
+    public void testCase() throws Exception {
+        assertEvaluate("case name when 'foo' then 'hello foo' when 'bar' then 'hello bar' end",
+            "hello foo",
+            Literal.of("foo"), Literal.of("foo"));
+        assertEvaluate("case name when 'foo' then 'hello foo' when 'bar' then 'hello bar' else 'hello stranger' end",
+            "hello stranger",
+            Literal.of("hoschi"), Literal.of("hoschi"));
+        assertEvaluate("case when name = 'foo' then 'hello foo' when name = 'bar' then 'hello bar' end",
+            "hello foo",
+            Literal.of("foo"), Literal.of("foo"));
+        assertEvaluate("case when name = 'foo' then 'hello foo' when name = 'bar' then 'hello bar' else 'hello stranger' end",
+            "hello stranger",
+            Literal.of("hoschi"), Literal.of("hoschi"));
+
+        // test that result expression is only evaluated if the condition is true
+        assertEvaluate("case when id != 0 then 10/id > 1.5 else false end",
+            false,
+            Literal.of(0), Literal.of(0));
+
+        // testing nested case statements
+        assertEvaluate("case when id != 0 then case when id = 1 then true end else false end",
+            true,
+            Literal.of(1), Literal.of(1));
+    }
+
+    @Test
+    public void testCaseIncompatibleTypes() throws Exception {
+        expectedException.expect(UnsupportedOperationException.class);
+        expectedException.expectMessage("Data types of all result expressions of a CASE statement must be equal, " +
+                                        "found: [string, long]");
+        assertEvaluate("case name when 'foo' then 'hello foo' when 'bar' then 1 end",
+            "hello foo",
+            Literal.of("foo"), Literal.of("foo"));
+    }
+
+    @Test
+    public void testIf() throws Exception {
+        assertEvaluate("if(id = 0, 'zero', 'other')", "zero", Literal.of(0), Literal.of(0));
+        assertEvaluate("if(id = 0, 'zero', if(id = 1, 'one', 'other'))", "one", Literal.of(1), Literal.of(1));
+    }
+
+    @Test
+    public void testCaseWithDifferentOperandTypes() throws Exception {
+        // x = long
+        // a = integer
+        String expression = "case x + 1 when a then 111 end";
+        assertEvaluate(expression, 111L,
+            Literal.of(110L),    // x
+            Literal.of(111));    // a
     }
 }

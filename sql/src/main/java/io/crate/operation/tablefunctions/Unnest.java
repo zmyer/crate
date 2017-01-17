@@ -51,7 +51,7 @@ public class Unnest implements TableFunctionImplementation {
      * @param arguments collection of array-literals
      *                  e.g. [ [1, 2], [Marvin, Trillian] ]
      * @return Bucket containing the unnested rows.
-     *         [ [1, Marvin], [2, Trillian] ]
+     * [ [1, Marvin], [2, Trillian] ]
      */
     @Override
     public Bucket execute(Collection<? extends Input> arguments) {
@@ -82,7 +82,7 @@ public class Unnest implements TableFunctionImplementation {
                     @Override
                     public Row next() {
                         if (!hasNext()) {
-                            throw new NoSuchElementException();
+                            throw new NoSuchElementException("No more rows");
                         }
                         for (int c = 0; c < numCols; c++) {
                             Object[] columnValues = values.get(c);
@@ -98,7 +98,8 @@ public class Unnest implements TableFunctionImplementation {
 
                     @Override
                     public void remove() {
-                        throw new UnsupportedOperationException();
+                        throw new UnsupportedOperationException("remove is not supported for " +
+                                                                Unnest.class.getSimpleName() + "$iterator");
                     }
                 };
             }
@@ -133,10 +134,11 @@ public class Unnest implements TableFunctionImplementation {
         final TableIdent tableIdent = new TableIdent(null, NAME);
         ColumnRegistrar columnRegistrar = new ColumnRegistrar(tableIdent, RowGranularity.DOC);
         for (int i = 0; i < argumentTypes.size(); i++) {
-            columnRegistrar.register(new ColumnIdent("col" + (i + 1)), ((CollectionType) argumentTypes.get(i)).innerType());
+            columnRegistrar.register(new ColumnIdent(
+                "col" + (i + 1)), ((CollectionType) argumentTypes.get(i)).innerType());
         }
 
-        final String localNodeId = clusterService.localNode().id();
+        final String localNodeId = clusterService.localNode().getId();
         return new StaticTableInfo(tableIdent, columnRegistrar, Collections.<ColumnIdent>emptyList()) {
             @Override
             public RowGranularity rowGranularity() {
@@ -159,8 +161,8 @@ public class Unnest implements TableFunctionImplementation {
             DataType dataType = it.next();
             if (dataType.id() != ArrayType.ID) {
                 throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                        "unnest expects arguments of type array. " +
-                        "Got an argument of type '%s' at position %d instead.", dataType, it.previousIndex()));
+                    "unnest expects arguments of type array. " +
+                    "Got an argument of type '%s' at position %d instead.", dataType, it.previousIndex()));
             }
         }
     }

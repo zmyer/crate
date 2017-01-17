@@ -23,7 +23,6 @@ package io.crate.operation.scalar.arithmetic;
 
 import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.format.OperatorFormatSpec;
-import io.crate.metadata.DynamicFunctionResolver;
 import io.crate.metadata.FunctionImplementation;
 import io.crate.metadata.FunctionInfo;
 import io.crate.operation.Input;
@@ -35,13 +34,13 @@ import java.util.List;
 public abstract class MultiplyFunction extends ArithmeticFunction implements OperatorFormatSpec {
 
     public static final String NAME = "multiply";
-    public static final String SQL_SYMBOL = "*";
+    private static final String SQL_SYMBOL = "*";
 
     public static void register(ScalarFunctionModule module) {
         module.register(NAME, new Resolver());
     }
 
-    public MultiplyFunction(FunctionInfo info) {
+    MultiplyFunction(FunctionInfo info) {
         super(info);
     }
 
@@ -52,13 +51,13 @@ public abstract class MultiplyFunction extends ArithmeticFunction implements Ope
 
     private static class DoubleMultiplyFunction extends MultiplyFunction {
 
-        public DoubleMultiplyFunction(FunctionInfo info) {
+        DoubleMultiplyFunction(FunctionInfo info) {
             super(info);
         }
 
         @Override
         public Number evaluate(Input[] args) {
-            assert args.length == 2;
+            assert args.length == 2 : "number of args must be 2";
             Object arg0Value = args[0].value();
             Object arg1Value = args[1].value();
 
@@ -74,13 +73,13 @@ public abstract class MultiplyFunction extends ArithmeticFunction implements Ope
 
     private static class LongMultiplyFunction extends MultiplyFunction {
 
-        public LongMultiplyFunction(FunctionInfo info) {
+        LongMultiplyFunction(FunctionInfo info) {
             super(info);
         }
 
         @Override
         public Number evaluate(Input[] args) {
-            assert args.length == 2;
+            assert args.length == 2 : "number of args must be 2";
             Object arg0Value = args[0].value();
             Object arg1Value = args[1].value();
 
@@ -94,11 +93,10 @@ public abstract class MultiplyFunction extends ArithmeticFunction implements Ope
         }
     }
 
-    private static class Resolver implements DynamicFunctionResolver {
+    private static class Resolver extends ArithmeticFunctionResolver {
 
         @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-            validateTypes(dataTypes);
+        public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
             if (containsTypesWithDecimal(dataTypes)) {
                 return new DoubleMultiplyFunction(genDoubleInfo(NAME, dataTypes));
             }

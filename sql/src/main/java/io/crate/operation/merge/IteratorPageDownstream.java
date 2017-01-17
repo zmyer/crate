@@ -171,7 +171,7 @@ public class IteratorPageDownstream implements PageDownstream, ResumeHandle, Rep
             lastListener = PageConsumeListener.NO_OP_LISTENER;
             processBuckets(iterator, PageConsumeListener.NO_OP_LISTENER);
         } catch (Throwable t) {
-            fail(t);
+            rowReceiver.fail(t);
         }
     }
 
@@ -183,5 +183,10 @@ public class IteratorPageDownstream implements PageDownstream, ResumeHandle, Rep
             fail(t);
             lastListener.finish();
         }
+    }
+
+    @Override
+    public void kill(Throwable t) {
+        rowReceiver.kill(t);
     }
 }

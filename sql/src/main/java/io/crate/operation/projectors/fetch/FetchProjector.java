@@ -65,14 +65,13 @@ public class FetchProjector extends AbstractProjector {
     private ResumeHandle resumeHandle = ResumeHandle.INVALID;
 
     enum Stage {
-        INIT,
         COLLECT,
         FETCH,
         EMIT,
         FINALIZE
     }
 
-    private final AtomicReference<Stage> stage = new AtomicReference<>(Stage.INIT);
+    private final AtomicReference<Stage> stage = new AtomicReference<>(Stage.COLLECT);
     private final Object failureLock = new Object();
 
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -101,7 +100,7 @@ public class FetchProjector extends AbstractProjector {
 
         @Override
         public Object get(int index) {
-            assert cells != null;
+            assert cells != null : "cells must not be null";
             return cells[index];
         }
 
@@ -144,17 +143,14 @@ public class FetchProjector extends AbstractProjector {
     }
 
     @Override
-    public void prepare() {
-        assert stage.get() == Stage.INIT;
-        nextStage(Stage.INIT, Stage.COLLECT);
-    }
-
-    @Override
     public Result setNextRow(Row row) {
         Object[] cells = row.materialize();
         collectRowContext.inputRow().cells = cells;
         for (int i : collectRowContext.docIdPositions()) {
-            context.require((long) cells[i]);
+            Object docId = cells[i];
+            if (docId != null) {
+                context.require((long) docId);
+            }
         }
         inputValues.add(cells);
 
@@ -233,20 +229,28 @@ public class FetchProjector extends AbstractProjector {
         final ArrayBackedRow[] fetchRows = collectRowContext.fetchRows();
         final ArrayBackedRow[] partitionRows = collectRowContext.partitionRows();
         final int[] docIdPositions = collectRowContext.docIdPositions();
+        final Object[][] nullCells = collectRowContext.nullCells();
 
         loop:
         for (int i = rowStartIdx; i < inputValues.size(); i++) {
             Object[] cells = inputValues.get(i);
             inputRow.cells = cells;
             for (int j = 0; j < docIdPositions.length; j++) {
-                long doc = (long) cells[docIdPositions[j]];
+                Object docObject = cells[docIdPositions[j]];
+                if (docObject == null) {
+                    // can be null on outer joins
+                    fetchRows[j].cells = nullCells[j];
+                    continue;
+                }
+                long doc = (long) docObject;
                 int readerId = (int) (doc >> 32);
                 int docId = (int) (long) doc;
                 ReaderBucket readerBucket = context.getReaderBucket(readerId);
-                assert readerBucket != null;
+                assert readerBucket != null : "readerBucket must not be null";
                 setPartitionRow(partitionRows, j, readerBucket);
                 fetchRows[j].cells = readerBucket.get(docId);
-                assert !readerBucket.fetchRequired() || fetchRows[j].cells != null;
+                assert !readerBucket.fetchRequired() || fetchRows[j].cells != null :
+                    "readerBucket doesn't require fetch or row is fetched";
             }
             Result result = downstream.setNextRow(outputRow);
             switch (result) {
@@ -305,7 +309,7 @@ public class FetchProjector extends AbstractProjector {
     private void setPartitionRow(ArrayBackedRow[] partitionRows, int i, ReaderBucket readerBucket) {
         // TODO: could be improved by handling non partitioned requests differently
         if (partitionRows != null && partitionRows[i] != null) {
-            assert readerBucket.partitionValues != null;
+            assert readerBucket.partitionValues != null : "readerBucket's partitionValues must not be null";
             partitionRows[i].cells = readerBucket.partitionValues;
         }
     }
@@ -341,8 +345,6 @@ public class FetchProjector extends AbstractProjector {
         synchronized (failureLock) {
             boolean first = failure.compareAndSet(null, throwable);
             switch (stage.get()) {
-                case INIT:
-                    throw new IllegalStateException("Shouldn't call fail on projection if projection hasn't been prepared");
                 case COLLECT:
                     if (first) {
                         if (!finishCalled.getAndSet(true)) {

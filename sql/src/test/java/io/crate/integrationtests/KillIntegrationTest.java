@@ -23,10 +23,9 @@ package io.crate.integrationtests;
 
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.action.sql.SQLActionException;
-import io.crate.action.sql.SQLRequest;
-import io.crate.action.sql.SQLResponse;
 import io.crate.exceptions.Exceptions;
 import io.crate.plugin.SQLPlugin;
+import io.crate.testing.SQLResponse;
 import io.crate.testing.UseJdbc;
 import io.crate.testing.plugin.CrateTestingPlugin;
 import org.elasticsearch.action.ActionFuture;
@@ -39,6 +38,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import javax.annotation.Nullable;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -54,8 +54,8 @@ public class KillIntegrationTest extends SQLTransportIntegrationTest {
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
         return pluginList(
-                SQLPlugin.class,
-                CrateTestingPlugin.class
+            SQLPlugin.class,
+            CrateTestingPlugin.class
         );
     }
 
@@ -86,7 +86,7 @@ public class KillIntegrationTest extends SQLTransportIntegrationTest {
 
     private void assertGotCancelled(final String statement, @Nullable final Object[] params, boolean killAll) throws Exception {
         try {
-            ActionFuture<SQLResponse> future = sqlExecutor.execute(new SQLRequest(statement, params));
+            ActionFuture<SQLResponse> future = sqlExecutor.execute(statement, params);
             String jobId = waitForJobEntry(statement);
             if (jobId == null) {
                 // query finished too fast
@@ -103,9 +103,9 @@ public class KillIntegrationTest extends SQLTransportIntegrationTest {
                 exception = Exceptions.unwrap(exception); // wrapped in ExecutionException
                 assertThat(exception, instanceOf(SQLActionException.class));
                 assertThat(exception.toString(), anyOf(
-                        containsString("Job killed"), // CancellationException
-                        containsString("JobExecutionContext for job"), // ContextMissingException when job execution context not found
-                        containsString("SearchContext for job") // ContextMissingException when search context not found
+                    containsString("Job killed"), // CancellationException
+                    containsString("JobExecutionContext for job"), // ContextMissingException when job execution context not found
+                    containsString("SearchContext for job") // ContextMissingException when search context not found
                 ));
             }
         } finally {
@@ -149,7 +149,7 @@ public class KillIntegrationTest extends SQLTransportIntegrationTest {
 
     @Test
     public void testKillCopyTo() throws Exception {
-        String path = temporaryFolder.newFolder().getAbsolutePath();
+        String path = Paths.get(temporaryFolder.newFolder().toURI()).toUri().toString();
         setup.setUpEmployees();
         assertGotCancelled("copy employees to directory ?", new Object[]{path}, true);
     }
@@ -158,11 +158,11 @@ public class KillIntegrationTest extends SQLTransportIntegrationTest {
     public void testKillGroupBy() throws Exception {
         setup.setUpEmployees();
         assertGotCancelled("SELECT sleep(500), sum(income) as summed_income, count(distinct name), department " +
-                "from employees " +
-                "group by 1, department " +
-                "having avg(income) > 100 " +
-                "order by department desc nulls first " +
-                "limit 10", null, true);
+                           "from employees " +
+                           "group by 1, department " +
+                           "having avg(income) > 100 " +
+                           "order by department desc nulls first " +
+                           "limit 10", null, true);
     }
 
     @Test

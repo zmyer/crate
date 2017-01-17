@@ -24,6 +24,7 @@ package io.crate.analyze.relations;
 import io.crate.analyze.symbol.Field;
 import io.crate.exceptions.AmbiguousColumnException;
 import io.crate.exceptions.ColumnUnknownException;
+import io.crate.exceptions.RelationUnknownException;
 import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.table.Operation;
 import io.crate.sql.tree.QualifiedName;
@@ -35,7 +36,7 @@ import java.util.Map;
 
 /**
  * Resolves QualifiedNames to Fields considering multiple AnalyzedRelations.
- *
+ * <p>
  * The Resolver also takes full qualified names so the name may contain table
  * and / or schema.
  */
@@ -69,8 +70,8 @@ public class FullQualifedNameFieldProvider implements FieldProvider<Field> {
                 break;
             default:
                 throw new IllegalArgumentException("Column reference \"%s\" has too many parts. " +
-                        "A column reference can have at most 3 parts and must have one of the following formats:  " +
-                        "\"<column>\", \"<table>.<column>\" or \"<schema>.<table>.<column>\"");
+                                                   "A column reference can have at most 3 parts and must have one of the following formats:  " +
+                                                   "\"<column>\", \"<table>.<column>\" or \"<schema>.<table>.<column>\"");
         }
 
         boolean schemaMatched = false;
@@ -89,7 +90,7 @@ public class FullQualifedNameFieldProvider implements FieldProvider<Field> {
                 sourceTableOrAlias = sourceParts.get(1);
             } else {
                 throw new UnsupportedOperationException(String.format(Locale.ENGLISH,
-                        "sources key (QualifiedName) must have 1 or 2 parts, not %d", sourceParts.size()));
+                    "sources key (QualifiedName) must have 1 or 2 parts, not %d", sourceParts.size()));
             }
             AnalyzedRelation sourceRelation = entry.getValue();
 
@@ -111,12 +112,8 @@ public class FullQualifedNameFieldProvider implements FieldProvider<Field> {
             }
         }
         if (lastField == null) {
-            if (!schemaMatched) {
-                throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                        "Cannot resolve relation '%s.%s'", columnSchema, columnTableName));
-            }
-            if (!tableNameMatched) {
-                throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Cannot resolve relation '%s'", columnTableName));
+            if (!schemaMatched || !tableNameMatched) {
+                throw RelationUnknownException.of(columnSchema, columnTableName);
             }
             throw new ColumnUnknownException(columnIdent.sqlFqn());
         }

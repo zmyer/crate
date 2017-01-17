@@ -26,11 +26,12 @@ import io.crate.analyze.CopyFromAnalyzedStatement;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.ValueSymbolVisitor;
 import io.crate.metadata.Functions;
+import io.crate.operation.InputFactory;
 import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.collect.JobCollectContext;
-import io.crate.operation.collect.files.FileCollectInputSymbolVisitor;
 import io.crate.operation.collect.files.FileInputFactory;
 import io.crate.operation.collect.files.FileReadingCollector;
+import io.crate.operation.collect.files.LineCollectorExpression;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.operation.reference.file.FileLineReferenceResolver;
 import io.crate.planner.node.dql.CollectPhase;
@@ -47,38 +48,39 @@ import java.util.*;
 public class FileCollectSource implements CollectSource {
 
     private final ClusterService clusterService;
-    private final FileCollectInputSymbolVisitor fileInputSymbolVisitor;
     private final Map<String, FileInputFactory> fileInputFactoryMap;
+    private final InputFactory inputFactory;
 
     @Inject
     public FileCollectSource(Functions functions, ClusterService clusterService, Map<String, FileInputFactory> fileInputFactoryMap) {
         this.fileInputFactoryMap = fileInputFactoryMap;
-        fileInputSymbolVisitor = new FileCollectInputSymbolVisitor(functions, FileLineReferenceResolver.INSTANCE);
+        inputFactory = new InputFactory(functions);
         this.clusterService = clusterService;
     }
 
     @Override
     public Collection<CrateCollector> getCollectors(CollectPhase collectPhase, RowReceiver downstream, JobCollectContext jobCollectContext) {
         FileUriCollectPhase fileUriCollectPhase = (FileUriCollectPhase) collectPhase;
-        FileCollectInputSymbolVisitor.Context context = fileInputSymbolVisitor.extractImplementations(collectPhase.toCollect());
+        InputFactory.Context<LineCollectorExpression<?>> ctx =
+            inputFactory.ctxForRefs(FileLineReferenceResolver.INSTANCE);
+        ctx.add(collectPhase.toCollect());
 
-        String[] readers = fileUriCollectPhase.executionNodes().toArray(
-                new String[fileUriCollectPhase.executionNodes().size()]);
+        String[] readers = fileUriCollectPhase.nodeIds().toArray(
+            new String[fileUriCollectPhase.nodeIds().size()]);
         Arrays.sort(readers);
 
         List<String> fileUris;
         fileUris = targetUriToStringList(fileUriCollectPhase.targetUri());
-        return ImmutableList.<CrateCollector>of(new FileReadingCollector(
-                fileUris,
-                context.topLevelInputs(),
-                context.expressions(),
-                downstream,
-                fileUriCollectPhase.fileFormat(),
-                fileUriCollectPhase.compression(),
-                fileInputFactoryMap,
-                fileUriCollectPhase.sharedStorage(),
-                readers.length,
-                Arrays.binarySearch(readers, clusterService.state().nodes().localNodeId())
+        return ImmutableList.of(new FileReadingCollector(
+            fileUris,
+            ctx.topLevelInputs(),
+            ctx.expressions(),
+            downstream,
+            fileUriCollectPhase.compression(),
+            fileInputFactoryMap,
+            fileUriCollectPhase.sharedStorage(),
+            readers.length,
+            Arrays.binarySearch(readers, clusterService.state().nodes().getLocalNodeId())
         ));
     }
 

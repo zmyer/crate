@@ -26,26 +26,25 @@ import io.crate.operation.Input;
 import io.crate.operation.collect.collectors.CollectorFieldsVisitor;
 import io.crate.operation.reference.doc.lucene.LuceneCollectorExpression;
 import io.crate.types.DataType;
-import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.search.FieldComparator;
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.LeafFieldComparator;
 
 import java.io.IOException;
 import java.util.List;
 
-public class FieldsVisitorInputFieldComparator extends InputFieldComparator {
+class FieldsVisitorInputFieldComparator extends InputFieldComparator {
 
     private final CollectorFieldsVisitor fieldsVisitor;
     private IndexReader currentReader;
 
 
-    public FieldsVisitorInputFieldComparator(int numHits,
-                                             CollectorFieldsVisitor fieldsVisitor,
-                                             List<LuceneCollectorExpression> collectorExpressions,
-                                             Input input,
-                                             DataType valueType,
-                                             Object missingValue) {
+    FieldsVisitorInputFieldComparator(int numHits,
+                                      CollectorFieldsVisitor fieldsVisitor,
+                                      Iterable<? extends LuceneCollectorExpression<?>> collectorExpressions,
+                                      Input input,
+                                      DataType valueType,
+                                      Object missingValue) {
         super(numHits, collectorExpressions, input, valueType, missingValue);
         this.fieldsVisitor = fieldsVisitor;
         assert fieldsVisitor.required() : "Use InputFieldComparator if FieldsVisitor is not required";

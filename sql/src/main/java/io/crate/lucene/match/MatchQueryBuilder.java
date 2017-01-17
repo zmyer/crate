@@ -55,7 +55,7 @@ public class MatchQueryBuilder {
     final MultiMatchQueryBuilder.Type matchType;
 
     private static final ImmutableMap<BytesRef, MultiMatchQueryBuilder.Type> SUPPORTED_TYPES =
-            ImmutableMap.<BytesRef, MultiMatchQueryBuilder.Type>builder()
+        ImmutableMap.<BytesRef, MultiMatchQueryBuilder.Type>builder()
             .put(new BytesRef("best_fields"), MultiMatchQueryBuilder.Type.BEST_FIELDS)
             .put(new BytesRef("most_fields"), MultiMatchQueryBuilder.Type.MOST_FIELDS)
             .put(new BytesRef("cross_fields"), MultiMatchQueryBuilder.Type.CROSS_FIELDS)
@@ -79,29 +79,33 @@ public class MatchQueryBuilder {
     }
 
     public Query query(Map<String, Object> fields, BytesRef queryString) throws IOException {
-        assert fields.size() == 1;
+        assert fields.size() == 1 : "number of fields must be 1";
         Map.Entry<String, Object> entry = fields.entrySet().iterator().next();
         Query query = singleQueryAndApply(
             matchType.matchQueryType(), entry.getKey(), queryString, floatOrNull(entry.getValue()));
         Float boost = this.options.boost();
         if (boost != null) {
-            query.setBoost(boost);
+            return new BoostQuery(query, boost);
         }
         return query;
     }
 
     IllegalArgumentException illegalMatchType(String matchType) {
-        throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                "Unknown matchType \"%s\". Possible matchTypes are: %s", matchType,
-                Joiner.on(", ").join(Iterables.transform(SUPPORTED_TYPES.keySet(), new Function<BytesRef, String>() {
-                            @Nullable
-                            @Override
-                            public String apply(@Nullable BytesRef input) {
-                                return BytesRefs.toString(input);
-                            }
-                        }
+        String matchTypes = Joiner.on(", ").join(Iterables.transform(SUPPORTED_TYPES.keySet(),
+            new Function<BytesRef, String>() {
+                @Nullable
+                @Override
+                public String apply(@Nullable BytesRef input) {
+                    return BytesRefs.toString(input);
+                }
+            }
 
-                ))));
+        ));
+        throw new IllegalArgumentException(String.format(
+            Locale.ENGLISH,
+            "Unknown matchType \"%s\". Possible matchTypes are: %s",
+            matchType,
+            matchTypes));
     }
 
     @Nullable
@@ -123,7 +127,7 @@ public class MatchQueryBuilder {
 
         if (fieldType != null && fieldType.useTermQueryWithQueryString() && !forceAnalyzeQueryString()) {
             try {
-               return fieldType.termQuery(queryString, null);
+                return fieldType.termQuery(queryString, null);
             } catch (RuntimeException e) {
                 return null;
             }
@@ -139,12 +143,12 @@ public class MatchQueryBuilder {
                     query = builder.createBooleanQuery(field, BytesRefs.toString(queryString), options.operator());
                 } else {
                     query = builder.createCommonTermsQuery(
-                            field,
-                            BytesRefs.toString(queryString),
-                            options.operator(),
-                            options.operator(),
-                            options.commonTermsCutoff(),
-                            fieldType
+                        field,
+                        BytesRefs.toString(queryString),
+                        options.operator(),
+                        options.operator(),
+                        options.commonTermsCutoff(),
+                        fieldType
                     );
                 }
                 break;
@@ -153,10 +157,10 @@ public class MatchQueryBuilder {
                 break;
             case PHRASE_PREFIX:
                 query = builder.createPhrasePrefixQuery(
-                        field,
-                        BytesRefs.toString(queryString),
-                        options.phraseSlop(),
-                        options.maxExpansions()
+                    field,
+                    BytesRefs.toString(queryString),
+                    options.phraseSlop(),
+                    options.maxExpansions()
                 );
                 break;
             default:
@@ -175,8 +179,10 @@ public class MatchQueryBuilder {
                               BytesRef queryString,
                               Float boost) {
         Query query = singleQuery(type, fieldName, queryString);
-        if (query instanceof BooleanQuery) {
-            Queries.applyMinimumShouldMatch((BooleanQuery) query, options.minimumShouldMatch());
+        if (query instanceof BooleanQuery && !((BooleanQuery) query).isCoordDisabled()) {
+            query = Queries.applyMinimumShouldMatch((BooleanQuery) query, options.minimumShouldMatch());
+        } else if (query instanceof ExtendedCommonTermsQuery) {
+            ((ExtendedCommonTermsQuery)query).setLowFreqMinimumNumberShouldMatch(options.minimumShouldMatch());
         }
         if (boost != null && query != null) {
             query.setBoost(boost);
@@ -186,8 +192,8 @@ public class MatchQueryBuilder {
 
     private Query zeroTermsQuery() {
         return options.zeroTermsQuery() == MatchQuery.ZeroTermsQuery.NONE ?
-                Queries.newMatchNoDocsQuery() :
-                Queries.newMatchAllQuery();
+            Queries.newMatchNoDocsQuery() :
+            Queries.newMatchAllQuery();
     }
 
     Analyzer getAnalyzer(MappedFieldType fieldType) {
@@ -203,7 +209,7 @@ public class MatchQueryBuilder {
         Analyzer analyzer = mapperService.analysisService().analyzer(options.analyzer());
         if (analyzer == null) {
             throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "Analyzer \"%s\" not found.", options.analyzer()));
+                String.format(Locale.ENGLISH, "Analyzer \"%s\" not found.", options.analyzer()));
         }
         return analyzer;
     }
@@ -235,8 +241,8 @@ public class MatchQueryBuilder {
             if (booleanQuery != null && booleanQuery instanceof BooleanQuery) {
                 BooleanQuery bq = (BooleanQuery) booleanQuery;
                 ExtendedCommonTermsQuery query = new ExtendedCommonTermsQuery(
-                        highFreqOccur, lowFreqOccur, maxTermFrequency,
-                        ((BooleanQuery)booleanQuery).isCoordDisabled(), mapper);
+                    highFreqOccur, lowFreqOccur, maxTermFrequency,
+                    ((BooleanQuery) booleanQuery).isCoordDisabled(), mapper);
                 for (BooleanClause clause : bq.clauses()) {
                     if (!(clause.getQuery() instanceof TermQuery)) {
                         return booleanQuery;
@@ -254,15 +260,15 @@ public class MatchQueryBuilder {
             prefixQuery.setMaxExpansions(maxExpansions);
             prefixQuery.setSlop(phraseSlop);
             if (query instanceof PhraseQuery) {
-                PhraseQuery pq = (PhraseQuery)query;
+                PhraseQuery pq = (PhraseQuery) query;
                 Term[] terms = pq.getTerms();
                 int[] positions = pq.getPositions();
                 for (int i = 0; i < terms.length; i++) {
-                    prefixQuery.add(new Term[] {terms[i]}, positions[i]);
+                    prefixQuery.add(new Term[]{terms[i]}, positions[i]);
                 }
                 return prefixQuery;
             } else if (query instanceof MultiPhraseQuery) {
-                MultiPhraseQuery pq = (MultiPhraseQuery)query;
+                MultiPhraseQuery pq = (MultiPhraseQuery) query;
                 List<Term[]> terms = pq.getTermArrays();
                 int[] positions = pq.getPositions();
                 for (int i = 0; i < terms.size(); i++) {
@@ -282,7 +288,7 @@ public class MatchQueryBuilder {
         if (fuzziness != null) {
             if (fieldType != null) {
                 Query query = fieldType.fuzzyQuery(
-                        term.text(), fuzziness, options.prefixLength(), options.maxExpansions(), options.transpositions());
+                    term.text(), fuzziness, options.prefixLength(), options.maxExpansions(), options.transpositions());
                 if (query instanceof FuzzyQuery) {
                     QueryParsers.setRewriteMethod(((FuzzyQuery) query), options.rewriteMethod());
                 }
@@ -290,7 +296,7 @@ public class MatchQueryBuilder {
             }
             int edits = fuzziness.asDistance(term.text());
             FuzzyQuery query = new FuzzyQuery(
-                    term, edits, options.prefixLength(), options.maxExpansions(), options.transpositions());
+                term, edits, options.prefixLength(), options.maxExpansions(), options.transpositions());
             QueryParsers.setRewriteMethod(query, options.rewriteMethod());
             return query;
         }

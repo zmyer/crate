@@ -55,6 +55,7 @@ public class UpsertByIdContext extends AbstractExecutionSubContext {
         this.request = request;
         this.item = item;
         this.transportShardUpsertActionDelegate = transportShardUpsertActionDelegate;
+        assert !request.continueOnError() : "continueOnError flag is expected to be set to false for upsertById";
     }
 
     public SettableFuture<Long> resultFuture() {
@@ -71,22 +72,9 @@ public class UpsertByIdContext extends AbstractExecutionSubContext {
                 }
                 if (updateResponse.failure() != null) {
                     onFailure(updateResponse.failure());
+                    return;
                 }
-                int location = updateResponse.itemIndices().get(0);
-
-                ShardResponse.Failure failure = updateResponse.failures().get(location);
-                if (failure == null) {
-                    resultFuture.set(1L);
-                } else {
-                    if (logger.isDebugEnabled()) {
-                        if (failure.versionConflict()) {
-                            logger.debug("Upsert of document with id {} failed because of a version conflict", failure.id());
-                        } else {
-                            logger.debug("Upsert of document with id {} failed {}", failure.id(), failure.message());
-                        }
-                    }
-                    resultFuture.set(0L);
-                }
+                resultFuture.set(1L);
                 close(null);
             }
 
@@ -97,18 +85,20 @@ public class UpsertByIdContext extends AbstractExecutionSubContext {
                 }
                 e = ExceptionsHelper.unwrapCause(e);
                 if (item.insertValues() == null
-                        && (e instanceof DocumentMissingException
+                    && (e instanceof DocumentMissingException
                         || e instanceof VersionConflictEngineException)) {
                     // on updates, set affected row to 0 if document is not found or version conflicted
                     resultFuture.set(0L);
+                    close(null);
                 } else if (PartitionName.isPartition(request.index())
                            && e instanceof IndexNotFoundException) {
                     // index missing exception on a partition should never bubble, set affected row to 0
                     resultFuture.set(0L);
+                    close(null);
                 } else {
                     resultFuture.setException(e);
+                    close(e);
                 }
-                close(e);
             }
         });
     }

@@ -2,7 +2,6 @@ plugins {
     id "de.undercouch.download" version "2.1.0"
 }
 apply from: "$rootDir/gradle/javaModule.gradle"
-apply plugin: 'idea'
 
 description = 'Elasticsearch HDFS Repository'
 
@@ -15,7 +14,7 @@ import de.undercouch.gradle.tasks.download.Download
 
 dependencies {
     compile("org.apache.hadoop:hadoop-core:$hadoop12Version")
-    compile(project(":es"))
+    compile(project(":es:es-core"))
 
     hadoop1("org.apache.hadoop:hadoop-core:$hadoop12Version") {
         exclude module: "commons-cli"
@@ -58,23 +57,17 @@ dependencies {
 configurations.all {
     resolutionStrategy {
         force 'commons-httpclient:commons-httpclient:3.0.1'
-        force 'joda-time:joda-time:2.8'
-        force "commons-cli:commons-cli:1.2"
         eachDependency { details ->
-            // for slf4j use each dependency since there are so many variants
-            if (details.requested.name.contains("slf4j-")) {
-                details.useVersion "1.7.6"
-            }
             if (details.requested.name.equals("servlet-api")) {
                 details.useTarget group: "org.eclipse.jetty.orbit", name: "javax.servlet", version: "3.0.0.v201112011016"
             }
 
         }
-      }
+    }
 }
 
-task downloadUpstreamSources (type: Download) {
-    def upstreamCommit = 'v2.3.2'
+task downloadUpstreamSources(type: Download) {
+    def upstreamCommit = "v${versions.elasticsearchhadoop}"
     src "https://github.com/elastic/elasticsearch-hadoop/archive/${upstreamCommit}.zip"
     dest file("${buildDir}/downloads/elasticsearch-hadoop-${upstreamCommit}.zip")
     overwrite false
@@ -82,13 +75,12 @@ task downloadUpstreamSources (type: Download) {
 
 task extractUpstreamSources(type: Copy) {
     dependsOn downloadUpstreamSources
-    from (zipTree(downloadUpstreamSources.dest)) {
+    from(zipTree(downloadUpstreamSources.dest)) {
         include '*/repository-hdfs/src/main/**'
         include '*/repository-hdfs/plugin-descriptor.properties'
     }
-    eachFile {details ->
-        details.path = details.path.replaceFirst(
-            'elasticsearch-hadoop-[^/]+/repository-hdfs/', '')
+    eachFile {
+        details -> details.path = details.path.replaceFirst('elasticsearch-hadoop-[^/]+/repository-hdfs/', '')
     }
     into 'upstream'
     includeEmptyDirs false
@@ -129,8 +121,8 @@ sourceSets {
 test.enabled = false
 
 compileJava {
-    sourceCompatibility = 1.7
-    targetCompatibility = 1.7
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
 }
 
 jar {
@@ -138,7 +130,7 @@ jar {
     include "org/elasticsearch/plugin/hadoop/hdfs/*"
 }
 
-task hadoopLinkedJar(type: Jar, dependsOn:jar) {
+task hadoopLinkedJar(type: Jar, dependsOn: jar) {
     appendix "internal"
     from sourceSets.main.output.classesDir
     // exclude plugin
@@ -150,20 +142,20 @@ def baseZip(Zip zip) {
 
     artifacts { zip }
 
-    zip.from ("upstream") {
+    zip.from("upstream") {
         include "plugin-descriptor.properties"
-        expand (version: project.version, esVersion: versions.elasticsearch,
-            jmvCompatibility: project.targetCompatibility,
-            description: project.description,
-            name: project.name)
+        expand(version: project.version, esVersion: versions.elasticsearch,
+                jmvCompatibility: project.targetCompatibility,
+                description: project.description,
+                name: project.name)
 
     }
-    zip.from ("upstream") {
+    zip.from("upstream") {
         include "hadoop-libs"
     }
 
     zip.from jar.archivePath
-    zip.into ("internal-libs") {
+    zip.into("internal-libs") {
         from hadoopLinkedJar.archivePath
     }
 
@@ -180,7 +172,7 @@ task distZipHadoop2(type: Zip, dependsOn: [hadoopLinkedJar, jar]) { zipTask ->
     description = "Builds archive (with Hadoop2/YARN dependencies)"
     classifier = "hadoop2"
 
-    into ("hadoop-libs") {
+    into("hadoop-libs") {
         from configurations.hadoop2.allArtifacts.files
         from configurations.hadoop2
     }

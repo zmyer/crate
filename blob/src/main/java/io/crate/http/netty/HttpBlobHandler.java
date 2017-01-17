@@ -27,7 +27,9 @@ import io.crate.blob.RemoteDigestBlob;
 import io.crate.blob.exceptions.DigestMismatchException;
 import io.crate.blob.exceptions.DigestNotFoundException;
 import io.crate.blob.exceptions.MissingHTTPEndpointException;
-import io.crate.blob.v2.BlobIndices;
+import io.crate.blob.exceptions.RedirectService;
+import io.crate.blob.v2.BlobIndex;
+import io.crate.blob.v2.BlobIndicesService;
 import io.crate.blob.v2.BlobShard;
 import io.crate.blob.v2.BlobsDisabledException;
 import org.elasticsearch.common.logging.ESLogger;
@@ -54,8 +56,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.*;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.*;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
-        LifeCycleAwareChannelHandler {
+public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements LifeCycleAwareChannelHandler {
 
     private static final String CACHE_CONTROL_VALUE = "max-age=315360000";
     private static final String EXPIRES_VALUE = "Thu, 31 Dec 2037 23:59:59 GMT";
@@ -64,13 +65,14 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
     private static final ESLogger LOGGER = Loggers.getLogger(HttpBlobHandler.class);
 
     private static final ChannelBuffer CONTINUE = ChannelBuffers.copiedBuffer(
-            "HTTP/1.1 100 Continue\r\n\r\n", CharsetUtil.US_ASCII);
+        "HTTP/1.1 100 Continue\r\n\r\n", CharsetUtil.US_ASCII);
 
     private static final Pattern CONTENT_RANGE_PATTERN = Pattern.compile("^bytes=(\\d+)-(\\d*)$");
 
     private final Matcher blobsMatcher = BLOBS_PATTERN.matcher("");
     private final BlobService blobService;
-    private final BlobIndices blobIndices;
+    private final RedirectService redirectService;
+    private final BlobIndicesService blobIndicesService;
     private final boolean sslEnabled;
     private final String scheme;
     private HttpMessage currentMessage;
@@ -78,9 +80,10 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
 
     private RemoteDigestBlob digestBlob;
 
-    public HttpBlobHandler(BlobService blobService, BlobIndices blobIndices, boolean sslEnabled) {
+    public HttpBlobHandler(BlobService blobService, RedirectService redirectService, BlobIndicesService blobIndicesService, boolean sslEnabled) {
         this.blobService = blobService;
-        this.blobIndices = blobIndices;
+        this.redirectService = redirectService;
+        this.blobIndicesService = blobIndicesService;
         this.sslEnabled = sslEnabled;
         this.scheme = sslEnabled ? "https://" : "http://";
     }
@@ -89,12 +92,12 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
     private boolean possibleRedirect(HttpRequest request, String index, String digest) {
         HttpMethod method = request.getMethod();
         if (method.equals(HttpMethod.GET) ||
-                method.equals(HttpMethod.HEAD) ||
-                (method.equals(HttpMethod.PUT) &&
-                        HttpHeaders.is100ContinueExpected(request))) {
+            method.equals(HttpMethod.HEAD) ||
+            (method.equals(HttpMethod.PUT) &&
+             HttpHeaders.is100ContinueExpected(request))) {
             String redirectAddress;
             try {
-                redirectAddress = blobService.getRedirectAddress(index, digest);
+                redirectAddress = redirectService.getRedirectAddress(index, digest);
             } catch (MissingHTTPEndpointException ex) {
                 simpleResponse(HttpResponseStatus.BAD_GATEWAY);
                 return true;
@@ -157,7 +160,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
         LOGGER.trace("matches index:{} digest:{}", index, digest);
         LOGGER.trace("HTTPMessage:%n{}", request);
 
-        index = BlobIndices.fullIndexName(index);
+        index = BlobIndex.fullIndexName(index);
 
         if (possibleRedirect(request, index, digest)) {
             reset();
@@ -221,14 +224,14 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
 
     private void sendResponse(HttpResponse response) {
         ChannelFuture cf = ctx.getChannel().write(response);
-        if (!HttpHeaders.isKeepAlive(currentMessage)) {
+        if (currentMessage != null && !HttpHeaders.isKeepAlive(currentMessage)) {
             cf.addListener(ChannelFutureListener.CLOSE);
         }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
-            throws Exception {
+        throws Exception {
         Throwable ex = e.getCause();
         if (ex instanceof ClosedChannelException) {
             LOGGER.trace("channel closed: {}", ex.toString());
@@ -244,21 +247,22 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
         }
 
         HttpResponseStatus status;
-        String body = ex.toString();
-        if (ex instanceof DigestMismatchException) {
+        String body = null;
+        if (ex instanceof DigestMismatchException || ex instanceof BlobsDisabledException
+            || ex instanceof IllegalArgumentException) {
             status = HttpResponseStatus.BAD_REQUEST;
-        } else if (ex instanceof DigestNotFoundException) {
+            body = String.format(Locale.ENGLISH, "Invalid request sent: %s", ex.getMessage());
+        } else if (ex instanceof DigestNotFoundException || ex instanceof IndexNotFoundException) {
             status = HttpResponseStatus.NOT_FOUND;
-            body = null;
-        } else if (ex instanceof BlobsDisabledException || ex instanceof IndexNotFoundException) {
-            status = HttpResponseStatus.BAD_REQUEST;
-            body = ex.getMessage();
         } else if (ex instanceof EsRejectedExecutionException) {
             status = TOO_MANY_REQUESTS;
-            body = ex.getMessage();
+            body = String.format(Locale.ENGLISH, "Rejected execution: %s", ex.getMessage());
         } else {
             status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
-            LOGGER.error("unhandled exception:", ex);
+            body = String.format(Locale.ENGLISH, "Unhandled exception: %s", ex);
+        }
+        if (body != null) {
+            LOGGER.debug(body);
         }
         simpleResponse(status, body);
     }
@@ -289,12 +293,12 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
         }
     }
 
-    private BlobShard localBlobShard(String index, String digest){
-        return blobIndices.localBlobShard(index, digest);
+    private BlobShard localBlobShard(String index, String digest) {
+        return blobIndicesService.localBlobShard(index, digest);
     }
 
     private void partialContentResponse(String range, HttpRequest request, String index, final String digest)
-        throws  IOException {
+        throws IOException {
         assert range != null : "Getting partial response but no byte-range is not present.";
         Matcher matcher = CONTENT_RANGE_PATTERN.matcher(range);
         if (!matcher.matches()) {
@@ -337,7 +341,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
                 writeFuture.addListener(ChannelFutureListener.CLOSE);
             }
         } catch (Throwable t) {
-            /**
+            /*
              * Make sure RandomAccessFile is closed when exception is raised.
              * In case of success, the ChannelFutureListener in "transferFile" will take care
              * that the resources are released.
@@ -347,7 +351,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
         }
     }
 
-    private void fullContentResponse(HttpRequest request, String index, final String digest) throws  IOException {
+    private void fullContentResponse(HttpRequest request, String index, final String digest) throws IOException {
         BlobShard blobShard = localBlobShard(index, digest);
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
         final RandomAccessFile raf = blobShard.blobContainer().getRandomAccessFile(digest);
@@ -368,7 +372,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
                 writeFuture.addListener(ChannelFutureListener.CLOSE);
             }
         } catch (Throwable t) {
-            /**
+            /*
              * Make sure RandomAccessFile is closed when exception is raised.
              * In case of success, the ChannelFutureListener in "transferFile" will take care
              * that the resources are released.
@@ -379,8 +383,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
     }
 
     private ChannelFuture transferFile(final String digest, RandomAccessFile raf, long position, long count)
-        throws IOException
-    {
+        throws IOException {
 
         final FileRegion region = new DefaultFileRegion(raf.getChannel(), position, count);
         ChannelFuture writeFuture = ctx.getChannel().write(region);
@@ -409,8 +412,8 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
 
         if (digestBlob != null) {
             throw new IllegalStateException(
-                    "received new PUT Request " + HttpRequest.class.getSimpleName() +
-                            "with existing " + DigestBlob.class.getSimpleName());
+                "received new PUT Request " + HttpRequest.class.getSimpleName() +
+                "with existing " + DigestBlob.class.getSimpleName());
         }
 
         // shortcut check if the file existsLocally locally, so we can immediatly return
@@ -433,7 +436,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
     private void delete(String index, String digest) throws IOException {
         digestBlob = blobService.newBlob(index, digest);
         if (digestBlob.delete()) {
-             // 204 for success
+            // 204 for success
             simpleResponse(HttpResponseStatus.NO_CONTENT);
         } else {
             simpleResponse(HttpResponseStatus.NOT_FOUND);
@@ -441,7 +444,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
     }
 
     protected void writeToFile(ChannelBuffer input, boolean last, final boolean continueExpected) throws
-            IOException {
+        IOException {
         if (digestBlob == null) {
             throw new IllegalStateException("digestBlob is null in writeToFile");
         }
@@ -469,7 +472,7 @@ public class HttpBlobHandler extends SimpleChannelUpstreamHandler implements
                 break;
         }
 
-        assert exitStatus != null;
+        assert exitStatus != null : "exitStatus should not be null";
         LOGGER.trace("writeToFile exit status http:{} blob: {}", exitStatus, status);
         simpleResponse(exitStatus);
     }

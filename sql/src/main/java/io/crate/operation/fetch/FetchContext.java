@@ -40,6 +40,7 @@ import org.elasticsearch.index.shard.ShardId;
 
 import javax.annotation.Nonnull;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class FetchContext extends AbstractExecutionSubContext {
 
@@ -52,12 +53,13 @@ public class FetchContext extends AbstractExecutionSubContext {
     private final TreeMap<Integer, TableIdent> tableIdents = new TreeMap<>();
     private final Iterable<? extends Routing> routingIterable;
     private final Map<TableIdent, Collection<Reference>> toFetch;
+    private final AtomicBoolean isKilled = new AtomicBoolean(false);
 
     public FetchContext(FetchPhase phase,
                         String localNodeId,
                         SharedShardContexts sharedShardContexts,
                         Iterable<? extends Routing> routingIterable) {
-        super(phase.executionPhaseId(), LOGGER);
+        super(phase.phaseId(), LOGGER);
         this.phase = phase;
         this.localNodeId = localNodeId;
         this.sharedShardContexts = sharedShardContexts;
@@ -67,6 +69,10 @@ public class FetchContext extends AbstractExecutionSubContext {
 
     public Map<TableIdent, Collection<Reference>> toFetch() {
         return toFetch;
+    }
+
+    AtomicBoolean isKilled() {
+        return isKilled;
     }
 
     @Override
@@ -105,7 +111,7 @@ public class FetchContext extends AbstractExecutionSubContext {
                         shardContexts.put(readerId, shardContext);
                         if (tablesWithFetchRefs.contains(ident)) {
                             try {
-                                searchers.put(readerId, shardContext.searcher());
+                                searchers.put(readerId, shardContext.acquireSearcher());
                             } catch (IndexNotFoundException e) {
                                 if (!PartitionName.isPartition(index)) {
                                     throw e;
@@ -132,6 +138,11 @@ public class FetchContext extends AbstractExecutionSubContext {
             // the bases are fetched in the prepare phase therefore this context can be closed
             close();
         }
+    }
+
+    @Override
+    protected void innerKill(@Nonnull Throwable t) {
+        isKilled.set(true);
     }
 
     @Override

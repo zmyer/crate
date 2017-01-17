@@ -21,7 +21,7 @@
 
 package io.crate.integrationtests;
 
-import io.crate.action.sql.SQLResponse;
+import io.crate.testing.SQLResponse;
 import io.crate.testing.UseJdbc;
 import org.junit.Rule;
 import org.junit.Test;
@@ -72,7 +72,8 @@ public class EmptyStringRoutingIntegrationTest extends SQLTransportIntegrationTe
         execute("create table t (i int primary key, c string primary key) clustered by (c)");
         ensureYellow();
         execute("insert into t (i, c) values (?, ?)", new Object[]{1, ""});
-        execute("insert into t (i, c) values (?, ?)", new Object[]{2, ""});;
+        execute("insert into t (i, c) values (?, ?)", new Object[]{2, ""});
+        ;
         refresh();
         execute("select c, count(*) from t group by c");
         assertThat(response.rowCount(), is(1L));
@@ -107,21 +108,21 @@ public class EmptyStringRoutingIntegrationTest extends SQLTransportIntegrationTe
     }
 
     @Test
-    @UseJdbc(false) // copy has no rowcount
+    @UseJdbc(0) // copy has no rowcount
     public void testCopyFromEmptyStringRouting() throws Exception {
         execute("create table t (i int primary key, c string primary key, a int) clustered by (c)");
         ensureYellow();
         execute("insert into t (i, c) values (1, ''), (2, '')");
         refresh();
 
-        String uri = Paths.get(folder.getRoot().toURI()).toString();
-        SQLResponse response = execute("copy t to directory ?", new Object[] { uri });
+        String uri = Paths.get(folder.getRoot().toURI()).toUri().toString();
+        SQLResponse response = execute("copy t to directory ?", new Object[]{uri});
         assertThat(response.rowCount(), is(2L));
 
         execute("delete from t");
         refresh();
 
-        execute("copy t from ? with (shared=true)", new Object[] { uri + "/t_*" });
+        execute("copy t from ? with (shared=true)", new Object[]{uri + "t_*"});
         refresh();
         response = execute("select c, count(*) from t group by c");
         assertThat(response.rowCount(), is(1L));

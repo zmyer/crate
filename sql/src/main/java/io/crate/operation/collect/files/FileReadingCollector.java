@@ -43,6 +43,8 @@ import java.io.InputStreamReader;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -60,7 +62,7 @@ public class FileReadingCollector implements CrateCollector {
     private final InputRow row;
     private final RowReceiver downstream;
     private final boolean compressed;
-    private final List<LineCollectorExpression<?>> collectorExpressions;
+    private final Iterable<LineCollectorExpression<?>> collectorExpressions;
 
     private static final Pattern HAS_GLOBS_PATTERN = Pattern.compile("(.*)[^\\\\]\\*.*");
     private static final Predicate<URI> MATCH_ALL_PREDICATE = new Predicate<URI>() {
@@ -71,15 +73,10 @@ public class FileReadingCollector implements CrateCollector {
     };
     private final List<UriWithGlob> fileUris;
 
-    public enum FileFormat {
-        JSON
-    }
-
     public FileReadingCollector(Collection<String> fileUris,
                                 List<Input<?>> inputs,
-                                List<LineCollectorExpression<?>> collectorExpressions,
+                                Iterable<LineCollectorExpression<?>> collectorExpressions,
                                 RowReceiver downstream,
-                                FileFormat format,
                                 String compression,
                                 Map<String, FileInputFactory> fileInputFactories,
                                 Boolean shared,
@@ -99,7 +96,8 @@ public class FileReadingCollector implements CrateCollector {
     private static class UriWithGlob {
         final URI uri;
         final URI preGlobUri;
-        @Nullable  final Predicate<URI> globPredicate;
+        @Nullable
+        final Predicate<URI> globPredicate;
 
         public UriWithGlob(URI uri, URI preGlobUri, Predicate<URI> globPredicate) {
             this.uri = uri;
@@ -117,7 +115,33 @@ public class FileReadingCollector implements CrateCollector {
             Predicate<URI> globPredicate = null;
             Matcher hasGlobMatcher = HAS_GLOBS_PATTERN.matcher(uri.toString());
             if (hasGlobMatcher.matches()) {
-                preGlobUri = URI.create(hasGlobMatcher.group(1));
+                if (fileUri.startsWith("/") || fileUri.startsWith("file://")) {
+                    /*
+                     * Substitute a symlink with the real path.
+                     * The wildcard needs to be maintained, though, because it is used to generate the matcher.
+                     * Take the part before the wildcard (*) and try to resolved the real path.
+                     * If the part before the wildcard contains a part of the filename (e.g. /tmp/foo_*.json) then use the
+                     * parent directory of this filename to resolved the real path.
+                     * Then replace this part with the real path and generate the URI.
+                     */
+                    Path oldPath = Paths.get(toURI(hasGlobMatcher.group(1)));
+                    if (!Files.isDirectory(oldPath)) {
+                        oldPath = oldPath.getParent();
+                    }
+                    String oldPathAsString;
+                    String newPathAsString;
+                    try {
+                        oldPathAsString = oldPath.toUri().toString();
+                        newPathAsString = oldPath.toRealPath().toUri().toString();
+                    } catch (IOException e) {
+                        continue;
+                    }
+                    String resolvedFileUrl = uri.toString().replace(oldPathAsString, newPathAsString);
+                    uri = toURI(resolvedFileUrl);
+                    preGlobUri = toURI(newPathAsString);
+                } else {
+                    preGlobUri = URI.create(hasGlobMatcher.group(1));
+                }
                 globPredicate = new GlobPredicate(uri);
             }
 
@@ -192,10 +216,10 @@ public class FileReadingCollector implements CrateCollector {
     }
 
     private boolean readLines(FileInput fileInput,
-                           CollectorContext collectorContext,
-                           URI uri,
-                           long startLine,
-                           int retry) throws IOException {
+                              CollectorContext collectorContext,
+                              URI uri,
+                              long startLine,
+                              int retry) throws IOException {
         InputStream inputStream = fileInput.getStream(uri);
         if (inputStream == null) {
             return true;
@@ -248,7 +272,7 @@ public class FileReadingCollector implements CrateCollector {
         BufferedReader reader;
         if (compressed) {
             reader = new BufferedReader(new InputStreamReader(new GZIPInputStream(inputStream),
-                    StandardCharsets.UTF_8));
+                StandardCharsets.UTF_8));
         } else {
             reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
         }

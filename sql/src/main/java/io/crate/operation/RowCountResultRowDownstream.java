@@ -56,7 +56,7 @@ public class RowCountResultRowDownstream implements RowReceiver {
 
     @Override
     public void finish(RepeatHandle repeatHandle) {
-        result.set((long) rows.iterator().next()[0]);
+        result.set((Long) rows.iterator().next()[0]);
     }
 
     @Override
@@ -68,10 +68,6 @@ public class RowCountResultRowDownstream implements RowReceiver {
     @Override
     public void kill(Throwable throwable) {
         fail(throwable);
-    }
-
-    @Override
-    public void prepare() {
     }
 
     @Override

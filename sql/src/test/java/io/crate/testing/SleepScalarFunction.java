@@ -26,9 +26,8 @@ import io.crate.analyze.symbol.Symbol;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.Scalar;
-import io.crate.metadata.StmtCtx;
+import io.crate.metadata.TransactionContext;
 import io.crate.operation.Input;
-import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 
 import java.util.Collections;
@@ -38,10 +37,10 @@ public class SleepScalarFunction extends Scalar<Boolean, Long> {
 
     public static final String NAME = "sleep";
 
-    protected final static FunctionInfo INFO = new FunctionInfo(
-            new FunctionIdent(NAME, Collections.<DataType>singletonList(DataTypes.LONG)),
-            DataTypes.BOOLEAN,
-            FunctionInfo.Type.SCALAR, false, false);
+    private final static FunctionInfo INFO = new FunctionInfo(
+        new FunctionIdent(NAME, Collections.singletonList(DataTypes.LONG)),
+        DataTypes.BOOLEAN,
+        FunctionInfo.Type.SCALAR, FunctionInfo.NO_FEATURES);
 
     @Override
     public FunctionInfo info() {
@@ -49,7 +48,7 @@ public class SleepScalarFunction extends Scalar<Boolean, Long> {
     }
 
     @Override
-    public Symbol normalizeSymbol(Function symbol, StmtCtx stmtCtx) {
+    public Symbol normalizeSymbol(Function symbol, TransactionContext transactionContext) {
         return symbol;
     }
 

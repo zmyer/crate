@@ -22,12 +22,13 @@
 
 package io.crate.action.sql;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.analyze.Analyzer;
+import io.crate.analyze.relations.AnalyzedRelation;
 import io.crate.analyze.symbol.Field;
-import io.crate.concurrent.CompletionListener;
 import io.crate.exceptions.Exceptions;
 import io.crate.executor.Executor;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 import io.crate.operation.collect.StatsTables;
 import io.crate.planner.Planner;
 import io.crate.protocols.postgres.FormatCodes;
@@ -62,30 +63,21 @@ public class SQLOperations {
     private final Analyzer analyzer;
     private final Planner planner;
     private final Provider<Executor> executorProvider;
-    private final Provider<TransportKillJobsNodeAction> transportKillJobsNodeActionProvider;
     private final StatsTables statsTables;
     private final ClusterService clusterService;
     private final boolean isReadOnly;
     private volatile boolean disabled;
 
-    public enum Option {
-        ALLOW_QUOTED_SUBSCRIPT;
-
-        public static final EnumSet<Option> NONE = EnumSet.noneOf(Option.class);
-    }
-
     @Inject
     public SQLOperations(Analyzer analyzer,
                          Planner planner,
                          Provider<Executor> executorProvider,
-                         Provider<TransportKillJobsNodeAction> transportKillJobsNodeActionProvider,
                          StatsTables statsTables,
                          Settings settings,
                          ClusterService clusterService) {
         this.analyzer = analyzer;
         this.planner = planner;
         this.executorProvider = executorProvider;
-        this.transportKillJobsNodeActionProvider = transportKillJobsNodeActionProvider;
         this.statsTables = statsTables;
         this.clusterService = clusterService;
         this.isReadOnly = settings.getAsBoolean(NODE_READ_ONLY_SETTING, false);
@@ -93,16 +85,10 @@ public class SQLOperations {
 
     public Session createSession(@Nullable String defaultSchema, Set<Option> options, int defaultLimit) {
         if (disabled) {
-          throw new NodeDisconnectedException(clusterService.localNode(), "sql");
+            throw new NodeDisconnectedException(clusterService.localNode(), "sql");
         }
 
-        return new Session(
-            executorProvider.get(),
-            transportKillJobsNodeActionProvider.get(),
-            defaultSchema,
-            defaultLimit,
-            options
-        );
+        return new Session(executorProvider.get(), new SessionContext(defaultLimit, options, defaultSchema));
     }
 
     /**
@@ -124,10 +110,10 @@ public class SQLOperations {
     /**
      * Stateful Session
      * In the PSQL case there is one session per connection.
-     *
-     *
+     * <p>
+     * <p>
      * Methods are usually called in the following order:
-     *
+     * <p>
      * <pre>
      * parse(...)
      * bind(...)
@@ -135,9 +121,9 @@ public class SQLOperations {
      * execute(...)
      * sync()
      * </pre>
-     *
+     * <p>
      * Or:
-     *
+     * <p>
      * <pre>
      * parse(...)
      * loop:
@@ -145,39 +131,28 @@ public class SQLOperations {
      *      execute(...)
      * sync()
      * </pre>
-     *
+     * <p>
      * (https://www.postgresql.org/docs/9.2/static/protocol-flow.html#PROTOCOL-FLOW-EXT-QUERY)
      */
     public class Session {
 
-        private static final String UNNAMED = "";
+        public static final String UNNAMED = "";
         private final Executor executor;
-        private final TransportKillJobsNodeAction transportKillJobsNodeAction;
-        private final String defaultSchema;
-        private final int defaultLimit;
-        private final Set<Option> options;
+        private final SessionContext sessionContext;
 
         private final Map<String, PreparedStmt> preparedStatements = new HashMap<>();
         private final Map<String, Portal> portals = new HashMap<>();
         private final Set<Portal> pendingExecutions = Collections.newSetFromMap(new IdentityHashMap<Portal, Boolean>());
 
-        private Session(Executor executor,
-                        TransportKillJobsNodeAction transportKillJobsNodeAction,
-                        String defaultSchema,
-                        int defaultLimit,
-                        Set<Option> options) {
+        private Session(Executor executor, SessionContext sessionContext) {
             this.executor = executor;
-            this.transportKillJobsNodeAction = transportKillJobsNodeAction;
-            this.defaultSchema = defaultSchema;
-            this.defaultLimit = defaultLimit;
-            this.options = options;
+            this.sessionContext = sessionContext;
         }
 
         private Portal getOrCreatePortal(String portalName) {
             Portal portal = portals.get(portalName);
             if (portal == null) {
-                portal = new SimplePortal(
-                    portalName, defaultSchema, options, analyzer, executor, transportKillJobsNodeAction, isReadOnly, defaultLimit);
+                portal = new SimplePortal(portalName, analyzer, executor, isReadOnly, sessionContext);
                 portals.put(portalName, portal);
             }
             return portal;
@@ -237,13 +212,17 @@ public class SQLOperations {
                     return portal.describe();
                 case 'S':
                     /*
-                     * describe might be called without prior bind call. E.g. in batch insert case the statement is prepared first:
+                     * describe might be called without prior bind call.
+                     *
+                     * If the client uses server-side prepared statements this is usually the case.
+                     *
+                     * E.g. the statement is first prepared:
                      *
                      *      parse stmtName=S_1 query=insert into t (x) values ($1) paramTypes=[integer]
                      *      describe type=S portalOrStatement=S_1
                      *      sync
                      *
-                     * and then per batch:
+                     * and then used with different bind calls:
                      *
                      *      bind portalName= statementName=S_1 params=[0]
                      *      describe type=P portalOrStatement=
@@ -252,16 +231,26 @@ public class SQLOperations {
                      *      bind portalName= statementName=S_1 params=[1]
                      *      describe type=P portalOrStatement=
                      *      execute
-                     *
-                     * and finally:
-                     *
-                     *      sync
-                     *
-                     * We can't analyze a statement without params which is why null is returned here.
-                     * This isn't the correct thing to do. It results in a "NoData" msg sent to the client.
-                     * But at least the JDBC client can handle that and just follows up with bind/describe again.
                      */
-                    return null;
+                    PreparedStmt preparedStmt = preparedStatements.get(portalOrStatement);
+                    Statement statement = preparedStmt.statement();
+
+                    AnalyzedRelation analyzedRelation;
+                    if (preparedStmt.isRelationInitialized()) {
+                        analyzedRelation = preparedStmt.relation();
+                    } else {
+                        try {
+                            analyzedRelation = analyzer.unboundAnalyze(statement, sessionContext, preparedStmt.paramTypes());
+                            preparedStmt.relation(analyzedRelation);
+                        } catch (Throwable t) {
+                            throw Exceptions.createSQLActionException(t);
+                        }
+                    }
+                    if (analyzedRelation == null) {
+                        // statement without result set -> return null for NoData msg
+                        return null;
+                    }
+                    return analyzedRelation.fields();
             }
             throw new AssertionError("Unsupported type: " + type);
         }
@@ -272,7 +261,7 @@ public class SQLOperations {
             Portal portal = getSafePortal(portalName);
             portal.execute(resultReceiver, maxRows);
             if (portal.getLastQuery().equalsIgnoreCase("BEGIN")) {
-                portal.sync(planner, statsTables, CompletionListener.NO_OP);
+                portal.sync(planner, statsTables);
                 clearState();
             } else {
                 // delay execution to be able to bundle bulk operations
@@ -280,26 +269,23 @@ public class SQLOperations {
             }
         }
 
-        public void sync(CompletionListener listener) {
+        public ListenableFuture<?> sync() {
             LOGGER.debug("method=sync");
-
             switch (pendingExecutions.size()) {
                 case 0:
-                    listener.onSuccess(null);
-                    return;
-
+                    return Futures.immediateFuture(null);
                 case 1:
                     Portal portal = pendingExecutions.iterator().next();
                     pendingExecutions.clear();
                     clearState();
-                    portal.sync(planner, statsTables, listener);
+                    ListenableFuture<?> result = portal.sync(planner, statsTables);
                     if (UNNAMED.equals(portal.name())) {
                         portal.close();
                     }
-                    return;
+                    return result;
             }
-
-            throw new IllegalStateException("Shouldn't have more than 1 pending execution. Got: " + pendingExecutions);
+            throw new IllegalStateException(
+                "Shouldn't have more than 1 pending execution. Got: " + pendingExecutions);
         }
 
         public void clearState() {
@@ -322,7 +308,7 @@ public class SQLOperations {
 
         public DataType getParamType(String statementName, int idx) {
             PreparedStmt stmt = getSafeStmt(statementName);
-            return stmt.paramTypes().get(idx);
+            return stmt.paramTypes().getType(idx);
         }
 
         private PreparedStmt getSafeStmt(String statementName) {
@@ -344,6 +330,7 @@ public class SQLOperations {
 
         /**
          * Close a portal or prepared statement
+         *
          * @param type <b>S</b> for prepared statement, <b>P</b> for portal.
          * @param name name of the prepared statement or the portal (depending on type)
          */

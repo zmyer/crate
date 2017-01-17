@@ -22,15 +22,15 @@
 
 package io.crate.protocols.postgres;
 
-import io.crate.concurrent.CompletionListener;
-import io.crate.concurrent.CompletionState;
+import com.google.common.util.concurrent.FutureCallback;
 import io.crate.exceptions.Exceptions;
 import io.crate.operation.collect.StatsTables;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.UUID;
 
-public class StatsTablesUpdateListener implements CompletionListener {
+public class StatsTablesUpdateListener implements FutureCallback<Object> {
 
     private final UUID jobId;
     private final StatsTables statsTables;
@@ -39,13 +39,14 @@ public class StatsTablesUpdateListener implements CompletionListener {
         this.jobId = jobId;
         this.statsTables = statsTables;
     }
+
     @Override
-    public void onSuccess(@Nullable CompletionState result) {
+    public void onSuccess(@Nullable Object result) {
         statsTables.logExecutionEnd(jobId, null);
     }
 
     @Override
-    public void onFailure(Throwable t) {
+    public void onFailure(@Nonnull Throwable t) {
         statsTables.logExecutionEnd(jobId, Exceptions.messageOf(t));
     }
 }

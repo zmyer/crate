@@ -57,8 +57,10 @@ import org.mockito.Answers;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.mockito.Mockito.*;
+import static org.hamcrest.core.Is.is;
+import static org.mockito.Mockito.mock;
 
 public class RepositoryServiceTest extends CrateUnitTest {
 
@@ -85,61 +87,61 @@ public class RepositoryServiceTest extends CrateUnitTest {
         expectedException.expectMessage("[foo] failed: [foo] missing location");
 
         throw RepositoryService.convertRepositoryException(new RepositoryException("foo", "failed", new CreationException(ImmutableList.of(
-                new Message(Collections.<Object>singletonList(10),
-                        "creation error", new RepositoryException("foo", "missing location"))
+            new Message(Collections.<Object>singletonList(10),
+                "creation error", new RepositoryException("foo", "missing location"))
         ))));
     }
 
     @Test
-    public void testRepositoryIsDroppedOnFailure() throws Throwable  {
+    public void testRepositoryIsDroppedOnFailure() throws Throwable {
         expectedException.expect(RepositoryException.class);
 
         // add repo to cluster service so that it exists..
         RepositoriesMetaData repos = new RepositoriesMetaData(new RepositoryMetaData("repo1", "fs", Settings.EMPTY));
         ClusterState state = ClusterState.builder(new ClusterName("dummy")).metaData(
-                MetaData.builder().putCustom(RepositoriesMetaData.TYPE, repos)).build();
+            MetaData.builder().putCustom(RepositoriesMetaData.TYPE, repos)).build();
         ClusterService clusterService = new NoopClusterService(state);
-
-        TransportActionProvider transportActionProvider = mock(TransportActionProvider.class);
 
         final ActionFilters actionFilters = mock(ActionFilters.class, Answers.RETURNS_MOCKS.get());
         IndexNameExpressionResolver indexNameExpressionResolver = new IndexNameExpressionResolver(Settings.EMPTY);
+
+
+        final AtomicBoolean deleteRepoCalled = new AtomicBoolean(false);
         TransportDeleteRepositoryAction deleteRepositoryAction = new TransportDeleteRepositoryAction(
-                Settings.EMPTY,
-                mock(TransportService.class, Answers.RETURNS_MOCKS.get()),
-                clusterService,
-                mock(RepositoriesService.class),
-                threadPool,
-                actionFilters,
-                indexNameExpressionResolver) {
+            Settings.EMPTY,
+            mock(TransportService.class, Answers.RETURNS_MOCKS.get()),
+            clusterService,
+            mock(RepositoriesService.class),
+            threadPool,
+            actionFilters,
+            indexNameExpressionResolver) {
             @Override
             protected void doExecute(Task task, DeleteRepositoryRequest request, ActionListener<DeleteRepositoryResponse> listener) {
+                deleteRepoCalled.set(true);
                 listener.onResponse(mock(DeleteRepositoryResponse.class));
             }
         };
-        when(transportActionProvider.transportDeleteRepositoryAction()).thenReturn(deleteRepositoryAction);
 
         TransportPutRepositoryAction putRepo = new TransportPutRepositoryAction(
-                Settings.EMPTY,
-                mock(TransportService.class, Answers.RETURNS_MOCKS.get()),
-                clusterService,
-                mock(RepositoriesService.class),
-                threadPool,
-                actionFilters,
-                indexNameExpressionResolver) {
+            Settings.EMPTY,
+            mock(TransportService.class, Answers.RETURNS_MOCKS.get()),
+            clusterService,
+            mock(RepositoriesService.class),
+            threadPool,
+            actionFilters,
+            indexNameExpressionResolver) {
             @Override
             protected void doExecute(Task task, PutRepositoryRequest request, ActionListener<PutRepositoryResponse> listener) {
                 listener.onFailure(new RepositoryException(request.name(), "failure"));
             }
         };
-        when(transportActionProvider.transportPutRepositoryAction()).thenReturn(putRepo);
 
-        RepositoryService repositoryService = new RepositoryService(clusterService, transportActionProvider);
+        RepositoryService repositoryService = new RepositoryService(clusterService, deleteRepositoryAction, putRepo);
         try {
             repositoryService.execute(
-                    new CreateRepositoryAnalyzedStatement("repo1", "fs", Settings.EMPTY)).get(10, TimeUnit.SECONDS);
+                new CreateRepositoryAnalyzedStatement("repo1", "fs", Settings.EMPTY)).get(10, TimeUnit.SECONDS);
         } catch (ExecutionException e) {
-            verify(transportActionProvider, times(1)).transportDeleteRepositoryAction();
+            assertThat(deleteRepoCalled.get(), is(true));
             throw e.getCause();
         }
     }

@@ -31,7 +31,6 @@ import org.apache.lucene.search.LeafFieldComparator;
 import org.apache.lucene.search.Scorer;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Comparator for sorting on generic Inputs (Scalar Functions mostly)
@@ -40,17 +39,17 @@ class InputFieldComparator extends FieldComparator implements LeafFieldComparato
 
     private final Object[] values;
     private final Input input;
-    private final List<LuceneCollectorExpression> collectorExpressions;
+    private final Iterable<? extends LuceneCollectorExpression<?>> collectorExpressions;
     private final Object missingValue;
     private final DataType valueType;
     private Object bottom;
     private Object top;
 
-    public InputFieldComparator(int numHits,
-                                List<LuceneCollectorExpression> collectorExpressions,
-                                Input input,
-                                DataType valueType,
-                                Object missingValue) {
+    InputFieldComparator(int numHits,
+                         Iterable<? extends LuceneCollectorExpression<?>> collectorExpressions,
+                         Input input,
+                         DataType valueType,
+                         Object missingValue) {
         this.collectorExpressions = collectorExpressions;
         this.missingValue = missingValue;
         this.valueType = valueType;

@@ -51,10 +51,10 @@ public class PgTypeTable extends StaticTableInfo {
     @Inject
     public PgTypeTable(ClusterService clusterService) {
         super(IDENT, new ColumnRegistrar(IDENT, RowGranularity.DOC)
-            .register("oid", DataTypes.INTEGER, null)
-            .register("typname", DataTypes.STRING, null)
-            .register("typdelim", DataTypes.STRING, null)
-            .register("typelem", DataTypes.INTEGER, null),
+                .register("oid", DataTypes.INTEGER, null)
+                .register("typname", DataTypes.STRING, null)
+                .register("typdelim", DataTypes.STRING, null)
+                .register("typelem", DataTypes.INTEGER, null),
             Collections.<ColumnIdent>emptyList());
         this.clusterService = clusterService;
     }
@@ -66,6 +66,6 @@ public class PgTypeTable extends StaticTableInfo {
 
     @Override
     public Routing getRouting(WhereClause whereClause, @Nullable String preference) {
-        return Routing.forTableOnSingleNode(IDENT, clusterService.localNode().id());
+        return Routing.forTableOnSingleNode(IDENT, clusterService.localNode().getId());
     }
 }

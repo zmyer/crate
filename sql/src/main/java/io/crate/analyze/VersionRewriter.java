@@ -38,7 +38,7 @@ public class VersionRewriter {
     private static final Visitor VISITOR = new Visitor();
 
     @Nullable
-    public static Symbol get(Symbol query){
+    public static Symbol get(Symbol query) {
         Visitor.Context context = new Visitor.Context();
         VISITOR.process(query, context);
         return context.version;
@@ -46,13 +46,13 @@ public class VersionRewriter {
 
     private static class Visitor extends SymbolVisitor<Visitor.Context, Symbol> {
 
-        static class Context{
+        static class Context {
             Symbol version;
         }
 
         @Override
-        public Symbol visitFunction(Function function, Context context){
-            if (context.version!= null){
+        public Symbol visitFunction(Function function, Context context) {
+            if (context.version != null) {
                 return function;
             }
             String functionName = function.info().ident().name();
@@ -61,7 +61,7 @@ public class VersionRewriter {
                 return function;
             }
             if (functionName.equals(EqOperator.NAME)) {
-                assert function.arguments().size() == 2;
+                assert function.arguments().size() == 2 : "function's number of arguments must be 2";
                 Symbol left = function.arguments().get(0);
                 Symbol right = function.arguments().get(1);
 
@@ -73,9 +73,9 @@ public class VersionRewriter {
                 ColumnIdent columnIdent = reference.ident().columnIdent();
 
                 if (DocSysColumns.VERSION.equals(columnIdent)) {
-                    assert context.version == null;
+                    assert context.version == null : "context.version must be null";
                     context.version = right;
-                    return Literal.newLiteral(true);
+                    return Literal.of(true);
                 }
             }
             return function;
@@ -87,7 +87,7 @@ public class VersionRewriter {
                 Symbol argumentNew = process(argument, context);
                 if (!argument.equals(argumentNew)) {
                     symbol.setArgument(argumentsProcessed, argumentNew);
-                    if (context.version != null){
+                    if (context.version != null) {
                         break;
                     }
                 }

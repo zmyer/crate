@@ -28,10 +28,13 @@ import com.carrotsearch.junitbenchmarks.annotation.AxisRange;
 import com.carrotsearch.junitbenchmarks.annotation.BenchmarkHistoryChart;
 import com.carrotsearch.junitbenchmarks.annotation.BenchmarkMethodChart;
 import com.carrotsearch.junitbenchmarks.annotation.LabelType;
+import com.google.common.base.Predicates;
 import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.operation.projectors.ListenableRowReceiver;
+import io.crate.planner.node.dql.join.JoinType;
 import io.crate.testing.RowCountRowReceiver;
+import io.crate.testing.RowGenerator;
 import io.crate.testing.RowSender;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
@@ -46,7 +49,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 @AxisRange(min = 0)
-@BenchmarkHistoryChart(filePrefix="benchmark-nl-history", labelWith = LabelType.CUSTOM_KEY)
+@BenchmarkHistoryChart(filePrefix = "benchmark-nl-history", labelWith = LabelType.CUSTOM_KEY)
 @BenchmarkMethodChart(filePrefix = "benchmark-nl")
 public class NestedLoopOperationBenchmark {
 
@@ -118,11 +121,12 @@ public class NestedLoopOperationBenchmark {
     }
 
     private Bucket executeNestedLoop(int leftSize, int rightSize) throws Exception {
-        Iterable<Row> left = RowSender.rowRange(0, leftSize);
-        Iterable<Row> right = RowSender.rowRange(0, rightSize);
+        Iterable<Row> left = RowGenerator.range(0, leftSize);
+        Iterable<Row> right = RowGenerator.range(0, rightSize);
 
         RowCountRowReceiver receiver = new RowCountRowReceiver();
-        NestedLoopOperation operation = new NestedLoopOperation(0, receiver);
+        NestedLoopOperation operation = new NestedLoopOperation(
+            0, receiver, Predicates.<Row>alwaysTrue(), JoinType.CROSS, 0, 0);
         ListenableRowReceiver leftSide = operation.leftRowReceiver();
         ListenableRowReceiver rightSide = operation.rightRowReceiver();
 
@@ -132,7 +136,7 @@ public class NestedLoopOperationBenchmark {
         executor.execute(leftRowSender);
         executor.execute(rightRowSender);
         Bucket result = receiver.result(TimeValue.timeValueMinutes(10));
-        assertThat((Integer)result.iterator().next().get(0), is(leftSize * rightSize));
+        assertThat((Integer) result.iterator().next().get(0), is(leftSize * rightSize));
         return result;
     }
 

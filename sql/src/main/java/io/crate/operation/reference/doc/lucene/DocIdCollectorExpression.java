@@ -32,10 +32,14 @@ public class DocIdCollectorExpression extends LuceneCollectorExpression<Long> {
     private long docId;
     private int docBase;
 
+    public DocIdCollectorExpression() {
+        super(COLUMN_NAME);
+    }
+
     @Override
     public void startCollect(CollectorContext context) {
         super.startCollect(context);
-        this.jobSearchContextId = (long)context.jobSearchContextId();
+        this.jobSearchContextId = (long) context.jobSearchContextId();
     }
 
     @Override
@@ -58,8 +62,8 @@ public class DocIdCollectorExpression extends LuceneCollectorExpression<Long> {
     /**
      * Pack jobSearchContextId and doc integers into 1 long.
      * Reverse logic is:
-     *   int jobSearchContextId = (int)(docId >> 32);
-     *   int doc = (int)docId;
+     * int jobSearchContextId = (int)(docId >> 32);
+     * int doc = (int)docId;
      */
     private long packDocId(long jobSearchContextId, int doc) {
         return ((jobSearchContextId) << 32) | (doc & 0xffffffffL);

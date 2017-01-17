@@ -39,22 +39,22 @@ public class NumberOfReplicas {
     private final String esSettingKey;
     private final String esSettingsValue;
 
-    public NumberOfReplicas(Integer replicas) {
+    public NumberOfReplicas(Integer numReplicas) {
         this.esSettingKey = NUMBER_OF_REPLICAS;
-        this.esSettingsValue = replicas.toString();
+        this.esSettingsValue = numReplicas.toString();
     }
 
-    public NumberOfReplicas(String replicas) {
-        assert replicas != null;
-        validateExpandReplicaSetting(replicas);
+    public NumberOfReplicas(String numReplicas) {
+        assert numReplicas != null : "numReplicas must not be null";
+        validateExpandReplicaSetting(numReplicas);
 
         this.esSettingKey = AUTO_EXPAND_REPLICAS;
-        this.esSettingsValue = replicas;
+        this.esSettingsValue = numReplicas;
     }
 
     private static void validateExpandReplicaSetting(String replicas) {
         Preconditions.checkArgument(EXPAND_REPLICA_PATTERN.matcher(replicas).matches(),
-                "The \"number_of_replicas\" range \"%s\" isn't valid", replicas);
+            "The \"number_of_replicas\" range \"%s\" isn't valid", replicas);
     }
 
     public String esSettingKey() {

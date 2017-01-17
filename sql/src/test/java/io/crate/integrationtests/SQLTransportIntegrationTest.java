@@ -22,11 +22,12 @@
 package io.crate.integrationtests;
 
 import com.carrotsearch.hppc.cursors.ObjectCursor;
+import com.carrotsearch.randomizedtesting.annotations.Listeners;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Multimap;
-import io.crate.action.sql.*;
-import io.crate.action.sql.parser.SQLXContentSourceContext;
-import io.crate.action.sql.parser.SQLXContentSourceParser;
+import io.crate.action.sql.Option;
+import io.crate.action.sql.SQLOperations;
+import io.crate.action.sql.SessionContext;
 import io.crate.analyze.Analyzer;
 import io.crate.analyze.ParameterContext;
 import io.crate.core.collections.Row;
@@ -45,13 +46,16 @@ import io.crate.operation.Paging;
 import io.crate.planner.Plan;
 import io.crate.planner.Planner;
 import io.crate.plugin.BlobPlugin;
+import io.crate.plugin.CrateCorePlugin;
 import io.crate.plugin.SQLPlugin;
 import io.crate.protocols.postgres.PostgresNetty;
 import io.crate.sql.parser.SqlParser;
 import io.crate.test.GroovyTestSanitizer;
+import io.crate.test.integration.SystemPropsTestLoggingListener;
 import io.crate.testing.CollectingRowReceiver;
+import io.crate.testing.SQLBulkResponse;
+import io.crate.testing.SQLResponse;
 import io.crate.testing.SQLTransportExecutor;
-import org.elasticsearch.action.ActionModule;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.client.Client;
@@ -60,14 +64,11 @@ import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.cluster.metadata.MetaData;
 import org.elasticsearch.common.Nullable;
-import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.indices.IndicesService;
@@ -76,9 +77,9 @@ import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.hamcrest.Matchers;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -86,9 +87,14 @@ import java.util.*;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static io.crate.testing.SQLTransportExecutor.DEFAULT_SOFT_LIMIT;
 import static org.hamcrest.Matchers.is;
 
+@Listeners({SystemPropsTestLoggingListener.class})
 public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
+
+    @Rule
+    public Timeout globalTimeout = new Timeout(120000); // 2 minutes timeout
 
     private static final int ORIGINAL_PAGE_SIZE = Paging.PAGE_SIZE;
 
@@ -105,49 +111,41 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
     protected Settings nodeSettings(int nodeOrdinal) {
         return Settings.builder()
             .put(super.nodeSettings(nodeOrdinal))
-            .put("psql.enabled", true)
             .build();
-    }
-
-    @Before
-    public void initDriver() throws Exception {
-        Class.forName("org.postgresql.Driver");
     }
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return pluginList(BlobPlugin.class, SQLPlugin.class);
+        return pluginList(BlobPlugin.class, SQLPlugin.class, CrateCorePlugin.class);
     }
 
-    @Override
-    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
-        return pluginList(TestSQLPlugin.class);
-    }
-
-    protected float responseDuration;
     protected SQLResponse response;
 
     public SQLTransportIntegrationTest() {
         this(new SQLTransportExecutor(
-                new SQLTransportExecutor.ClientProvider() {
-                    @Override
-                    public Client client() {
-                        return ESIntegTestCase.client();
-                    }
-
-                    @Override
-                    public String pgUrl() {
-                        PostgresNetty postgresNetty = internalCluster().getDataNodeInstance(PostgresNetty.class);
-                        Iterator<InetSocketTransportAddress> addressIter = postgresNetty.boundAddresses().iterator();
-                        if (addressIter.hasNext()) {
-                            InetSocketTransportAddress address = addressIter.next();
-                            return String.format(Locale.ENGLISH, "jdbc:postgresql://%s:%d/",
-                                address.getHost(), address.getPort());
-                        }
-                        return null;
-                    }
+            new SQLTransportExecutor.ClientProvider() {
+                @Override
+                public Client client() {
+                    return ESIntegTestCase.client();
                 }
-        ));
+
+                @Override
+                public String pgUrl() {
+                    PostgresNetty postgresNetty = internalCluster().getDataNodeInstance(PostgresNetty.class);
+                    Iterator<InetSocketTransportAddress> addressIter = postgresNetty.boundAddresses().iterator();
+                    if (addressIter.hasNext()) {
+                        InetSocketTransportAddress address = addressIter.next();
+                        return String.format(Locale.ENGLISH, "jdbc:crate://%s:%d/",
+                            address.getHost(), address.getPort());
+                    }
+                    return null;
+                }
+
+                @Override
+                public SQLOperations sqlOperations() {
+                    return internalCluster().getInstance(SQLOperations.class);
+                }
+            }));
     }
 
     @After
@@ -248,7 +246,7 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
         }, 5, TimeUnit.SECONDS);
     }
 
-    public void waitUntilThreadPoolTasksFinished(final String name) throws Exception{
+    public void waitUntilThreadPoolTasksFinished(final String name) throws Exception {
         assertBusy(new Runnable() {
             @Override
             public void run() {
@@ -277,19 +275,18 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
     /**
      * Execute an SQL Statement on a random node of the cluster
      *
-     * @param stmt the SQL Statement
-     * @param args the arguments to replace placeholders ("?") in the statement
-     * @param timeout the timeout for this request
+     * @param stmt    the SQL statement
+     * @param schema  the schema that should be used for this statement
+     *                schema is nullable, which means default schema ("doc") is used
      * @return the SQLResponse
      */
-    public SQLResponse execute(String stmt, Object[] args, TimeValue timeout) {
-        response = sqlExecutor.exec(stmt, args, timeout);
-        return response;
+    public SQLResponse execute(String stmt, @Nullable String schema) {
+        return execute(stmt, null, createSession(schema, Option.NONE));
     }
 
     public static class PlanForNode {
-        private final Plan plan;
-        private final String nodeName;
+        final Plan plan;
+        final String nodeName;
 
         private PlanForNode(Plan plan, String nodeName) {
             this.plan = plan;
@@ -304,22 +301,22 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
         Analyzer analyzer = internalCluster().getInstance(Analyzer.class, nodeName);
         Planner planner = internalCluster().getInstance(Planner.class, nodeName);
 
-        ParameterContext parameterContext = new ParameterContext(Row.EMPTY, Collections.<Row>emptyList(), null);
-        Plan plan = planner.plan(analyzer.analyze(SqlParser.createStatement(stmt), parameterContext), UUID.randomUUID(), 0, 0);
+        ParameterContext parameterContext = new ParameterContext(Row.EMPTY, Collections.<Row>emptyList());
+        Plan plan = planner.plan(analyzer.boundAnalyze(SqlParser.createStatement(stmt), SessionContext.SYSTEM_SESSION, parameterContext), UUID.randomUUID(), 0, 0);
         return new PlanForNode(plan, nodeName);
     }
 
     public CollectingRowReceiver execute(PlanForNode planForNode) {
         TransportExecutor transportExecutor = internalCluster().getInstance(TransportExecutor.class, planForNode.nodeName);
         CollectingRowReceiver downstream = new CollectingRowReceiver();
-        transportExecutor.execute(planForNode.plan, downstream);
+        transportExecutor.execute(planForNode.plan, downstream, Row.EMPTY);
         return downstream;
     }
 
     /**
      * Execute an SQL Statement on a random node of the cluster
      *
-     * @param stmt the SQL Statement
+     * @param stmt     the SQL Statement
      * @param bulkArgs the bulk arguments of the statement
      * @return the SQLResponse
      */
@@ -330,7 +327,7 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
     /**
      * Execute an SQL Statement on a random node of the cluster
      *
-     * @param stmt the SQL Statement
+     * @param stmt     the SQL Statement
      * @param bulkArgs the bulk arguments of the statement
      * @return the SQLResponse
      */
@@ -346,18 +343,23 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
      * @return the SQLResponse
      */
     public SQLResponse execute(String stmt) {
-        return execute(stmt, SQLRequest.EMPTY_ARGS);
+        return execute(stmt, (Object[])null);
     }
 
+
     /**
-     * Execute an SQL Statement on a random node of the cluster
+     * Execute an SQL Statement using a specific {@link SQLOperations.Session}
+     * This is useful to execute a query on a specific node or to test using
+     * session options like default schema.
      *
      * @param stmt the SQL Statement
-     * @param timeout the timeout for this query
+     * @param session the Session to use
      * @return the SQLResponse
      */
-    public SQLResponse execute(String stmt, TimeValue timeout) {
-        return execute(stmt, SQLRequest.EMPTY_ARGS, timeout);
+    public SQLResponse execute(String stmt, Object[] args, SQLOperations.Session session) {
+        response = SQLTransportExecutor.execute(stmt, args, session)
+            .actionGet(SQLTransportExecutor.REQUEST_TIMEOUT);
+        return response;
     }
 
     /**
@@ -369,18 +371,18 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
      */
     protected String getIndexMapping(String index) throws IOException {
         ClusterStateRequest request = Requests.clusterStateRequest()
-                .routingTable(false)
-                .nodes(false)
-                .metaData(true)
-                .indices(index);
+            .routingTable(false)
+            .nodes(false)
+            .metaData(true)
+            .indices(index);
         ClusterStateResponse response = client().admin().cluster().state(request)
-                .actionGet();
+            .actionGet();
 
         MetaData metaData = response.getState().metaData();
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
 
         IndexMetaData indexMetaData = metaData.iterator().next();
-        for (ObjectCursor<MappingMetaData> cursor: indexMetaData.getMappings().values()) {
+        for (ObjectCursor<MappingMetaData> cursor : indexMetaData.getMappings().values()) {
             builder.field(cursor.value.type());
             builder.map(cursor.value.sourceAsMap());
         }
@@ -389,7 +391,7 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
         return builder.string();
     }
 
-    public void waitForMappingUpdateOnAll(final TableIdent tableIdent, final String... fieldNames) throws Exception{
+    public void waitForMappingUpdateOnAll(final TableIdent tableIdent, final String... fieldNames) throws Exception {
         assertBusy(new Runnable() {
             @Override
             public void run() {
@@ -405,6 +407,7 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
             }
         }, 20L, TimeUnit.SECONDS);
     }
+
     public void waitForMappingUpdateOnAll(final String tableOrPartition, final String... fieldNames) throws Exception {
         waitForMappingUpdateOnAll(new TableIdent(null, tableOrPartition), fieldNames);
     }
@@ -418,12 +421,12 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
      */
     protected String getIndexSettings(String index) throws IOException {
         ClusterStateRequest request = Requests.clusterStateRequest()
-                .routingTable(false)
-                .nodes(false)
-                .metaData(true)
-                .indices(index);
+            .routingTable(false)
+            .nodes(false)
+            .metaData(true)
+            .indices(index);
         ClusterStateResponse response = client().admin().cluster().state(request)
-                .actionGet();
+            .actionGet();
 
         MetaData metaData = response.getState().metaData();
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
@@ -446,66 +449,29 @@ public abstract class SQLTransportIntegrationTest extends ESIntegTestCase {
     }
 
     /**
-     * Execute an SQLRequest on a random client of the cluster like it would
-     * be executed by an HTTP REST Request
+     * Creates an {@link SQLOperations.Session} on a specific node.
+     * This can be used to ensure that a request is performed on a specific node.
      *
-     * @param source the body of the statement, a JSON String containing the "stmt" and the "args"
-     * @param includeTypes include data types in response
-     * @param schema default schema
-     * @return the Response as JSON String
-     * @throws IOException
+     * @param nodeName The name of the node to create the session
+     * @return The created session
      */
-    protected String restSQLExecute(String source, boolean includeTypes, @Nullable String schema) throws IOException {
-        XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
-        builder.generator().usePrettyPrint();
-        SQLXContentSourceContext context = new SQLXContentSourceContext();
-        SQLXContentSourceParser parser = new SQLXContentSourceParser(context);
-        parser.parseSource(new BytesArray(source));
-
-        SQLBaseResponse sqlResponse;
-        Object[][] bulkArgs = context.bulkArgs();
-        if (bulkArgs != null && bulkArgs.length > 0) {
-            SQLBulkRequestBuilder requestBuilder = new SQLBulkRequestBuilder(client(), SQLBulkAction.INSTANCE);
-            requestBuilder.bulkArgs(context.bulkArgs());
-            requestBuilder.stmt(context.stmt());
-            requestBuilder.includeTypesOnResponse(includeTypes);
-            requestBuilder.setSchema(schema);
-            sqlResponse = requestBuilder.execute().actionGet();
-        } else {
-            SQLRequestBuilder requestBuilder = new SQLRequestBuilder(client(), SQLAction.INSTANCE);
-            requestBuilder.args(context.args());
-            requestBuilder.stmt(context.stmt());
-            requestBuilder.includeTypesOnResponse(includeTypes);
-            requestBuilder.setSchema(schema);
-            sqlResponse = requestBuilder.execute().actionGet();
-        }
-        sqlResponse.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        responseDuration = sqlResponse.duration();
-        return builder.string();
+    SQLOperations.Session createSessionOnNode(String nodeName) {
+        SQLOperations sqlOperations = internalCluster().getInstance(SQLOperations.class, nodeName);
+        return sqlOperations.createSession(null, Option.NONE, DEFAULT_SOFT_LIMIT);
     }
 
-    protected String restSQLExecute(String source, boolean includeTypes) throws IOException {
-        return restSQLExecute(source, includeTypes, null);
+    /**
+     * Creates a {@link SQLOperations.Session} with the given default schema
+     * and an options list. This is useful if you require a session which differs
+     * from the default one.
+     *
+     * @param defaultSchema The default schema to use. Can be null
+     * @param options Session options. If no specific options are required, use {@link Option#NONE}
+     * @return The created session
+     */
+    SQLOperations.Session createSession(@Nullable String defaultSchema, Set<Option> options) {
+        SQLOperations sqlOperations = internalCluster().getInstance(SQLOperations.class);
+        return sqlOperations.createSession(defaultSchema, options, DEFAULT_SOFT_LIMIT);
     }
 
-    protected String restSQLExecute(String source) throws IOException {
-        return restSQLExecute(source, false);
-    }
-
-    public static class TestSQLPlugin extends Plugin {
-        @Override
-        public String name() {
-            return "test-sql-plugin";
-        }
-
-        @Override
-        public String description() {
-            return "test-sql-plugin";
-        }
-
-        public void onModule(ActionModule actionModule) {
-            actionModule.registerAction(SQLAction.INSTANCE, TransportSQLAction.class);
-            actionModule.registerAction(SQLBulkAction.INSTANCE, TransportSQLBulkAction.class);
-        }
-    }
 }

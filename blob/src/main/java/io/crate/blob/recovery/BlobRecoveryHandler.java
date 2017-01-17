@@ -23,7 +23,7 @@ package io.crate.blob.recovery;
 
 import io.crate.blob.BlobContainer;
 import io.crate.blob.BlobTransferTarget;
-import io.crate.blob.v2.BlobIndices;
+import io.crate.blob.v2.BlobIndicesService;
 import io.crate.blob.v2.BlobShard;
 import io.crate.common.Hex;
 import org.elasticsearch.ElasticsearchException;
@@ -60,11 +60,10 @@ public class BlobRecoveryHandler {
     public BlobRecoveryHandler(TransportService transportService,
                                RecoverySettings recoverySettings,
                                BlobTransferTarget blobTransferTarget,
-                               BlobIndices blobIndices,
-                               IndexShard shard, StartRecoveryRequest request)
-    {
+                               BlobIndicesService blobIndicesService,
+                               IndexShard shard, StartRecoveryRequest request) {
         this.recoverySettings = recoverySettings;
-        this.blobShard = blobIndices.blobShardSafe(request.shardId().index().name(), request.shardId().id());
+        this.blobShard = blobIndicesService.blobShardSafe(request.shardId());
         this.request = request;
         this.transportService = transportService;
         this.blobTransferTarget = blobTransferTarget;
@@ -79,7 +78,7 @@ public class BlobRecoveryHandler {
 
     private Set<BytesArray> getExistingDigestsFromTarget(byte prefix) {
         BlobStartPrefixResponse response =
-            (BlobStartPrefixResponse)transportService.submitRequest(
+            (BlobStartPrefixResponse) transportService.submitRequest(
                 request.targetNode(),
                 BlobRecoveryTarget.Actions.START_PREFIX,
                 new BlobStartPrefixSyncRequest(request.recoveryId(), request.shardId(), prefix),
@@ -226,7 +225,7 @@ public class BlobRecoveryHandler {
             this.file = filePath;
             this.lastException = lastException;
             this.latch = latch;
-            this.baseDir = blobShard.blobContainer().getBaseDirectory().getAbsolutePath();
+            this.baseDir = blobShard.blobContainer().getBaseDirectory().toString();
         }
 
         @Override
@@ -244,7 +243,7 @@ public class BlobRecoveryHandler {
 
                 try (FileInputStream fileStream = new FileInputStream(file)) {
                     String filePath = file.getAbsolutePath();
-                    String relPath = filePath.substring(baseDir.length(), filePath.length());
+                    String relPath = filePath.substring(baseDir.length() + 1, filePath.length());
                     byte[] buf = new byte[BUFFER_SIZE];
                     int bytesRead = fileStream.read(buf, 0, BUFFER_SIZE);
                     long bytesReadTotal = 0;

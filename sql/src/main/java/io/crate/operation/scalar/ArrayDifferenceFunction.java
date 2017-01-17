@@ -24,8 +24,7 @@ package io.crate.operation.scalar;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import io.crate.analyze.symbol.Function;
-import io.crate.analyze.symbol.Literal;
+import com.google.common.collect.ImmutableList;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.metadata.*;
 import io.crate.operation.Input;
@@ -36,7 +35,7 @@ import org.elasticsearch.common.Nullable;
 
 import java.util.*;
 
-public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
+class ArrayDifferenceFunction extends Scalar<Object[], Object> {
 
     public static final String NAME = "array_difference";
     private FunctionInfo functionInfo;
@@ -44,7 +43,7 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
 
     private static FunctionInfo createInfo(List<DataType> types) {
         ArrayType arrayType = (ArrayType) types.get(0);
-        if(arrayType.innerType().equals(DataTypes.UNDEFINED)){
+        if (arrayType.innerType().equals(DataTypes.UNDEFINED)) {
             arrayType = (ArrayType) types.get(1);
         }
         return new FunctionInfo(new FunctionIdent(NAME, types), arrayType);
@@ -54,7 +53,7 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
         module.register(NAME, new Resolver());
     }
 
-    protected ArrayDifferenceFunction(FunctionInfo functionInfo, @Nullable Set<Object> subtractSet) {
+    private ArrayDifferenceFunction(FunctionInfo functionInfo, @Nullable Set<Object> subtractSet) {
         this.functionInfo = functionInfo;
         optionalSubtractSet = Optional.fromNullable(subtractSet);
     }
@@ -66,11 +65,7 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
 
     @Override
     public Scalar<Object[], Object> compile(List<Symbol> arguments) {
-
         Symbol symbol = arguments.get(1);
-        if(symbol == null){
-            return this;
-        }
 
         if (!symbol.symbolType().isValueSymbol()) {
             // arguments are no values, we can't compile
@@ -79,15 +74,12 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
 
         Input input = (Input) symbol;
         Object inputValue = input.value();
-        if (inputValue == null) {
-            return this;
-        }
 
         DataType innerType = ((ArrayType) this.info().returnType()).innerType();
         Object[] array = (Object[]) inputValue;
         Set<Object> subtractSet = new HashSet<>();
-        if(array.length > 0){
-            for(Object element : array){
+        if (array.length > 0) {
+            for (Object element : array) {
                 subtractSet.add(innerType.value(element));
             }
         }
@@ -97,7 +89,8 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
 
     @Override
     public Object[] evaluate(Input[] args) {
-        if (args[0] == null || args[0].value() == null) {
+        Object[] originalArray = (Object[]) args[0].value();
+        if (originalArray == null) {
             return null;
         }
 
@@ -106,10 +99,6 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
         if (!optionalSubtractSet.isPresent()) {
             localSubtractSet = new HashSet<>();
             for (int i = 1; i < args.length; i++) {
-                if (args[i] == null) {
-                    continue;
-                }
-
                 Object argValue = args[i].value();
                 if (argValue == null) {
                     continue;
@@ -124,11 +113,10 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
             localSubtractSet = optionalSubtractSet.get();
         }
 
-        Object[] originalArray = (Object[]) args[0].value();
-        List<Object> resultList   = new ArrayList<>(originalArray.length);
-        for(int i = 0; i < originalArray.length; i++){
-            Object element = innerType.value(originalArray[i]);
-            if(!localSubtractSet.contains(element)){
+        List<Object> resultList = new ArrayList<>(originalArray.length);
+        for (Object anOriginalArray : originalArray) {
+            Object element = innerType.value(anOriginalArray);
+            if (!localSubtractSet.contains(element)) {
                 resultList.add(element);
             }
         }
@@ -137,31 +125,38 @@ public class ArrayDifferenceFunction extends Scalar<Object[], Object> {
     }
 
 
-    private static class Resolver implements DynamicFunctionResolver {
+    private static class Resolver implements FunctionResolver {
+
+        private static final List<Signature> SIGNATURES = ImmutableList.of(
+            new Signature(DataTypes.ANY_ARRAY, DataTypes.ANY_ARRAY));
 
         @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-            Preconditions.checkArgument(dataTypes.size() == 2, "array_difference function requires 2 arguments");
-
+        public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
             for (int i = 0; i < dataTypes.size(); i++) {
                 Preconditions.checkArgument(dataTypes.get(i) instanceof ArrayType, String.format(Locale.ENGLISH,
-                        "Argument %d of the array_difference function cannot be converted to array", i + 1));
+                    "Argument %d of the array_difference function is not an array type", i + 1));
             }
 
             DataType innerType0 = ((ArrayType) dataTypes.get(0)).innerType();
             DataType innerType1 = ((ArrayType) dataTypes.get(1)).innerType();
 
-            Preconditions.checkArgument(!innerType0.equals(DataTypes.UNDEFINED) || !innerType1.equals(DataTypes.UNDEFINED),
-                    "One of the arguments of the array_difference function can be of undefined inner type, but not both");
+            Preconditions.checkArgument(
+                !innerType0.equals(DataTypes.UNDEFINED) || !innerType1.equals(DataTypes.UNDEFINED),
+                "One of the arguments of the array_difference function can be of undefined inner type, but not both");
 
-            if(!innerType0.equals(DataTypes.UNDEFINED)){
+            if (!innerType0.equals(DataTypes.UNDEFINED)) {
                 Preconditions.checkArgument(innerType1.isConvertableTo(innerType0),
-                        String.format(Locale.ENGLISH,
-                                "Second argument's inner type (%s) of the array_difference function cannot be converted to the first argument's inner type (%s)",
-                                innerType1,innerType0));
+                    String.format(Locale.ENGLISH,
+                        "Second argument's inner type (%s) of the array_difference function cannot be converted to the first argument's inner type (%s)",
+                        innerType1, innerType0));
             }
 
             return new ArrayDifferenceFunction(createInfo(dataTypes), null);
+        }
+
+        @Override
+        public List<Signature> signatures() {
+            return SIGNATURES;
         }
     }
 }

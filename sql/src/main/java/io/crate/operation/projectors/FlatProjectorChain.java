@@ -26,21 +26,17 @@ import com.google.common.collect.Lists;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.planner.projection.Projection;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * A chain of connected projectors rows will flow through.
- *
+ * <p>
  * Will be constructed from a list of projections which will be transformed to
  * projectors which will be connected.
- *
+ * <p>
  * Usage:
  * <ul>
  * <li> construct it,
- * <li> call {@linkplain #prepare()},
  * <li> get the first projector using {@linkplain #firstProjector()}
  * <li> feed data to it,
  * <li> wait for the result of  your custom downstream
@@ -55,14 +51,35 @@ public class FlatProjectorChain {
         this.rowReceivers = rowReceivers;
     }
 
-    public void prepare() {
-        for (RowReceiver rowReceiver : Lists.reverse(rowReceivers)) {
-            rowReceiver.prepare();
-        }
-    }
-
     public RowReceiver firstProjector() {
         return rowReceivers.get(0);
+    }
+
+    public static class Builder {
+        private final UUID jobId;
+        private final RamAccountingContext ramAccountingContext;
+        private final ProjectorFactory projectorFactory;
+        private final Collection<? extends Projection> projections;
+
+        public Builder(UUID jobId,
+                       RamAccountingContext ramAccountingContext,
+                       ProjectorFactory projectorFactory,
+                       Collection<? extends Projection> projections) {
+            this.jobId = jobId;
+            this.ramAccountingContext = ramAccountingContext;
+            this.projectorFactory = projectorFactory;
+            this.projections = projections;
+        }
+
+        public FlatProjectorChain build(RowReceiver rowReceiver) {
+            return FlatProjectorChain.withAttachedDownstream(
+                projectorFactory,
+                ramAccountingContext,
+                projections,
+                rowReceiver,
+                jobId
+            );
+        }
     }
 
     public static FlatProjectorChain withAttachedDownstream(final ProjectorFactory projectorFactory,
@@ -70,7 +87,10 @@ public class FlatProjectorChain {
                                                             Collection<? extends Projection> projections,
                                                             RowReceiver downstream,
                                                             UUID jobId) {
-        List<RowReceiver> rowReceivers = new ArrayList<>();
+        if (projections.isEmpty()) {
+            return new FlatProjectorChain(Collections.singletonList(downstream));
+        }
+        List<RowReceiver> rowReceivers = new ArrayList<>(projections.size() + 1);
         Projector previousProjector = null;
         for (Projection projection : projections) {
             Projector projector = projectorFactory.create(projection, ramAccountingContext, jobId);

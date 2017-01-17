@@ -22,7 +22,7 @@
 
 package io.crate.operation.reference.sys.check.cluster;
 
-import io.crate.metadata.ReferenceInfos;
+import io.crate.metadata.Schemas;
 import io.crate.metadata.doc.DocSchemaInfo;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.SchemaInfo;
@@ -36,21 +36,21 @@ public class NumberOfPartitionsSysCheck extends AbstractSysCheck {
 
     private static final int ID = 2;
     private static final String DESCRIPTION =
-            "The total number of partitions of one or more partitioned tables should" +
-            " not be greater than 1000. A large amount of shards can significantly reduce performance.";
+        "The total number of partitions of one or more partitioned tables should" +
+        " not be greater than 1000. A large amount of shards can significantly reduce performance.";
 
     private static final int PARTITIONS_THRESHOLD = 1000;
-    private final ReferenceInfos referenceInfos;
+    private final Schemas schemas;
 
     @Inject
-    public NumberOfPartitionsSysCheck(ReferenceInfos referenceInfos) {
+    public NumberOfPartitionsSysCheck(Schemas schemas) {
         super(ID, DESCRIPTION, Severity.MEDIUM);
-        this.referenceInfos = referenceInfos;
+        this.schemas = schemas;
     }
 
     @Override
     public boolean validate() {
-        for (SchemaInfo schemaInfo : referenceInfos) {
+        for (SchemaInfo schemaInfo : schemas) {
             if (schemaInfo instanceof DocSchemaInfo && !validateDocTablesPartitioning(schemaInfo)) {
                 return false;
             }

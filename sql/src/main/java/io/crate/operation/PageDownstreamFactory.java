@@ -27,8 +27,7 @@ import io.crate.breaker.RamAccountingContext;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.TransportActionProvider;
 import io.crate.metadata.Functions;
-import io.crate.metadata.NestedReferenceResolver;
-import io.crate.metadata.RowGranularity;
+import io.crate.metadata.ReplaceMode;
 import io.crate.operation.merge.IteratorPageDownstream;
 import io.crate.operation.merge.PagingIterator;
 import io.crate.operation.merge.PassThroughPagingIterator;
@@ -38,11 +37,11 @@ import io.crate.operation.projectors.ProjectionToProjectorVisitor;
 import io.crate.operation.projectors.ProjectorFactory;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.operation.projectors.sorting.OrderingByPosition;
+import io.crate.planner.PositionalOrderBy;
 import io.crate.planner.node.dql.MergePhase;
 import org.elasticsearch.action.bulk.BulkRetryCoordinatorPool;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
-import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.settings.Settings;
@@ -62,20 +61,19 @@ public class PageDownstreamFactory {
                                  Settings settings,
                                  TransportActionProvider transportActionProvider,
                                  BulkRetryCoordinatorPool bulkRetryCoordinatorPool,
-                                 NestedReferenceResolver referenceResolver,
                                  Functions functions) {
-        ImplementationSymbolVisitor implementationSymbolVisitor = new ImplementationSymbolVisitor(functions);
-        EvaluatingNormalizer normalizer = new EvaluatingNormalizer(functions, RowGranularity.DOC, referenceResolver);
+        InputFactory inputFactory = new InputFactory(functions);
+        EvaluatingNormalizer normalizer = EvaluatingNormalizer.functionOnlyNormalizer(functions, ReplaceMode.COPY);
         this.projectionToProjectorVisitor = new ProjectionToProjectorVisitor(
-                clusterService,
-                functions,
-                indexNameExpressionResolver,
-                threadPool,
-                settings,
-                transportActionProvider,
-                bulkRetryCoordinatorPool,
-                implementationSymbolVisitor,
-                normalizer
+            clusterService,
+            functions,
+            indexNameExpressionResolver,
+            threadPool,
+            settings,
+            transportActionProvider,
+            bulkRetryCoordinatorPool,
+            inputFactory,
+            normalizer
         );
     }
 
@@ -83,38 +81,33 @@ public class PageDownstreamFactory {
         return projectionToProjectorVisitor;
     }
 
-    public Tuple<PageDownstream, FlatProjectorChain> createMergeNodePageDownstream(MergePhase mergeNode,
-                                                                                   RowReceiver downstream,
-                                                                                   boolean requiresRepeatSupport,
-                                                                                   RamAccountingContext ramAccountingContext,
-                                                                                   Optional<Executor> executorOptional) {
-        FlatProjectorChain projectorChain = null;
-        if (!mergeNode.projections().isEmpty()) {
-            projectorChain = FlatProjectorChain.withAttachedDownstream(
-                    projectionToProjectorVisitor,
-                    ramAccountingContext,
-                    mergeNode.projections(),
-                    downstream,
-                    mergeNode.jobId()
+    public PageDownstream createMergeNodePageDownstream(MergePhase mergePhase,
+                                                        RowReceiver downstream,
+                                                        boolean requiresRepeatSupport,
+                                                        RamAccountingContext ramAccountingContext,
+                                                        Optional<Executor> executorOptional) {
+        if (!mergePhase.projections().isEmpty()) {
+            FlatProjectorChain projectorChain = FlatProjectorChain.withAttachedDownstream(
+                projectionToProjectorVisitor,
+                ramAccountingContext,
+                mergePhase.projections(),
+                downstream,
+                mergePhase.jobId()
             );
             downstream = projectorChain.firstProjector();
         }
 
         PagingIterator<Void, Row> pagingIterator;
-        if (mergeNode.sortedInputOutput() && mergeNode.numUpstreams() > 1) {
+        PositionalOrderBy positionalOrderBy = mergePhase.orderByPositions();
+        if (positionalOrderBy != null && mergePhase.numUpstreams() > 1) {
             pagingIterator = new SortedPagingIterator<>(
-                    OrderingByPosition.rowOrdering(
-                            mergeNode.orderByIndices(),
-                            mergeNode.reverseFlags(),
-                            mergeNode.nullsFirst()
-                    ),
-                    requiresRepeatSupport
+                OrderingByPosition.rowOrdering(positionalOrderBy),
+                requiresRepeatSupport
             );
         } else {
             pagingIterator = requiresRepeatSupport ?
-                    PassThroughPagingIterator.<Void, Row>repeatable() : PassThroughPagingIterator.<Void, Row>oneShot();
+                PassThroughPagingIterator.<Void, Row>repeatable() : PassThroughPagingIterator.<Void, Row>oneShot();
         }
-        PageDownstream pageDownstream = new IteratorPageDownstream(downstream, pagingIterator, executorOptional);
-        return new Tuple<>(pageDownstream, projectorChain);
+        return new IteratorPageDownstream(downstream, pagingIterator, executorOptional);
     }
 }

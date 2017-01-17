@@ -27,7 +27,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.action.FutureActionListener;
 import io.crate.analyze.*;
-import io.crate.blob.v2.BlobIndices;
+import io.crate.blob.v2.BlobAdminClient;
 import io.crate.executor.transport.*;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest;
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse;
@@ -35,6 +35,7 @@ import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshResponse;
 import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.inject.Provider;
 import org.elasticsearch.common.inject.Singleton;
 
 import javax.annotation.Nullable;
@@ -43,14 +44,14 @@ import java.util.UUID;
 
 /**
  * visitor that dispatches requests based on Analysis class to different actions.
- *
+ * <p>
  * Its methods return a future returning a Long containing the response rowCount.
  * If the future returns <code>null</code>, no row count shall be created.
  */
 @Singleton
 public class DDLStatementDispatcher {
 
-    private final BlobIndices blobIndices;
+    private final Provider<BlobAdminClient> blobAdminClient;
     private final TransportActionProvider transportActionProvider;
     private final TableCreator tableCreator;
     private final AlterTableOperation alterTableOperation;
@@ -61,13 +62,13 @@ public class DDLStatementDispatcher {
 
 
     @Inject
-    public DDLStatementDispatcher(BlobIndices blobIndices,
+    public DDLStatementDispatcher(Provider<BlobAdminClient> blobAdminClient,
                                   TableCreator tableCreator,
                                   AlterTableOperation alterTableOperation,
                                   RepositoryService repositoryService,
                                   SnapshotRestoreDDLDispatcher snapshotRestoreDDLDispatcher,
                                   TransportActionProvider transportActionProvider) {
-        this.blobIndices = blobIndices;
+        this.blobAdminClient = blobAdminClient;
         this.tableCreator = tableCreator;
         this.alterTableOperation = alterTableOperation;
         this.transportActionProvider = transportActionProvider;
@@ -108,11 +109,11 @@ public class DDLStatementDispatcher {
 
             // Pass parameters to ES request
             request.maxNumSegments(analysis.settings().getAsInt(OptimizeSettings.MAX_NUM_SEGMENTS.name(),
-                                                                ForceMergeRequest.Defaults.MAX_NUM_SEGMENTS));
+                ForceMergeRequest.Defaults.MAX_NUM_SEGMENTS));
             request.onlyExpungeDeletes(analysis.settings().getAsBoolean(OptimizeSettings.ONLY_EXPUNGE_DELETES.name(),
-                                                                      ForceMergeRequest.Defaults.ONLY_EXPUNGE_DELETES));
+                ForceMergeRequest.Defaults.ONLY_EXPUNGE_DELETES));
             request.flush(analysis.settings().getAsBoolean(OptimizeSettings.FLUSH.name(),
-                                                           ForceMergeRequest.Defaults.FLUSH));
+                ForceMergeRequest.Defaults.FLUSH));
 
             request.indicesOptions(IndicesOptions.lenientExpandOpen());
 
@@ -128,7 +129,7 @@ public class DDLStatementDispatcher {
                 return Futures.immediateFuture(null);
             }
             RefreshRequest request = new RefreshRequest(analysis.indexNames().toArray(
-                    new String[analysis.indexNames().size()]));
+                new String[analysis.indexNames().size()]));
             request.indicesOptions(IndicesOptions.lenientExpandOpen());
 
             FutureActionListener<RefreshResponse, Long> listener =
@@ -140,26 +141,26 @@ public class DDLStatementDispatcher {
 
         @Override
         public ListenableFuture<Long> visitCreateBlobTableStatement(
-                CreateBlobTableAnalyzedStatement analysis, UUID jobId) {
+            CreateBlobTableAnalyzedStatement analysis, UUID jobId) {
             return wrapRowCountFuture(
-                    blobIndices.createBlobTable(
-                            analysis.tableName(),
-                            analysis.tableParameter().settings()
-                    ),
-                    1L
+                blobAdminClient.get().createBlobTable(
+                    analysis.tableName(),
+                    analysis.tableParameter().settings()
+                ),
+                1L
             );
         }
 
         @Override
         public ListenableFuture<Long> visitAlterBlobTableStatement(AlterBlobTableAnalyzedStatement analysis, UUID jobId) {
             return wrapRowCountFuture(
-                    blobIndices.alterBlobTable(analysis.table().ident().name(), analysis.tableParameter().settings()),
-                    1L);
+                blobAdminClient.get().alterBlobTable(analysis.table().ident().name(), analysis.tableParameter().settings()),
+                1L);
         }
 
         @Override
         public ListenableFuture<Long> visitDropBlobTableStatement(DropBlobTableAnalyzedStatement analysis, UUID jobId) {
-            return wrapRowCountFuture(blobIndices.dropBlobTable(analysis.table().ident().name()), 1L);
+            return wrapRowCountFuture(blobAdminClient.get().dropBlobTable(analysis.table().ident().name()), 1L);
         }
 
         @Override

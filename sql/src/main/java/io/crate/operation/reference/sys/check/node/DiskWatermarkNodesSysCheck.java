@@ -63,7 +63,7 @@ abstract class DiskWatermarkNodesSysCheck extends AbstractSysNodeCheck {
     public boolean validate() {
         try {
             return !thresholdEnabled() ||
-                    validate(fsProbe.stats(), thresholdPercentageFromWatermark(), thresholdBytesFromWatermark());
+                   validate(fsProbe.stats(), thresholdPercentageFromWatermark(), thresholdBytesFromWatermark());
         } catch (IOException e) {
             LOGGER.error("Unable to determine the node disk usage while validating high/low disk watermark check: ", e);
             return false;
@@ -72,12 +72,12 @@ abstract class DiskWatermarkNodesSysCheck extends AbstractSysNodeCheck {
 
     protected boolean validate(FsInfo fsInfo, double diskWatermarkPercents, long diskWatermarkBytes) {
         for (FsInfo.Path path : fsInfo) {
-            double usedDiskAsPercentage = 100.0 - (path.getFree().bytes() / (double) path.getTotal().bytes()) * 100.0;
+            double usedDiskAsPercentage = 100.0 - (path.getAvailable().getBytes() / (double) path.getTotal().getBytes()) * 100.0;
 
             // Byte values refer to free disk space
             // Percentage values refer to used disk space
             if ((usedDiskAsPercentage > diskWatermarkPercents)
-                    || (path.getFree().bytes() < diskWatermarkBytes)) {
+                || (path.getAvailable().getBytes() < diskWatermarkBytes)) {
                 return false;
             }
         }
@@ -95,11 +95,11 @@ abstract class DiskWatermarkNodesSysCheck extends AbstractSysNodeCheck {
     private long thresholdBytesFromWatermark() {
         try {
             return ByteSizeValue.parseBytesSizeValue(
-                    watermarkSetting.extract(settings),
-                    watermarkSetting.name()
-            ).bytes();
+                watermarkSetting.extract(settings),
+                watermarkSetting.name()
+            ).getBytes();
         } catch (ElasticsearchParseException ex) {
-            return ByteSizeValue.parseBytesSizeValue("0b", watermarkSetting.name()).bytes();
+            return ByteSizeValue.parseBytesSizeValue("0b", watermarkSetting.name()).getBytes();
         }
     }
 

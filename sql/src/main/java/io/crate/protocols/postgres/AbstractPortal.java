@@ -22,33 +22,28 @@
 
 package io.crate.protocols.postgres;
 
-import io.crate.action.sql.SQLOperations;
+import io.crate.action.sql.SessionContext;
 import io.crate.analyze.Analyzer;
 import io.crate.executor.Executor;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 
 import java.util.Set;
 
 abstract class AbstractPortal implements Portal {
 
     protected final String name;
-    protected final SessionData sessionData;
+    protected final PortalContext portalContext;
+    final SessionContext sessionContext;
 
-    AbstractPortal(String name,
-                   String defaultSchema,
-                   Set<SQLOperations.Option> options,
-                   Analyzer analyzer,
-                   Executor executor,
-                   TransportKillJobsNodeAction transportKillJobsNodeAction,
-                   boolean isReadOnly) {
+    AbstractPortal(String name, Analyzer analyzer, Executor executor, boolean isReadOnly, SessionContext sessionContext) {
         this.name = name;
-        sessionData = new SessionData(defaultSchema, options, analyzer, executor,
-            transportKillJobsNodeAction, isReadOnly);
+        this.sessionContext = sessionContext;
+        portalContext = new PortalContext(analyzer, executor, isReadOnly);
     }
 
-    AbstractPortal(String name, SessionData sessionData) {
+    AbstractPortal(String name, SessionContext sessionContext, PortalContext portalContext) {
         this.name = name;
-        this.sessionData = sessionData;
+        this.portalContext = portalContext;
+        this.sessionContext = sessionContext;
     }
 
     @Override
@@ -57,33 +52,23 @@ abstract class AbstractPortal implements Portal {
     }
 
     @Override
-    public void close() {}
+    public void close() {
+    }
 
     @Override
     public String toString() {
         return "name: " + name + ", type: " + getClass().getSimpleName();
     }
 
-    static class SessionData {
+    static class PortalContext {
 
-        private Set<SQLOperations.Option> options;
         private final Analyzer analyzer;
         private final Executor executor;
-        private final String defaultSchema;
-        private final TransportKillJobsNodeAction transportKillJobsNodeAction;
         private final boolean isReadOnly;
 
-        private SessionData(String defaultSchema,
-                            Set<SQLOperations.Option> options,
-                            Analyzer analyzer,
-                            Executor executor,
-                            TransportKillJobsNodeAction transportKillJobsNodeAction,
-                            boolean isReadOnly) {
-            this.defaultSchema = defaultSchema;
-            this.options = options;
+        private PortalContext(Analyzer analyzer, Executor executor, boolean isReadOnly) {
             this.analyzer = analyzer;
             this.executor = executor;
-            this.transportKillJobsNodeAction = transportKillJobsNodeAction;
             this.isReadOnly = isReadOnly;
         }
 
@@ -93,18 +78,6 @@ abstract class AbstractPortal implements Portal {
 
         Executor getExecutor() {
             return executor;
-        }
-
-        String getDefaultSchema() {
-            return defaultSchema;
-        }
-
-        Set<SQLOperations.Option> options() {
-            return options;
-        }
-
-        TransportKillJobsNodeAction getTransportKillJobsNodeAction() {
-            return transportKillJobsNodeAction;
         }
 
         boolean isReadOnly() {

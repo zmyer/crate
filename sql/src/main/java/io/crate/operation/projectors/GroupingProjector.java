@@ -69,15 +69,13 @@ public class GroupingProjector extends AbstractProjector {
         Aggregator[] aggregators = new Aggregator[aggregations.length];
         for (int i = 0; i < aggregations.length; i++) {
             aggregators[i] = new Aggregator(
-                    ramAccountingContext,
-                    aggregations[i].symbol(),
-                    aggregations[i].function(),
-                    aggregations[i].inputs()
+                ramAccountingContext,
+                aggregations[i].symbol(),
+                aggregations[i].function(),
+                aggregations[i].inputs()
             );
         }
 
-        // grouper object size overhead
-        ramAccountingContext.addBytes(8);
         if (keyInputs.size() == 1) {
             grouper = new SingleKeyGrouper(keyInputs.get(0), keyTypes.get(0), collectExpressions, aggregators);
         } else {
@@ -157,7 +155,9 @@ public class GroupingProjector extends AbstractProjector {
 
     private interface Grouper extends AutoCloseable {
         Result setNextRow(final Row row);
+
         void finish();
+
         void kill(Throwable t);
     }
 
@@ -189,10 +189,7 @@ public class GroupingProjector extends AbstractProjector {
 
             Object key = keyInput.value();
 
-            // HashMap.get requires some objects (iterators) and at least 2 integers
-            ramAccountingContext.addBytes(32);
             Object[] states = result.get(key);
-            ramAccountingContext.addBytes(-32);
             if (states == null) {
                 states = new Object[aggregators.length];
                 for (int i = 0; i < aggregators.length; i++) {
@@ -200,7 +197,8 @@ public class GroupingProjector extends AbstractProjector {
                     states[i] = aggregators[i].processRow(state);
                 }
                 ramAccountingContext.addBytes(
-                        RamAccountingContext.roundUp(sizeEstimator.estimateSize(key)) + 24); // 24 bytes overhead per entry
+                    RamAccountingContext.roundUp(sizeEstimator.estimateSize(key) + 36L) // key size + 32 bytes for entry + 4 bytes for increased capacity
+                );
                 result.put(key, states);
             } else {
                 for (int i = 0; i < aggregators.length; i++) {
@@ -213,21 +211,8 @@ public class GroupingProjector extends AbstractProjector {
 
         @Override
         public void finish() {
-            try {
-                // TODO: check ram accounting
-                // account the multi-dimension `rows` array
-                // 1st level
-                ramAccountingContext.addBytes(RamAccountingContext.roundUp(12 + result.size() * 4));
-                // 2nd level
-                ramAccountingContext.addBytes(RamAccountingContext.roundUp(
-                        (1 + aggregators.length) * 4 + 12));
-            } catch (CircuitBreakingException e) {
-                downstream.fail(e);
-                return;
-            }
-
             rowEmitter = new IterableRowEmitter(
-                    downstream, Iterables.transform(result.entrySet(), new Function<Map.Entry<Object, Object[]>, Row>() {
+                downstream, Iterables.transform(result.entrySet(), new Function<Map.Entry<Object, Object[]>, Row>() {
 
                 RowN row = new RowN(1 + aggregators.length); // 1 for key
                 Object[] cells = new Object[row.size()];
@@ -289,25 +274,22 @@ public class GroupingProjector extends AbstractProjector {
                 collectExpression.setNextRow(row);
             }
 
-            // key list ram accounting
-            ramAccountingContext.addBytes(12);
             // TODO: use something with better equals() performance for the keys
             List<Object> key = new ArrayList<>(keyInputs.size());
             int keyIdx = 0;
             for (Input keyInput : keyInputs) {
                 Object keyInputValue = keyInput.value();
                 key.add(keyInputValue);
-                // 4 bytes overhead per list entry + 4 bytes overhead for later hashCode
-                // calculation while using list.get()
-                ramAccountingContext.addBytes(RamAccountingContext.roundUp(
-                        sizeEstimators.get(keyIdx).estimateSize(keyInputValue) + 4) + 4);
+                // estimate key size, overhead is accounted below
+                ramAccountingContext.addBytes(
+                    RamAccountingContext.roundUp(
+                        sizeEstimators.get(keyIdx).estimateSize(keyInputValue)
+                    )
+                );
                 keyIdx++;
             }
 
-            // HashMap.get requires some objects (iterators) and at least 2 integers
-            ramAccountingContext.addBytes(32);
             Object[] states = result.get(key);
-            ramAccountingContext.addBytes(-32);
             if (states == null) {
                 states = new Object[aggregators.length];
                 for (int i = 0; i < aggregators.length; i++) {
@@ -315,7 +297,7 @@ public class GroupingProjector extends AbstractProjector {
                     state = aggregators[i].processRow(state);
                     states[i] = state;
                 }
-                ramAccountingContext.addBytes(24); // 24 bytes overhead per map entry
+                ramAccountingContext.addBytes(RamAccountingContext.roundUp(36L)); // 32 bytes for entry + 4 bytes for increased capacity
                 result.put(key, states);
             } else {
                 for (int i = 0; i < aggregators.length; i++) {
@@ -328,20 +310,8 @@ public class GroupingProjector extends AbstractProjector {
 
         @Override
         public void finish() {
-            try {
-                // account the multi-dimension `rows` array
-                // 1st level
-                ramAccountingContext.addBytes(RamAccountingContext.roundUp(12 + result.size() * 4));
-                // 2nd level
-                ramAccountingContext.addBytes(RamAccountingContext.roundUp(12 +
-                        (keyInputs.size() + aggregators.length) * 4));
-            } catch (CircuitBreakingException e) {
-                downstream.fail(e);
-                return;
-            }
-
             rowEmitter = new IterableRowEmitter(
-                    downstream, Iterables.transform(result.entrySet(), new Function<Map.Entry<List<Object>, Object[]>, Row>() {
+                downstream, Iterables.transform(result.entrySet(), new Function<Map.Entry<List<Object>, Object[]>, Row>() {
 
                 RowN row = new RowN(keyInputs.size() + aggregators.length);
                 Object[] cells = new Object[row.size()];

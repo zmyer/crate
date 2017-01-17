@@ -57,11 +57,15 @@ public class CollectingRowReceiver implements RowReceiver {
         return new LimitingReceiver(limit);
     }
 
-    public CollectingRowReceiver() {
+    public static CollectingRowReceiver withFailure() {
+        return new FailingReceiver();
     }
 
-    @Override
-    public void prepare() {
+    public static CollectingRowReceiver withFailureOnRepeat() {
+        return new FailingOnRepeatReceiver();
+    }
+
+    public CollectingRowReceiver() {
     }
 
     public SettableFuture<Bucket> resultFuture() {
@@ -81,7 +85,11 @@ public class CollectingRowReceiver implements RowReceiver {
 
     @Override
     public void kill(Throwable throwable) {
-        resultFuture.setException(throwable);
+        if (throwable == null) {
+            resultFuture().cancel(false);
+        } else {
+            resultFuture.setException(throwable);
+        }
     }
 
     @Override
@@ -182,6 +190,33 @@ public class CollectingRowReceiver implements RowReceiver {
                 return Result.PAUSE;
             }
             return result;
+        }
+    }
+
+    private static class FailingReceiver extends CollectingRowReceiver {
+
+        @Override
+        public Result setNextRow(Row row) {
+            throw new IllegalStateException("dummy");
+        }
+    }
+
+    private static class FailingOnRepeatReceiver extends CollectingRowReceiver {
+
+        private boolean invokeFailure = false;
+
+        @Override
+        public Result setNextRow(Row row) {
+            if (invokeFailure) {
+                throw new IllegalStateException("dummy");
+            }
+            return super.setNextRow(row);
+        }
+
+        @Override
+        public void repeatUpstream() {
+            invokeFailure = true;
+            super.repeatUpstream();
         }
     }
 }

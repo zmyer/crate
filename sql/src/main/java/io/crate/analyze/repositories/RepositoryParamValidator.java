@@ -23,7 +23,6 @@
 package io.crate.analyze.repositories;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.crate.analyze.GenericPropertiesConverter;
@@ -38,6 +37,7 @@ import org.elasticsearch.common.settings.Settings;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Singleton
@@ -69,14 +69,14 @@ public class RepositoryParamValidator {
 
         // convert and validate all settings
         Settings settings = GenericPropertiesConverter.settingsFromProperties(
-                genericProperties, parameterContext, allSettings).build();
+            genericProperties, parameterContext, allSettings).build();
 
         Set<String> names = settings.getAsMap().keySet();
         Sets.SetView<String> missingRequiredSettings = Sets.difference(typeSettings.required().keySet(), names);
         if (!missingRequiredSettings.isEmpty()) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                    "The following required parameters are missing to create a repository of type \"%s\": [%s]",
-                    type, Joiner.on(", ").join(missingRequiredSettings)));
+                "The following required parameters are missing to create a repository of type \"%s\": [%s]",
+                type, Joiner.on(", ").join(missingRequiredSettings)));
         }
 
         return settings;

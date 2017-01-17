@@ -67,52 +67,50 @@ public class IndexWriterProjectorTest extends SQLTransportIntegrationTest {
         List<CollectExpression<Row, ?>> collectExpressions = Collections.<CollectExpression<Row, ?>>singletonList(sourceInput);
 
         IndexWriterProjector writerProjector = new IndexWriterProjector(
-                internalCluster().getInstance(ClusterService.class),
-                internalCluster().getInstance(Functions.class),
-                new IndexNameExpressionResolver(Settings.EMPTY),
-                Settings.EMPTY,
-                internalCluster().getInstance(TransportActionProvider.class),
-                IndexNameResolver.forTable(new TableIdent(null, "bulk_import")),
-                internalCluster().getInstance(BulkRetryCoordinatorPool.class),
-                new Reference(new ReferenceIdent(bulkImportIdent, DocSysColumns.RAW), RowGranularity.DOC, DataTypes.STRING),
-                Arrays.asList(ID_IDENT),
-                Arrays.<Symbol>asList(new InputColumn(0)),
-                null,
-                null,
-                sourceInput,
-                collectExpressions,
-                20,
-                null,
-                null,
-                false,
-                false,
-                UUID.randomUUID()
+            internalCluster().getInstance(ClusterService.class),
+            internalCluster().getInstance(Functions.class),
+            new IndexNameExpressionResolver(Settings.EMPTY),
+            Settings.EMPTY,
+            internalCluster().getInstance(TransportActionProvider.class),
+            IndexNameResolver.forTable(new TableIdent(null, "bulk_import")),
+            internalCluster().getInstance(BulkRetryCoordinatorPool.class),
+            new Reference(new ReferenceIdent(bulkImportIdent, DocSysColumns.RAW), RowGranularity.DOC, DataTypes.STRING),
+            Arrays.asList(ID_IDENT),
+            Arrays.<Symbol>asList(new InputColumn(0)),
+            null,
+            null,
+            sourceInput,
+            collectExpressions,
+            20,
+            null,
+            null,
+            false,
+            false,
+            UUID.randomUUID()
         );
         writerProjector.downstream(collectingRowReceiver);
-        final RowDownstream rowDownstream = RowMergers.passThroughRowMerger(writerProjector);
+        final RowDownstream rowDownstream = new MultiUpstreamRowReceiver(writerProjector);
 
         final RowReceiver receiver1 = rowDownstream.newRowReceiver();
-        receiver1.prepare();
 
         Thread t1 = new Thread(new Runnable() {
             @Override
             public void run() {
                 for (int i = 0; i < 100; i++) {
                     receiver1.setNextRow(
-                            new RowN(new Object[]{i, new BytesRef("{\"id\": " + i + ", \"name\": \"Arthur\"}")}));
+                        new RowN(new Object[]{i, new BytesRef("{\"id\": " + i + ", \"name\": \"Arthur\"}")}));
                 }
             }
         });
 
 
         final RowReceiver receiver2 = rowDownstream.newRowReceiver();
-        receiver2.prepare();
         Thread t2 = new Thread(new Runnable() {
             @Override
             public void run() {
                 for (int i = 100; i < 200; i++) {
                     receiver2.setNextRow(
-                            new RowN(new Object[]{i, new BytesRef("{\"id\": " + i + ", \"name\": \"Trillian\"}")}));
+                        new RowN(new Object[]{i, new BytesRef("{\"id\": " + i + ", \"name\": \"Trillian\"}")}));
                 }
             }
         });

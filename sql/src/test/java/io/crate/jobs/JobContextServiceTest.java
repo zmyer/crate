@@ -35,7 +35,9 @@ import java.lang.reflect.Field;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -47,7 +49,7 @@ public class JobContextServiceTest extends CrateUnitTest {
 
     @Before
     public void prepare() throws Exception {
-        jobContextService  = new JobContextService(Settings.EMPTY, new NoopClusterService(), mock(StatsTables.class));
+        jobContextService = new JobContextService(Settings.EMPTY, new NoopClusterService(), mock(StatsTables.class));
     }
 
     @After
@@ -72,12 +74,12 @@ public class JobContextServiceTest extends CrateUnitTest {
         builder.addSubContext(new DummySubContext(1));
 
         JobExecutionContext ctx = jobContextService.createContext(builder);
-        Iterable<JobExecutionContext> contexts = jobContextService.getContextsByCoordinatorNode("wrongNodeId");
+        Iterable<UUID> contexts = jobContextService.getJobIdsByCoordinatorNode("wrongNodeId").collect(Collectors.toList());
 
         assertThat(contexts.iterator().hasNext(), is(false));
 
-        contexts = jobContextService.getContextsByCoordinatorNode("noop_id");
-        assertThat(contexts, contains(ctx));
+        contexts = jobContextService.getJobIdsByCoordinatorNode("noop_id").collect(Collectors.toList());
+        assertThat(contexts, contains(ctx.jobId()));
     }
 
     @Test
@@ -86,7 +88,7 @@ public class JobContextServiceTest extends CrateUnitTest {
 
         expectedException.expect(IllegalArgumentException.class);
         expectedException.expectMessage(String.format(Locale.ENGLISH,
-                "context for job %s already exists", jobId));
+            "context for job %s already exists", jobId));
 
         // create new context
         JobExecutionContext.Builder builder1 = jobContextService.newBuilder(jobId);
@@ -129,7 +131,7 @@ public class JobContextServiceTest extends CrateUnitTest {
         @SuppressWarnings("unchecked")
         Map<UUID, JobExecutionContext> activeContexts = (Map<UUID, JobExecutionContext>) activeContextsField.get(jobContextService);
         assertThat(activeContexts.size(), is(1));
-        assertThat(jobContextService.killAll(), is(1L));
+        assertThat(jobContextService.killAll().get(5L, TimeUnit.SECONDS), is(1));
 
         assertThat(killCalled.get(), is(true));
         assertThat(activeContexts.size(), is(0));
@@ -166,7 +168,7 @@ public class JobContextServiceTest extends CrateUnitTest {
         @SuppressWarnings("unchecked")
         Map<UUID, JobExecutionContext> activeContexts = (Map<UUID, JobExecutionContext>) activeContextsField.get(jobContextService);
         assertThat(activeContexts.size(), is(2));
-        assertThat(jobContextService.killJobs(ImmutableList.of(jobId)), is(1L));
+        assertThat(jobContextService.killJobs(ImmutableList.of(jobId)).get(5L, TimeUnit.SECONDS), is(1));
 
         assertThat(killCalled.get(), is(true));
         assertThat(kill2Called.get(), is(false));
@@ -206,7 +208,7 @@ public class JobContextServiceTest extends CrateUnitTest {
         builder.addSubContext(new DummySubContext(1));
         jobContextService.createContext(builder);
 
-        assertThat(jobContextService.killAll(), is(2L));
+        assertThat(jobContextService.killAll().get(), is(2));
     }
 
     @Test
@@ -223,6 +225,6 @@ public class JobContextServiceTest extends CrateUnitTest {
         builder = jobContextService.newBuilder(UUID.randomUUID());
         builder.addSubContext(new DummySubContext());
         jobContextService.createContext(builder);
-        assertThat(jobContextService.killJobs(jobsToKill), is(1L));
+        assertThat(jobContextService.killJobs(jobsToKill).get(5L, TimeUnit.SECONDS), is(1));
     }
 }

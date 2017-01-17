@@ -39,7 +39,6 @@ import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.planner.projection.Projection;
 import io.crate.testing.CollectingRowReceiver;
 import io.crate.testing.TestingHelpers;
-import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.test.ESIntegTestCase;
@@ -69,15 +68,15 @@ public class HandlerSideLevelCollectTest extends SQLTransportIntegrationTest {
                                            RowGranularity rowGranularity,
                                            WhereClause whereClause) {
         return new RoutedCollectPhase(
-                UUID.randomUUID(),
-                0,
-                "dummy",
-                routing,
-                rowGranularity,
-                toCollect,
-                ImmutableList.<Projection>of(),
-                whereClause,
-                DistributionInfo.DEFAULT_BROADCAST
+            UUID.randomUUID(),
+            0,
+            "dummy",
+            routing,
+            rowGranularity,
+            toCollect,
+            ImmutableList.<Projection>of(),
+            whereClause,
+            DistributionInfo.DEFAULT_BROADCAST
         );
     }
 
@@ -87,7 +86,7 @@ public class HandlerSideLevelCollectTest extends SQLTransportIntegrationTest {
 
     @Test
     public void testClusterLevel() throws Exception {
-        Schemas schemas =  internalCluster().getInstance(Schemas.class);
+        Schemas schemas = internalCluster().getInstance(Schemas.class);
         TableInfo tableInfo = schemas.getTableInfo(new TableIdent("sys", "cluster"));
         Routing routing = tableInfo.getRouting(WhereClause.MATCH_ALL, null);
         Reference clusterNameRef = new Reference(new ReferenceIdent(SysClusterTableInfo.IDENT, new ColumnIdent(ClusterNameExpression.NAME)), RowGranularity.CLUSTER, DataTypes.STRING);
@@ -99,36 +98,35 @@ public class HandlerSideLevelCollectTest extends SQLTransportIntegrationTest {
 
     private Bucket collect(RoutedCollectPhase collectPhase) throws Exception {
         CollectingRowReceiver collectingProjector = new CollectingRowReceiver();
-        collectingProjector.prepare();
         Collection<CrateCollector> collectors = operation.createCollectors(collectPhase, collectingProjector, mock(JobCollectContext.class));
-        operation.launchCollectors(collectors, JobCollectContext.threadPoolName(collectPhase, clusterService().localNode().id()));
+        operation.launchCollectors(collectors, JobCollectContext.threadPoolName(collectPhase, clusterService().localNode().getId()));
         return collectingProjector.result();
     }
 
     @Test
     public void testInformationSchemaTables() throws Exception {
-        InformationSchemaInfo schemaInfo =  internalCluster().getInstance(InformationSchemaInfo.class);
+        InformationSchemaInfo schemaInfo = internalCluster().getInstance(InformationSchemaInfo.class);
         TableInfo tablesTableInfo = schemaInfo.getTableInfo("tables");
         Routing routing = tablesTableInfo.getRouting(WhereClause.MATCH_ALL, null);
         List<Symbol> toCollect = new ArrayList<>();
         for (Reference reference : tablesTableInfo.columns()) {
             toCollect.add(reference);
         }
-        Symbol tableNameRef = toCollect.get(8);
+        Symbol tableNameRef = toCollect.get(7);
 
         FunctionImplementation eqImpl = functions.get(new FunctionIdent(EqOperator.NAME,
-                ImmutableList.<DataType>of(DataTypes.STRING, DataTypes.STRING)));
+            ImmutableList.of(DataTypes.STRING, DataTypes.STRING)));
         Function whereClause = new Function(eqImpl.info(),
-                Arrays.asList(tableNameRef, Literal.newLiteral("shards")));
+            Arrays.asList(tableNameRef, Literal.of("shards")));
 
         RoutedCollectPhase collectNode = collectNode(routing, toCollect, RowGranularity.DOC, new WhereClause(whereClause));
         Bucket result = collect(collectNode);
-        assertThat(TestingHelpers.printedTable(result), is("NULL| NULL| strict| 0| 1| NULL| sys| NULL| shards\n"));
+        assertThat(TestingHelpers.printedTable(result), is("NULL| NULL| strict| 0| 1| NULL| NULL| shards| sys\n"));
     }
 
     @Test
     public void testInformationSchemaColumns() throws Exception {
-        InformationSchemaInfo schemaInfo =  internalCluster().getInstance(InformationSchemaInfo.class);
+        InformationSchemaInfo schemaInfo = internalCluster().getInstance(InformationSchemaInfo.class);
         TableInfo tableInfo = schemaInfo.getTableInfo("columns");
         assert tableInfo != null;
         Routing routing = tableInfo.getRouting(WhereClause.MATCH_ALL, null);
@@ -139,10 +137,10 @@ public class HandlerSideLevelCollectTest extends SQLTransportIntegrationTest {
         RoutedCollectPhase collectNode = collectNode(routing, toCollect, RowGranularity.DOC);
         Bucket result = collect(collectNode);
 
-        String expected = "id| string| NULL| false| true| 1| sys| cluster\n" +
-                          "master_node| string| NULL| false| true| 2| sys| cluster\n" +
-                          "name| string| NULL| false| true| 3| sys| cluster\n" +
-                          "settings| object| NULL| false| true| 4| sys| cluster\n";
+        String expected = "id| string| NULL| false| true| 1| cluster| sys\n" +
+                          "master_node| string| NULL| false| true| 2| cluster| sys\n" +
+                          "name| string| NULL| false| true| 3| cluster| sys\n" +
+                          "settings| object| NULL| false| true| 4| cluster| sys\n";
 
 
         assertThat(TestingHelpers.printedTable(result), Matchers.containsString(expected));

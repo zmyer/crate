@@ -23,10 +23,9 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 
-import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 
 public class CreateAnalyzer extends Statement {
 
@@ -35,9 +34,9 @@ public class CreateAnalyzer extends Statement {
     private final List<AnalyzerElement> elements;
     private final GenericProperties properties;
 
-    public CreateAnalyzer(String ident, @Nullable String extendedAnalyzer, List<AnalyzerElement> elements) {
+    public CreateAnalyzer(String ident, Optional<String> extendedAnalyzer, List<AnalyzerElement> elements) {
         this.ident = ident;
-        this.extendedAnalyzer = Optional.fromNullable(extendedAnalyzer);
+        this.extendedAnalyzer = extendedAnalyzer;
         this.elements = elements;
 
         this.properties = new GenericProperties();
@@ -46,7 +45,6 @@ public class CreateAnalyzer extends Statement {
                 this.properties.add((GenericProperty) element);
             }
         }
-
     }
 
     public String ident() {
@@ -96,11 +94,11 @@ public class CreateAnalyzer extends Statement {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                .add("ident", ident)
-                .add("extends", extendedAnalyzer)
-                .add("elements", elements)
-                .add("properties", properties)
-                .toString();
+            .add("ident", ident)
+            .add("extends", extendedAnalyzer)
+            .add("elements", elements)
+            .add("properties", properties)
+            .toString();
     }
 
     @Override

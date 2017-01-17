@@ -41,7 +41,7 @@ import java.util.List;
 public abstract class AbstractIndexWriterProjection extends Projection {
 
     protected final static List<Symbol> OUTPUTS = ImmutableList.<Symbol>of(
-            new Value(DataTypes.LONG)  // number of rows imported
+        new Value(DataTypes.LONG)  // number of rows imported
     );
 
     protected final static String BULK_SIZE = "bulk_size";
@@ -51,15 +51,18 @@ public abstract class AbstractIndexWriterProjection extends Projection {
     protected TableIdent tableIdent;
     protected String partitionIdent;
     protected List<ColumnIdent> primaryKeys;
-    protected @Nullable ColumnIdent clusteredByColumn;
+    protected
+    @Nullable
+    ColumnIdent clusteredByColumn;
 
     protected List<Symbol> idSymbols;
     protected List<Symbol> partitionedBySymbols;
-    protected @Nullable Symbol clusteredBySymbol;
+    protected
+    @Nullable
+    Symbol clusteredBySymbol;
 
     protected boolean autoCreateIndices;
 
-    protected AbstractIndexWriterProjection() {}
 
     protected AbstractIndexWriterProjection(TableIdent tableIdent,
                                             @Nullable String partitionIdent,
@@ -76,6 +79,32 @@ public abstract class AbstractIndexWriterProjection extends Projection {
         this.bulkActions = settings.getAsInt(BULK_SIZE, BULK_SIZE_DEFAULT);
         Preconditions.checkArgument(bulkActions > 0, "\"bulk_size\" must be greater than 0.");
     }
+
+    protected AbstractIndexWriterProjection(StreamInput in) throws IOException {
+        tableIdent = TableIdent.fromStream(in);
+
+        partitionIdent = in.readOptionalString();
+        idSymbols = Symbols.listFromStream(in);
+
+        int numPks = in.readVInt();
+        primaryKeys = new ArrayList<>(numPks);
+        for (int i = 0; i < numPks; i++) {
+            primaryKeys.add(ColumnIdent.fromStream(in));
+        }
+
+        partitionedBySymbols = Symbols.listFromStream(in);
+        if (in.readBoolean()) {
+            clusteredBySymbol = Symbols.fromStream(in);
+        } else {
+            clusteredBySymbol = null;
+        }
+        if (in.readBoolean()) {
+            clusteredByColumn = ColumnIdent.fromStream(in);
+        }
+        bulkActions = in.readVInt();
+        autoCreateIndices = in.readBoolean();
+    }
+
 
     public List<? extends Symbol> ids() {
         return idSymbols;
@@ -122,32 +151,6 @@ public abstract class AbstractIndexWriterProjection extends Projection {
     }
 
     @Override
-    public void readFrom(StreamInput in) throws IOException {
-        tableIdent = TableIdent.fromStream(in);
-
-        partitionIdent = in.readOptionalString();
-        idSymbols = Symbols.listFromStream(in);
-
-        int numPks = in.readVInt();
-        primaryKeys = new ArrayList<>(numPks);
-        for (int i = 0; i < numPks; i++) {
-            primaryKeys.add(ColumnIdent.fromStream(in));
-        }
-
-        partitionedBySymbols = Symbols.listFromStream(in);
-        if (in.readBoolean()) {
-            clusteredBySymbol = Symbols.fromStream(in);
-        } else {
-            clusteredBySymbol = null;
-        }
-        if (in.readBoolean()) {
-            clusteredByColumn = ColumnIdent.fromStream(in);
-        }
-        bulkActions = in.readVInt();
-        autoCreateIndices = in.readBoolean();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof AbstractIndexWriterProjection)) return false;
@@ -156,9 +159,11 @@ public abstract class AbstractIndexWriterProjection extends Projection {
 
         if (autoCreateIndices != that.autoCreateIndices) return false;
         if (!bulkActions.equals(that.bulkActions)) return false;
-        if (clusteredByColumn != null ? !clusteredByColumn.equals(that.clusteredByColumn) : that.clusteredByColumn != null)
+        if (clusteredByColumn != null ? !clusteredByColumn.equals(that.clusteredByColumn) :
+            that.clusteredByColumn != null)
             return false;
-        if (clusteredBySymbol != null ? !clusteredBySymbol.equals(that.clusteredBySymbol) : that.clusteredBySymbol != null)
+        if (clusteredBySymbol != null ? !clusteredBySymbol.equals(that.clusteredBySymbol) :
+            that.clusteredBySymbol != null)
             return false;
         if (!idSymbols.equals(that.idSymbols)) return false;
         if (!partitionedBySymbols.equals(that.partitionedBySymbols))

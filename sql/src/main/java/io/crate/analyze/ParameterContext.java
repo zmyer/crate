@@ -21,57 +21,38 @@
 
 package io.crate.analyze;
 
-import io.crate.action.sql.SQLOperations;
+import com.google.common.base.Function;
+import io.crate.analyze.symbol.Literal;
+import io.crate.analyze.symbol.Symbol;
 import io.crate.core.collections.Row;
+import io.crate.sql.tree.ParameterExpression;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-
-import static io.crate.analyze.symbol.Literal.newLiteral;
 
 
-public class ParameterContext {
+public class ParameterContext implements Function<ParameterExpression, Symbol> {
 
-    public static final ParameterContext EMPTY = new ParameterContext(
-        Row.EMPTY, Collections.<Row>emptyList(), null, SQLOperations.Option.NONE);
+    public static final ParameterContext EMPTY = new ParameterContext(Row.EMPTY, Collections.<Row>emptyList());
 
-    @Nullable
-    private final String defaultSchema;
-
-    private final Set<SQLOperations.Option> options;
     private final Row parameters;
     private final List<Row> bulkParameters;
 
     private int currentIdx = 0;
+    private ParamTypeHints typeHints = null;
 
 
-    public ParameterContext(Row parameters, List<Row> bulkParameters,
-                            @Nullable String defaultSchema, Set<SQLOperations.Option> options) {
+    public ParameterContext(Row parameters, List<Row> bulkParameters) {
         this.parameters = parameters;
-        this.defaultSchema = defaultSchema;
-        this.options = options;
         if (bulkParameters.size() > 0) {
             validateBulkParams(bulkParameters);
         }
         this.bulkParameters = bulkParameters;
-    }
-
-    public ParameterContext(Row parameters, List<Row> bulkParameters, @Nullable String defaultSchema) {
-        this(parameters, bulkParameters, defaultSchema, SQLOperations.Option.NONE);
-    }
-
-    public Set<SQLOperations.Option> options() {
-        return options;
-    }
-
-    @Nullable
-    public String defaultSchema() {
-        return defaultSchema;
     }
 
     private void validateBulkParams(List<Row> bulkParams) {
@@ -87,7 +68,7 @@ public class ParameterContext {
         DataType guessedType = DataTypes.guessType(value);
         if (guessedType == null) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                    "Got an argument \"%s\" that couldn't be recognized", value));
+                "Got an argument \"%s\" that couldn't be recognized", value));
         }
         return guessedType;
     }
@@ -116,11 +97,31 @@ public class ParameterContext {
             Object value = parameters().get(index);
             DataType type = guessTypeSafe(value);
             // use type.value because some types need conversion (String to BytesRef, List to Array)
-            return newLiteral(type, type.value(value));
+            return Literal.of(type, type.value(value));
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                    "Tried to resolve a parameter but the arguments provided with the " +
-                            "SQLRequest don't contain a parameter at position %d", index), e);
+                "Tried to resolve a parameter but the arguments provided with the " +
+                "SQLRequest don't contain a parameter at position %d", index), e);
         }
+    }
+
+    public ParamTypeHints typeHints() {
+        if (typeHints == null) {
+            List<DataType> types = new ArrayList<>(parameters.size());
+            for (int i = 0; i < parameters.size(); i++) {
+                types.add(guessTypeSafe(parameters.get(i)));
+            }
+            typeHints = new ParamTypeHints(types);
+        }
+        return typeHints;
+    }
+
+    @Nullable
+    @Override
+    public Symbol apply(@Nullable ParameterExpression input) {
+        if (input == null) {
+            return null;
+        }
+        return getAsSymbol(input.index());
     }
 }

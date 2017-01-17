@@ -69,7 +69,7 @@ public class SysSnapshotsTableInfo extends StaticTableInfo {
                 .register(Columns.FINISHED, DataTypes.TIMESTAMP)
                 .register(Columns.VERSION, DataTypes.STRING)
                 .register(Columns.STATE, DataTypes.STRING),
-                PRIMARY_KEY);
+            PRIMARY_KEY);
         this.clusterService = clusterService;
     }
 
@@ -87,7 +87,7 @@ public class SysSnapshotsTableInfo extends StaticTableInfo {
     public Routing getRouting(WhereClause whereClause, @Nullable String preference) {
         // route to random master or data node,
         // because RepositoriesService (and so snapshots info) is only available there
-        return Routing.forTableOnSingleNode(IDENT, randomMasterOrDataNode().id());
+        return Routing.forTableOnSingleNode(IDENT, randomMasterOrDataNode().getId());
     }
 
     private DiscoveryNode randomMasterOrDataNode() {
@@ -102,6 +102,6 @@ public class SysSnapshotsTableInfo extends StaticTableInfo {
             currIdx++;
         }
         throw new AssertionError(String.format(Locale.ENGLISH,
-                "Cannot find a master or data node with given random index %d", randomIdx));
+            "Cannot find a master or data node with given random index %d", randomIdx));
     }
 }

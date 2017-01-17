@@ -29,7 +29,9 @@ import io.crate.analyze.symbol.Symbol;
 import io.crate.exceptions.ColumnUnknownException;
 import io.crate.metadata.Path;
 import io.crate.metadata.table.Operation;
+import io.crate.sql.tree.QualifiedName;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
@@ -37,12 +39,12 @@ import java.util.List;
 
 public class QueriedSelectRelation implements QueriedRelation {
 
-    private final QueriedRelation relation;
-    private final QuerySpec querySpec;
     private final Fields fields;
+    private QueriedRelation subRelation;
+    private QuerySpec querySpec;
 
-    public QueriedSelectRelation(QueriedRelation relation, Collection<? extends Path> outputNames, QuerySpec querySpec) {
-        this.relation = relation;
+    public QueriedSelectRelation(QueriedRelation subRelation, Collection<? extends Path> outputNames, QuerySpec querySpec) {
+        this.subRelation = subRelation;
         this.querySpec = querySpec;
         this.fields = new Fields(outputNames.size());
         Iterator<Symbol> outputsIterator = querySpec.outputs().iterator();
@@ -51,13 +53,21 @@ public class QueriedSelectRelation implements QueriedRelation {
         }
     }
 
-    public QueriedRelation relation() {
-        return relation;
+    public QueriedRelation subRelation() {
+        return subRelation;
+    }
+
+    public void subRelation(QueriedRelation subRelation) {
+        this.subRelation = subRelation;
     }
 
     @Override
     public QuerySpec querySpec() {
         return querySpec;
+    }
+
+    public void querySpec(QuerySpec querySpec) {
+        this.querySpec = querySpec;
     }
 
     @Override
@@ -77,5 +87,15 @@ public class QueriedSelectRelation implements QueriedRelation {
     @Override
     public List<Field> fields() {
         return fields.asList();
+    }
+
+    @Override
+    public QualifiedName getQualifiedName() {
+        return subRelation.getQualifiedName();
+    }
+
+    @Override
+    public void setQualifiedName(@Nonnull QualifiedName qualifiedName) {
+        subRelation.setQualifiedName(qualifiedName);
     }
 }

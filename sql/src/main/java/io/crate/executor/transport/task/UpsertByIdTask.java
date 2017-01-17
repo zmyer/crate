@@ -26,6 +26,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.Constants;
+import io.crate.core.collections.Row;
 import io.crate.core.collections.Row1;
 import io.crate.executor.Executor;
 import io.crate.executor.JobTask;
@@ -99,9 +100,9 @@ public class UpsertByIdTask extends JobTask {
     }
 
     @Override
-    public void execute(final RowReceiver rowReceiver) {
+    public void execute(final RowReceiver rowReceiver, Row parameters) {
         ListenableFuture<Long> result;
-        if (upsertById.items().size() > 1){
+        if (upsertById.items().size() > 1) {
             try {
                 result = executeBulkShardProcessor().get(0);
             } catch (Throwable throwable) {
@@ -109,7 +110,7 @@ public class UpsertByIdTask extends JobTask {
                 return;
             }
         } else {
-            assert upsertById.items().size() == 1;
+            assert upsertById.items().size() == 1 : "number of upsertById.items() must be 1";
             try {
                 UpsertById.Item item = upsertById.items().get(0);
                 if (upsertById.isPartitionedTable() &&
@@ -139,9 +140,9 @@ public class UpsertByIdTask extends JobTask {
 
     private List<SettableFuture<Long>> executeBulkShardProcessor() throws Throwable {
         List<SettableFuture<Long>> resultList = initializeBulkShardProcessor(settings);
-        assert bulkShardProcessorContext != null;
+        assert bulkShardProcessorContext != null : "bulkShardProcessorContext must not be null";
         createJobExecutionContext(bulkShardProcessorContext);
-        assert jobExecutionContext != null;
+        assert jobExecutionContext != null : "jobExecutionContext must not be null";
         for (UpsertById.Item item : upsertById.items()) {
             ShardUpsertRequest.Item requestItem = new ShardUpsertRequest.Item(
                 item.id(), item.updateAssignments(), item.insertValues(), item.version());
@@ -156,13 +157,13 @@ public class UpsertByIdTask extends JobTask {
     public ListenableFuture<List<Long>> executeBulk() {
         try {
             List<SettableFuture<Long>> resultList = executeBulkShardProcessor();
-            return Futures.successfulAsList(resultList);
+            return Futures.allAsList(resultList);
         } catch (Throwable throwable) {
             return Futures.immediateFailedFuture(throwable);
         }
     }
 
-    private void executeUpsertRequest(final UpsertById.Item item, final SettableFuture<Long> future){
+    private void executeUpsertRequest(final UpsertById.Item item, final SettableFuture<Long> future) {
         final FutureCallback<Long> callback = new FutureCallback<Long>() {
             @Override
             public void onSuccess(@Nullable Long result) {
@@ -196,9 +197,15 @@ public class UpsertByIdTask extends JobTask {
             }
         }
 
-        ShardUpsertRequest upsertRequest = new ShardUpsertRequest(
-            shardId, upsertById.updateColumns(), upsertById.insertColumns(), item.routing(), jobId());
-        upsertRequest.continueOnError(false);
+        ShardUpsertRequest upsertRequest = new ShardUpsertRequest.Builder(
+            false,
+            false,
+            upsertById.updateColumns(),
+            upsertById.insertColumns(),
+            jobId(),
+            false
+        ).newRequest(shardId, item.routing());
+
         ShardUpsertRequest.Item requestItem = new ShardUpsertRequest.Item(
             item.id(), item.updateAssignments(), item.insertValues(), item.version());
         upsertRequest.add(0, requestItem);
@@ -216,20 +223,21 @@ public class UpsertByIdTask extends JobTask {
     }
 
     private void createJobExecutionContext(ExecutionSubContext context) throws Exception {
-        assert jobExecutionContext == null;
+        assert jobExecutionContext == null : "jobExecutionContext must be null";
         JobExecutionContext.Builder contextBuilder = jobContextService.newBuilder(jobId());
         contextBuilder.addSubContext(context);
         jobExecutionContext = jobContextService.createContext(contextBuilder);
     }
 
     private List<SettableFuture<Long>> initializeBulkShardProcessor(Settings settings) {
-        assert upsertById.updateColumns() != null | upsertById.insertColumns() != null;
+        assert upsertById.updateColumns() != null || upsertById.insertColumns() != null :
+            "upsertById.updateColumns() or upsertById.insertColumns() must not be null";
         ShardUpsertRequest.Builder builder = new ShardUpsertRequest.Builder(
             CrateSettings.BULK_REQUEST_TIMEOUT.extractTimeValue(settings),
             false, // do not overwrite duplicates
             upsertById.numBulkResponses() > 0 ||
-                upsertById.items().size() > 1 ||
-                upsertById.updateColumns() != null, // continue on error on bulk, on multiple values and/or update
+            upsertById.items().size() > 1 ||
+            upsertById.updateColumns() != null, // continue on error on bulk, on multiple values and/or update
             upsertById.updateColumns(),
             upsertById.insertColumns(),
             jobId(),
@@ -333,7 +341,6 @@ public class UpsertByIdTask extends JobTask {
             return resultList;
         }
     }
-
 
 
     private SettableFuture<Long> createIndexAndExecuteUpsertRequest(final UpsertById.Item item) {

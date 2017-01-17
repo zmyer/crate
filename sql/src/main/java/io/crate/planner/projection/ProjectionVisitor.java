@@ -81,5 +81,13 @@ public class ProjectionVisitor<C, R> {
     public R visitSysUpdateProjection(SysUpdateProjection projection, C context) {
         return visitProjection(projection, context);
     }
+
+    public R visitOrderedTopN(OrderedTopNProjection orderedTopNProjection, C context) {
+        return visitProjection(orderedTopNProjection, context);
+    }
+
+    public R visitEvalProjection(EvalProjection evalProjection, C context) {
+        return visitProjection(evalProjection, context);
+    }
 }
 

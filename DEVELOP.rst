@@ -46,13 +46,19 @@ sure that there is a python executable called ``python3`` in the global system
 Before you can build the documentation, you need to setup a development
 environment by running `bootstrap.sh` inside the ``blackbox`` directory::
 
-    
     $ cd blackbox
     $ ./bootstrap.sh
 
 To build the HTML and text documentation, run::
 
     $ ./bin/sphinx
+
+If you're editing the docs and want live rebuilds, run::
+
+    $ ./bin/sphinx dev
+
+This command watches the file system for changes and rebuilds the docs, refreshing your
+open browser tab, as needed.
 
 To test that all examples in the documentation execute correctly run::
 
@@ -109,16 +115,33 @@ And start Crate::
 
     ./app/build/install/crate/bin/crate
 
+Other common tasks are::
 
-Other common tasks are:
+    ./gradlew --parallel -PtestForks=2 :sql:test
 
- - Running tests during development::
+    ./gradlew itest
 
-    ./gradlew --parallel :sql:test -PtestForks=2 itest gtest
-
- - Run a single test::
+    ./gradlew -PtestLogging :sql:test
 
     ./gradlew test -Dtest.single='YourTestClass'
+
+    ./gradlew test --tests '*ClassName.testMethodName'
+
+    ./gradlew :sql:test -Dtests.seed=8352BE0120F826A9
+
+    ./gradlew :sql:test -Dtests.iters=20
+
+Use ``@TestLogging(["<packageName1>:<logLevel1>", ...])`` on your
+test class or test method to enable more detailed logging.
+
+Example::
+
+    @TestLogging("io.crate:DEBUG","io.crate.planner.consumer.NestedLoopConsumer:TRACE")
+
+Alternatively you could use this configuration in command line but then it's applied
+to all tests that are run with the command::
+
+    ./gradlew -PtestLogging -Dtests.loggers.levels=io.crate:DEBUG,io.crate.planner.consumer.NestedLoopConsumer:TRACE :sql:test
 
  - Building a tarball (which will be under ``app/build/distributions``)::
 
@@ -127,7 +150,6 @@ Other common tasks are:
 To get a full list of all available tasks run::
 
     ./gradlew tasks
-
 
 Finding your way around in the Crate source code
 ------------------------------------------------
@@ -191,6 +213,13 @@ The findbugs check will also be executed when running::
 
     ./gradlew check
 
+Forbidden APIs
+--------------
+
+Run `Forbidden APIs`_::
+
+    ./gradlew forbiddenApisMain
+
 Benchmark
 =========
 
@@ -229,9 +258,11 @@ Jmh
 `JMH`_ benchmarks can be executed using ``gradle``::
 
     $ ./gradlew :core:jmh
+    $ ./gradlew :sql:jmh
 
 By default this will look for benchmarks inside ``<module>/src/jmh/java`` and
 execute them.
+
 Currently, the `JMH`_ plugin is only enabled at the `core` module.
 
 Results will be generated into ``$buildDir/reports/jmh``.
@@ -277,7 +308,6 @@ the grammar changed::
 
     ./gradlew :sql-parser:compileJava
 
-
 .. _Jenkins: http://jenkins-ci.org/
 
 .. _Python: http://www.python.org/
@@ -309,3 +339,5 @@ the grammar changed::
 .. _`JMH introduction`: http://java-performance.info/jmh/
 
 .. _`JMH samples`: http://hg.openjdk.java.net/code-tools/jmh/file/tip/jmh-samples/src/main/java/org/openjdk/jmh/samples/
+
+.. _`Forbidden APIs`: https://github.com/policeman-tools/forbidden-apis

@@ -22,20 +22,16 @@
 
 package io.crate.operation.scalar.cast;
 
-import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.metadata.DynamicFunctionResolver;
-import io.crate.metadata.FunctionIdent;
-import io.crate.metadata.FunctionImplementation;
-import io.crate.metadata.FunctionInfo;
+import io.crate.metadata.*;
 import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.types.DataType;
 
 import java.util.List;
 import java.util.Map;
 
-public class TryCastScalarFunction extends AbstractCastFunction<Object, Object> {
+public class TryCastScalarFunction extends CastFunction {
 
     private TryCastScalarFunction(FunctionInfo functionInfo) {
         super(functionInfo);
@@ -47,7 +43,7 @@ public class TryCastScalarFunction extends AbstractCastFunction<Object, Object> 
         }
     }
 
-    private static class Resolver implements DynamicFunctionResolver {
+    private static class Resolver implements FunctionResolver {
 
         private final String name;
         private final DataType dataType;
@@ -58,8 +54,13 @@ public class TryCastScalarFunction extends AbstractCastFunction<Object, Object> 
         }
 
         @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
+        public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
             return new TryCastScalarFunction(new FunctionInfo(new FunctionIdent(name, dataTypes), dataType));
+        }
+
+        @Override
+        public List<Signature> signatures() {
+            return Signature.SIGNATURES_SINGLE_ALL;
         }
     }
 

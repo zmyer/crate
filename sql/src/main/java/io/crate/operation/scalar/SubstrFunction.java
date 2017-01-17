@@ -22,8 +22,7 @@
 package io.crate.operation.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import io.crate.analyze.symbol.Function;
+import com.google.common.collect.ImmutableList;
 import io.crate.metadata.*;
 import io.crate.operation.Input;
 import io.crate.types.DataType;
@@ -34,14 +33,29 @@ import org.elasticsearch.common.lucene.BytesRefs;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-public class SubstrFunction extends Scalar<BytesRef, Object> implements DynamicFunctionResolver {
+public class SubstrFunction extends Scalar<BytesRef, Object> implements FunctionResolver {
 
     public static final String NAME = "substr";
-    private FunctionInfo info;
     private static final BytesRef EMPTY_BYTES_REF = new BytesRef("");
+    private static final List<Signature> SIGNATURES = buildSignatures();
 
-    public SubstrFunction() {}
-    public SubstrFunction(FunctionInfo info) {
+    private static List<Signature> buildSignatures() {
+        ImmutableList.Builder<Signature> builder = ImmutableList.builder();
+        for (DataType firstNumber : DataTypes.NUMERIC_PRIMITIVE_TYPES) {
+            builder.add(new Signature(DataTypes.STRING, firstNumber));
+            for (DataType secondNumber : DataTypes.NUMERIC_PRIMITIVE_TYPES) {
+                builder.add(new Signature(DataTypes.STRING, firstNumber, secondNumber));
+            }
+        }
+        return builder.build();
+    }
+
+    private FunctionInfo info;
+
+    private SubstrFunction() {
+    }
+
+    private SubstrFunction(FunctionInfo info) {
         this.info = info;
     }
 
@@ -60,18 +74,26 @@ public class SubstrFunction extends Scalar<BytesRef, Object> implements DynamicF
 
     @Override
     public BytesRef evaluate(Input[] args) {
-        assert (args.length >= 2 && args.length <= 3);
-        if (hasNullInputs(args)) {
+        assert args.length == 2 || args.length == 3 : "number of arguments must be 2 or 3";
+        final Object val = args[0].value();
+        if (val == null) {
             return null;
         }
-        final Object val = args[0].value();
+        Number beginIdx = (Number) args[1].value();
+        if (beginIdx == null) {
+            return null;
+        }
         if (args.length == 3) {
+            Number len = (Number) args[2].value();
+            if (len == null) {
+                return null;
+            }
             return evaluate(BytesRefs.toBytesRef(val),
-                    ((Number) args[1].value()).intValue(),
-                    ((Number) args[2].value()).intValue());
+                (beginIdx).intValue(),
+                len.intValue());
 
         }
-        return evaluate(BytesRefs.toBytesRef(val), ((Number) args[1].value()).intValue());
+        return evaluate(BytesRefs.toBytesRef(val), (beginIdx).intValue());
     }
 
     private static BytesRef evaluate(@Nonnull BytesRef inputStr, int beginIdx) {
@@ -138,13 +160,17 @@ public class SubstrFunction extends Scalar<BytesRef, Object> implements DynamicF
         }
 
         // Check if we didn't go over the limit on the last character.
-        if (pos > limit) throw new IllegalArgumentException();
+        if (pos > limit) throw new IllegalArgumentException("begin index must not be > end index");
         return new BytesRef(bytes, posBegin, pos - posBegin);
     }
 
     @Override
-    public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-        Preconditions.checkArgument(dataTypes.size() > 1 && dataTypes.size() < 4 && dataTypes.get(0) == DataTypes.STRING);
+    public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
         return new SubstrFunction(createInfo(dataTypes));
+    }
+
+    @Override
+    public List<Signature> signatures() {
+        return SIGNATURES;
     }
 }

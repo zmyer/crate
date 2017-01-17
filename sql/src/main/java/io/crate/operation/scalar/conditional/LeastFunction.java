@@ -22,17 +22,20 @@
 
 package io.crate.operation.scalar.conditional;
 
-import io.crate.analyze.symbol.Function;
-import io.crate.metadata.DynamicFunctionResolver;
-import io.crate.metadata.FunctionImplementation;
+import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.types.DataType;
+import io.crate.types.DataTypes;
 
-import java.util.List;
+import java.util.Arrays;
 
 public class LeastFunction extends ConditionalCompareFunction {
+
     public final static String NAME = "least";
+
+    public final static FunctionInfo TWO_LONG_INFO = new FunctionInfo(
+        new FunctionIdent(NAME, Arrays.<DataType>asList(DataTypes.LONG, DataTypes.LONG)), DataTypes.LONG);
 
     private LeastFunction(FunctionInfo info) {
         super(info);
@@ -44,13 +47,6 @@ public class LeastFunction extends ConditionalCompareFunction {
     }
 
     public static void register(ScalarFunctionModule module) {
-        module.register(NAME, new Resolver());
-    }
-
-    private static class Resolver implements DynamicFunctionResolver {
-        @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-            return new LeastFunction(createInfo(NAME, dataTypes));
-        }
+        module.register(NAME, new ConditionalFunctionResolver(NAME, LeastFunction::new));
     }
 }

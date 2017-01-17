@@ -23,12 +23,13 @@
 package io.crate.protocols.postgres;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import io.crate.action.sql.Option;
 import io.crate.action.sql.ResultReceiver;
 import io.crate.action.sql.SQLOperations;
 import io.crate.analyze.symbol.Field;
 import io.crate.analyze.symbol.Symbols;
-import io.crate.concurrent.CompletionListener;
-import io.crate.concurrent.CompletionState;
 import io.crate.protocols.postgres.types.PGType;
 import io.crate.protocols.postgres.types.PGTypes;
 import io.crate.types.DataType;
@@ -51,8 +52,8 @@ import static io.crate.protocols.postgres.FormatCodes.getFormatCode;
 /**
  * ConnectionContext for the Postgres wire protocol.<br />
  * This class handles the message flow and dispatching
- *
- *
+ * <p>
+ * <p>
  * <pre>
  *      Client                              Server
  *
@@ -136,9 +137,9 @@ import static io.crate.protocols.postgres.FormatCodes.getFormatCode;
  *          |  ReadyForQuery                   |
  *          |<---------------------------------|
  * </pre>
- *
+ * <p>
  * Take a look at {@link Messages} to see how the messages are structured.
- *
+ * <p>
  * See https://www.postgresql.org/docs/current/static/protocol-flow.html for a more detailed description of the message flow
  */
 
@@ -202,18 +203,18 @@ class ConnectionContext {
                 defaultSchema = value;
             }
         }
-        return sqlOperations.createSession(defaultSchema, SQLOperations.Option.NONE, 0);
+        return sqlOperations.createSession(defaultSchema, Option.NONE, 0);
     }
 
-    private static class ReadyForQueryListener implements CompletionListener {
+    private static class ReadyForQueryCallback implements FutureCallback<Object> {
         private final Channel channel;
 
-        private ReadyForQueryListener(Channel channel) {
+        private ReadyForQueryCallback(Channel channel) {
             this.channel = channel;
         }
 
         @Override
-        public void onSuccess(@Nullable CompletionState result) {
+        public void onSuccess(@Nullable Object result) {
             Messages.sendReadyForQuery(channel);
         }
 
@@ -258,7 +259,7 @@ class ConnectionContext {
                     session = readStartupMessage(buffer);
                     Messages.sendAuthenticationOK(channel);
 
-                    Messages.sendParameterStatus(channel, "server_version", "95000");
+                    Messages.sendParameterStatus(channel, "server_version", "9.5.0");
                     Messages.sendParameterStatus(channel, "server_encoding", "UTF8");
                     Messages.sendParameterStatus(channel, "client_encoding", "UTF8");
                     Messages.sendParameterStatus(channel, "datestyle", "ISO");
@@ -288,6 +289,9 @@ class ConnectionContext {
                         case 'E':
                             handleExecute(buffer, channel);
                             return;
+                        case 'H':
+                            handleFlush(channel);
+                            return;
                         case 'S':
                             handleSync(channel);
                             return;
@@ -298,7 +302,8 @@ class ConnectionContext {
                             channel.close();
                             return;
                         default:
-                            Messages.sendErrorResponse(channel, new UnsupportedOperationException("Unsupported messageType: " + msgType));
+                            Messages.sendErrorResponse(channel, new UnsupportedOperationException(
+                                "Unsupported messageType: " + msgType));
                             return;
                     }
             }
@@ -339,14 +344,37 @@ class ConnectionContext {
     }
 
     /**
+     * Flush Message
+     *  | 'H' | int32 len
+     *
+     * Flush forces the backend to deliver any data pending in it's output buffers.
+     */
+    private void handleFlush(Channel channel) {
+        /*
+         * Currently we don't buffer data. It is always send to the client immediately.
+         * So flush would be a no-op except that we delay execution until sync to be able to execute bulk operations
+         * more efficiently.
+         * If a Client sends flush we also need to trigger execution because a Client is expecting to receive data after
+         * a Flush.
+         *
+         * Note that there is no ReadyForQueryCallback here because handleSync will still be called and it is done there.
+         */
+        try {
+            session.sync();
+        } catch (Throwable t) {
+            Messages.sendErrorResponse(channel, t);
+        }
+    }
+
+    /**
      * Parse Message
      * header:
      * | 'P' | int32 len
-     *
+     * <p>
      * body:
      * | string statementName | string query | int16 numParamTypes |
-     *      foreach param:
-     *      | int32 type_oid (zero = unspecified)
+     * foreach param:
+     * | int32 type_oid (zero = unspecified)
      */
     private void handleParseMessage(ChannelBuffer buffer, final Channel channel) {
         String statementName = readCString(buffer);
@@ -370,8 +398,9 @@ class ConnectionContext {
      * Bind Message
      * Header:
      * | 'B' | int32 len
-     *
+     * <p>
      * Body:
+     * <pre>
      * | string portalName | string statementName
      * | int16 numFormatCodes
      *      foreach
@@ -383,6 +412,7 @@ class ConnectionContext {
      * | int16 numResultColumnFormatCodes
      *      foreach
      *      | int16 formatCode
+     * </pre>
      */
     private void handleBindMessage(ChannelBuffer buffer, Channel channel) {
         String portalName = readCString(buffer);
@@ -431,11 +461,11 @@ class ConnectionContext {
     /**
      * Describe Message
      * Header:
-     *  | 'D' | int32 len
-     *
+     * | 'D' | int32 len
+     * <p>
      * Body:
-     *  | 'S' = prepared statement or 'P' = portal
-     *  | string nameOfPortalOrStatement
+     * | 'S' = prepared statement or 'P' = portal
+     * | string nameOfPortalOrStatement
      */
     private void handleDescribeMessage(ChannelBuffer buffer, Channel channel) {
         byte type = buffer.readByte();
@@ -451,19 +481,19 @@ class ConnectionContext {
     /**
      * Execute Message
      * Header:
-     *  | 'E' | int32 len
-     *
+     * | 'E' | int32 len
+     * <p>
      * Body:
-     *  | string portalName
-     *  | int32 maxRows (0 = unlimited)
+     * | string portalName
+     * | int32 maxRows (0 = unlimited)
      */
     private void handleExecute(ChannelBuffer buffer, Channel channel) {
         String portalName = readCString(buffer);
         int maxRows = buffer.readInt();
         String query = session.getQuery(portalName);
         if (query.isEmpty()) {
-             // remove portal so that it doesn't stick around and no attempt to batch it with follow up statement is made
-            session.close((byte)'P', portalName);
+            // remove portal so that it doesn't stick around and no attempt to batch it with follow up statement is made
+            session.close((byte) 'P', portalName);
             Messages.sendEmptyQueryResponse(channel);
             return;
         }
@@ -496,7 +526,7 @@ class ConnectionContext {
             return;
         }
         try {
-            session.sync(new ReadyForQueryListener(channel));
+            Futures.addCallback(session.sync(), new ReadyForQueryCallback(channel));
         } catch (Throwable t) {
             Messages.sendErrorResponse(channel, t);
             Messages.sendReadyForQuery(channel);
@@ -523,10 +553,6 @@ class ConnectionContext {
             Messages.sendReadyForQuery(channel);
             return;
         }
-        // TODO: support multiple statements
-        if (query.endsWith(";")) {
-            query = query.substring(0, query.length() - 1);
-        }
         try {
             session.parse("", query, Collections.<DataType>emptyList());
             session.bind("", "", Collections.emptyList(), null);
@@ -539,7 +565,7 @@ class ConnectionContext {
                 ResultSetReceiver resultSetReceiver = new ResultSetReceiver(query, channel, Symbols.extractTypes(fields), null);
                 session.execute("", 0, resultSetReceiver);
             }
-            session.sync(new ReadyForQueryListener(channel));
+            Futures.addCallback(session.sync(), new ReadyForQueryCallback(channel));
         } catch (Throwable t) {
             session.clearState();
             Messages.sendErrorResponse(channel, t);
@@ -597,7 +623,7 @@ class ConnectionContext {
 
         /**
          * return null if there aren't enough bytes to read the whole message. Otherwise returns the buffer.
-         *
+         * <p>
          * If null is returned the decoder will be called again, otherwise the MessageHandler will be called next.
          */
         private ChannelBuffer nullOrBuffer(ChannelBuffer buffer, State nextState) {

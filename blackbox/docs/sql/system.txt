@@ -20,6 +20,7 @@ real-time information about the cluster, its nodes and their shards:
  * :ref:`sys.repositories <sys-repositories>`
  * :ref:`sys.shards <sys-shards>`
  * :ref:`sys.snapshots <sys-snapshots>`
+ * :ref:`sys.summits <sys-summits>`
 
 
 .. _sys-cluster:
@@ -250,6 +251,8 @@ port
 | ``port['http']``      | Crate's HTTP port.                              | ``Integer`` |
 +-----------------------+-------------------------------------------------+-------------+
 | ``port['transport']`` | Crate's binary transport port.                  | ``Integer`` |
++-----------------------+-------------------------------------------------+-------------+
+| ``port['psql']``      | The PostgreSQL wire protocol port.              | ``Integer`` |
 +-----------------------+-------------------------------------------------+-------------+
 
 load
@@ -598,11 +601,10 @@ Example query::
   |  1 | ...         | The value of the cluster setting 'gateway.expected_nodes' mus... |
   |  2 | ...         | The value of the cluster setting 'gateway.recover_after_nodes... |
   |  3 | ...         | The value of the cluster setting 'gateway.recover_after_time'... |
-  |  4 | ...         | Crate is running with ... java version. Java 7 is deprecated ... |
   |  5 | ...         | The high disk watermark is exceeded on the node. The cluster ... |
   |  6 | ...         | The low disk watermark is exceeded on the node. The cluster w... |
   +----+---------...-+--------------------------------------------------------------...-+
-  SELECT 6 rows in set (... sec)
+  SELECT 5 rows in set (... sec)
 
 .. _sys-node-checks-ack:
 
@@ -840,6 +842,32 @@ orphan_partition
 |                      | tables.                          |             |
 +----------------------+----------------------------------+-------------+
 
+path
+----
+
++----------------------+----------------------------------+-------------+
+|     Column Name      |           Description            | Return Type |
++======================+==================================+=============+
+| ``path``             | Path to the shard directory on   | ``String``  |
+|                      | the filesystem.                  |             |
+|                      | This directory contains state    |             |
+|                      | and index files.                 |             |
++----------------------+----------------------------------+-------------+
+
+
+blob_path
+---------
+
++----------------------+----------------------------------+-------------+
+|     Column Name      |           Description            | Return Type |
++======================+==================================+=============+
+| ``blob_path``        | Path to the directory which      | ``String``  |
+|                      | contains the blob files of the   |             |
+|                      | shard, or null if the shard is   |             |
+|                      | not a blob shard.                |             |
++----------------------+----------------------------------+-------------+
+
+
 _node
 -----
 
@@ -996,6 +1024,12 @@ system column in the query::
     +---------------+--------...-+-----...-+------------+
     SELECT 1 row in set (... sec)
 
+
+.. note::
+
+    In some cases internal "sub-jobs" are created. Parts of these sub-jobs may
+    appear in `sys.operations`. These entries don't have corresponding entries
+    in `sys.jobs`.
 
 .. _sys-logs:
 
@@ -1255,5 +1289,15 @@ The mapping follows the following pattern:
 
     cr> DROP REPOSITORY "my_repo";
     DROP OK, 1 row affected (... sec)
+
+
+.. _sys-summits:
+
+Summits
+=======
+The ``sys.summits`` table contains the information about the mountains in the
+Alps higher than 2000m. The mountain names from the table are also used to
+generate random nodes names.
+
 
 .. _configuration: ../configuration.html

@@ -21,6 +21,7 @@
 
 package io.crate.planner.node.dql;
 
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -77,7 +78,7 @@ public abstract class AbstractProjectionsPhase implements Streamable, ExecutionP
     }
 
     @Override
-    public int executionPhaseId() {
+    public int phaseId() {
         return executionPhaseId;
     }
 
@@ -100,7 +101,13 @@ public abstract class AbstractProjectionsPhase implements Streamable, ExecutionP
         if (projections.size() == 0) {
             return Optional.absent();
         } else {
-            return Optional.of(projections.get(projections.size()-1));
+            return Optional.of(projections.get(projections.size() - 1));
+        }
+    }
+
+    public void replaceSymbols(Function<Symbol, Symbol> replaceFunction) {
+        for (Projection projection : projections) {
+            projection.replaceSymbols(replaceFunction);
         }
     }
 
@@ -175,9 +182,9 @@ public abstract class AbstractProjectionsPhase implements Streamable, ExecutionP
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                .add("name", name)
-                .add("projections", projections)
-                .add("outputTypes", outputTypes)
-                .toString();
+            .add("name", name)
+            .add("projections", projections)
+            .add("outputTypes", outputTypes)
+            .toString();
     }
 }

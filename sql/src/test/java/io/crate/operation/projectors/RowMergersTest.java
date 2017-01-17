@@ -25,6 +25,7 @@ package io.crate.operation.projectors;
 import io.crate.operation.RowDownstream;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.CollectingRowReceiver;
+import io.crate.testing.RowGenerator;
 import io.crate.testing.RowSender;
 import org.junit.After;
 import org.junit.Before;
@@ -52,12 +53,12 @@ public class RowMergersTest extends CrateUnitTest {
     }
 
     @Test
-    public void testRowMergerPauseResumeAndRepeat() throws Exception {
+    public void testRowMergerPauseResume() throws Exception {
         CollectingRowReceiver rowReceiver = CollectingRowReceiver.withPauseAfter(3);
-        RowDownstream rowDownstream = RowMergers.passThroughRowMerger(rowReceiver);
-        final RowSender r1 = new RowSender(RowSender.rowRange(0, 20), rowDownstream.newRowReceiver(), executorService);
-        final RowSender r2 = new RowSender(RowSender.rowRange(0, 20), rowDownstream.newRowReceiver(), executorService);
-        final RowSender r3 = new RowSender(RowSender.rowRange(0, 20), rowDownstream.newRowReceiver(), executorService);
+        RowDownstream rowDownstream = new MultiUpstreamRowReceiver(rowReceiver);
+        final RowSender r1 = new RowSender(RowGenerator.range(0, 20), rowDownstream.newRowReceiver(), executorService);
+        final RowSender r2 = new RowSender(RowGenerator.range(0, 20), rowDownstream.newRowReceiver(), executorService);
+        final RowSender r3 = new RowSender(RowGenerator.range(0, 20), rowDownstream.newRowReceiver(), executorService);
 
         r1.run();
         r2.run();
@@ -75,18 +76,15 @@ public class RowMergersTest extends CrateUnitTest {
 
         rowReceiver.resumeUpstream(true);
         assertThat(rowReceiver.result().size(), is(60));
-
-        rowReceiver.repeatUpstream();
-        assertThat(rowReceiver.result().size(), is(120));
     }
 
     @Test
-    public void testPauseResumeRepeatWithOneEmptyUpstream() throws Exception {
+    public void testPauseResumeWithOneEmptyUpstream() throws Exception {
         CollectingRowReceiver rowReceiver = CollectingRowReceiver.withPauseAfter(3);
-        RowDownstream rowDownstream = RowMergers.passThroughRowMerger(rowReceiver);
-        final RowSender r1 = new RowSender(RowSender.rowRange(0, 20), rowDownstream.newRowReceiver(), executorService);
-        final RowSender r2 = new RowSender(RowSender.rowRange(0, 0), rowDownstream.newRowReceiver(), executorService);
-        final RowSender r3 = new RowSender(RowSender.rowRange(0, 20), rowDownstream.newRowReceiver(), executorService);
+        RowDownstream rowDownstream = new MultiUpstreamRowReceiver(rowReceiver);
+        final RowSender r1 = new RowSender(RowGenerator.range(0, 20), rowDownstream.newRowReceiver(), executorService);
+        final RowSender r2 = new RowSender(RowGenerator.range(0, 0), rowDownstream.newRowReceiver(), executorService);
+        final RowSender r3 = new RowSender(RowGenerator.range(0, 20), rowDownstream.newRowReceiver(), executorService);
         r1.run();
         r2.run();
         r3.run();
@@ -102,27 +100,5 @@ public class RowMergersTest extends CrateUnitTest {
         assertThat(rowReceiver.rows.size(), is(3));
         rowReceiver.resumeUpstream(true);
         assertThat(rowReceiver.result().size(), is(40));
-
-        rowReceiver.repeatUpstream();
-        assertThat(rowReceiver.result().size(), is(80));
-    }
-
-    @Test
-    public void testMultipleRepeatsWork() throws Exception {
-        CollectingRowReceiver rowReceiver = new CollectingRowReceiver();
-        RowDownstream rowDownstream = RowMergers.passThroughRowMerger(rowReceiver);
-        final RowSender r1 = new RowSender(RowSender.rowRange(0, 20), rowDownstream.newRowReceiver(), executorService);
-        final RowSender r2 = new RowSender(RowSender.rowRange(0, 20), rowDownstream.newRowReceiver(), executorService);
-
-        r1.run();
-        r2.run();
-        assertThat(rowReceiver.result().size(), is(40));
-
-        rowReceiver.repeatUpstream();
-        assertThat(rowReceiver.result().size(), is(80));
-        rowReceiver.repeatUpstream();
-        assertThat(rowReceiver.result().size(), is(120));
-        rowReceiver.repeatUpstream();
-        assertThat(rowReceiver.result().size(), is(160));
     }
 }

@@ -22,24 +22,22 @@
 package io.crate.operation.scalar;
 
 import com.google.common.base.Preconditions;
-import io.crate.analyze.symbol.Function;
-import io.crate.analyze.symbol.Literal;
-import io.crate.analyze.symbol.Symbol;
-import io.crate.analyze.symbol.SymbolType;
+import com.google.common.collect.ImmutableList;
 import io.crate.metadata.*;
 import io.crate.operation.Input;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.apache.lucene.util.BytesRef;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class FormatFunction extends Scalar<BytesRef, Object> implements DynamicFunctionResolver {
+public class FormatFunction extends Scalar<BytesRef, Object> implements FunctionResolver {
 
     public static final String NAME = "format";
-    private FunctionInfo info;
+
+    private static final List<Signature> SIGNATURES = ImmutableList.of(
+        new Signature(1, DataTypes.STRING, DataTypes.ANY));
 
     public static void register(ScalarFunctionModule module) {
         module.register(NAME, new FormatFunction());
@@ -49,17 +47,20 @@ public class FormatFunction extends Scalar<BytesRef, Object> implements DynamicF
         return new FunctionInfo(new FunctionIdent(NAME, types), DataTypes.STRING);
     }
 
-    FormatFunction() {}
+    private FunctionInfo info;
 
-    FormatFunction(FunctionInfo info) {
+    private FormatFunction() {
+    }
+
+    private FormatFunction(FunctionInfo info) {
         this.info = info;
     }
 
     @Override
     public BytesRef evaluate(Input<Object>... args) {
-        assert args.length > 1;
+        assert args.length > 1 : "number of args must be > 1";
         Object arg0Value = args[0].value();
-        assert arg0Value != null;
+        assert arg0Value != null : "1st argument must not be null";
 
         Object[] values = new Object[args.length - 1];
         for (int i = 0; i < args.length - 1; i++) {
@@ -81,8 +82,13 @@ public class FormatFunction extends Scalar<BytesRef, Object> implements DynamicF
     }
 
     @Override
-    public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
+    public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
         Preconditions.checkArgument(dataTypes.size() > 1 && dataTypes.get(0) == DataTypes.STRING);
         return new FormatFunction(createInfo(dataTypes));
+    }
+
+    @Override
+    public List<Signature> signatures() {
+        return SIGNATURES;
     }
 }

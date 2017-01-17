@@ -35,8 +35,10 @@ import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.Path;
 import io.crate.metadata.table.Operation;
 import io.crate.planner.projection.WriterProjection;
+import io.crate.sql.tree.QualifiedName;
 import org.elasticsearch.common.settings.Settings;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
@@ -84,13 +86,19 @@ public class CopyToAnalyzedStatement extends AbstractCopyAnalyzedStatement imple
     }
 
     @Nullable
-    public WriterProjection.CompressionType compressionType() { return compressionType; }
+    public WriterProjection.CompressionType compressionType() {
+        return compressionType;
+    }
 
     @Nullable
-    public WriterProjection.OutputFormat outputFormat() { return outputFormat; }
+    public WriterProjection.OutputFormat outputFormat() {
+        return outputFormat;
+    }
 
     @Nullable
-    public List<String> outputNames() { return outputNames; }
+    public List<String> outputNames() {
+        return outputNames;
+    }
 
     public Map<ColumnIdent, Symbol> overwrites() {
         return this.overwrites;
@@ -120,5 +128,15 @@ public class CopyToAnalyzedStatement extends AbstractCopyAnalyzedStatement imple
     @Override
     public boolean isWriteOperation() {
         return false;
+    }
+
+    @Override
+    public QualifiedName getQualifiedName() {
+        throw new UnsupportedOperationException("method not supported");
+    }
+
+    @Override
+    public void setQualifiedName(@Nonnull QualifiedName qualifiedName) {
+        throw new UnsupportedOperationException("method not supported");
     }
 }

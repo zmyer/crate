@@ -28,13 +28,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SQLBulkArgsParseElement extends SQLArgsParseElement implements SQLParseElement {
+class SQLBulkArgsParseElement extends SQLArgsParseElement implements SQLParseElement {
 
     @Override
     public void parse(XContentParser parser, SQLXContentSourceContext context) throws Exception {
         XContentParser.Token token = parser.currentToken();
 
-        if(token != XContentParser.Token.START_ARRAY) {
+        if (token != XContentParser.Token.START_ARRAY) {
             throw new SQLParseSourceException(context, "Field [" + parser.currentName() + "] has an invalid value");
         }
 
@@ -45,8 +45,8 @@ public class SQLBulkArgsParseElement extends SQLArgsParseElement implements SQLP
     private Object[][] parseSubArrays(SQLXContentSourceContext context, XContentParser parser) throws IOException {
         XContentParser.Token token;
         List<Object[]> list = new ArrayList<Object[]>();
-        while((token = parser.nextToken()) != XContentParser.Token.END_ARRAY){
-            if(token == XContentParser.Token.START_ARRAY) {
+        while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
+            if (token == XContentParser.Token.START_ARRAY) {
                 list.add(parseSubArray(context, parser));
             } else {
                 throw new SQLParseSourceException(context, "Field [" + parser.currentName() + "] has an invalid value");

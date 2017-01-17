@@ -45,9 +45,6 @@ set JAVA_OPTS=%JAVA_OPTS% -XX:+UseConcMarkSweepGC
 set JAVA_OPTS=%JAVA_OPTS% -XX:CMSInitiatingOccupancyFraction=75
 set JAVA_OPTS=%JAVA_OPTS% -XX:+UseCMSInitiatingOccupancyOnly
 
-REM When running under Java 7
-REM JAVA_OPTS=%JAVA_OPTS% -XX:+UseCondCardMark
-
 REM GC logging options -- uncomment to enable
 REM JAVA_OPTS=%JAVA_OPTS% -XX:+PrintGCDetails
 REM JAVA_OPTS=%JAVA_OPTS% -XX:+PrintGCTimeStamps
@@ -68,9 +65,28 @@ if "%CRATE_CLASSPATH%" == "" (
 )
 set CRATE_PARAMS=-Dcrate -Des.path.home="%CRATE_HOME%"
 
-"%JAVA_HOME%\bin\java" %JAVA_OPTS% %CRATE_JAVA_OPTS% %CRATE_PARAMS% %* -cp "%CRATE_CLASSPATH%" "io.crate.bootstrap.CrateF"
-goto finally
+setlocal enabledelayedexpansion
+set params='%*'
 
+for /F "usebackq tokens=* delims= " %%A in (!params!) do (
+    set param=%%A
+
+    if "!param:~0,5!" equ "-Des." (
+        echo "Setting Crate specific settings with the -D option and the es prefix has been deprecated."
+        echo "Please use the -C option to configure Crate."
+    ) else if "!param:~0,2!" equ "-C" (
+        set param=!param:-C=-Des.!
+    )
+
+    if "x!newparams!" neq "x" (
+        set newparams=!newparams! !param!
+    ) else (
+        set newparams=!param!
+    )
+)
+
+"%JAVA_HOME%\bin\java" %JAVA_OPTS% %CRATE_JAVA_OPTS% %CRATE_PARAMS% !newparams! -cp "%CRATE_CLASSPATH%" "io.crate.bootstrap.CrateDB"
+goto finally
 
 :err
 echo JAVA_HOME environment variable must be set!

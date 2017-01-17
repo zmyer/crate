@@ -43,7 +43,7 @@ public class IsNullPredicate<T> extends Scalar<Boolean, T> implements FunctionFo
         module.register(NAME, new Resolver());
     }
 
-    private static FunctionInfo generateInfo(List<DataType> types) {
+    public static FunctionInfo generateInfo(List<DataType> types) {
         return new FunctionInfo(new FunctionIdent(NAME, types), DataTypes.BOOLEAN, FunctionInfo.Type.PREDICATE);
     }
 
@@ -58,22 +58,22 @@ public class IsNullPredicate<T> extends Scalar<Boolean, T> implements FunctionFo
     }
 
     @Override
-    public Symbol normalizeSymbol(Function symbol, StmtCtx stmtCtx) {
-        assert (symbol != null);
-        assert (symbol.arguments().size() == 1);
+    public Symbol normalizeSymbol(Function symbol, TransactionContext transactionContext) {
+        assert symbol != null : "function must not be null";
+        assert symbol.arguments().size() == 1 : "function's number of arguments must be 1";
 
         Symbol arg = symbol.arguments().get(0);
         if (arg.equals(Literal.NULL) || arg.valueType().equals(DataTypes.UNDEFINED)) {
-            return Literal.newLiteral(true);
+            return Literal.of(true);
         } else if (arg.symbolType().isValueSymbol()) {
-            return Literal.newLiteral(((Input) arg).value() == null);
+            return Literal.of(((Input) arg).value() == null);
         }
         return symbol;
     }
 
     @Override
     public Boolean evaluate(Input[] args) {
-        assert args.length == 1;
+        assert args.length == 1 : "number of args must be 1";
         return args[0] == null || args[0].value() == null;
     }
 
@@ -92,14 +92,19 @@ public class IsNullPredicate<T> extends Scalar<Boolean, T> implements FunctionFo
         return true;
     }
 
-    private static class Resolver implements DynamicFunctionResolver {
+    private static class Resolver implements FunctionResolver {
 
         @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
+        public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
             Preconditions.checkArgument(
                 dataTypes.size() == 1, "the is null predicate takes only 1 argument");
 
             return new IsNullPredicate<>(generateInfo(dataTypes));
+        }
+
+        @Override
+        public List<Signature> signatures() {
+            return Signature.SIGNATURES_SINGLE_ANY;
         }
     }
 }

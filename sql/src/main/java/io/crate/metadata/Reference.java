@@ -32,14 +32,13 @@ import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.io.stream.Streamable;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Locale;
 
-public class Reference extends Symbol implements Streamable {
+public class Reference extends Symbol {
 
     public static final Comparator<Reference> COMPARE_BY_COLUMN_IDENT = new Comparator<Reference>() {
         @Override
@@ -74,19 +73,23 @@ public class Reference extends Symbol implements Streamable {
         }
     }
 
-    public static final SymbolFactory<Reference> FACTORY = new SymbolFactory<Reference>() {
-        @Override
-        public Reference newInstance() {
-            return new Reference();
-        }
-    };
-
     protected DataType type;
     private ReferenceIdent ident;
     private ColumnPolicy columnPolicy = ColumnPolicy.DYNAMIC;
     private RowGranularity granularity;
     private IndexType indexType = IndexType.NOT_ANALYZED;
     private boolean nullable = true;
+
+    public Reference(StreamInput in) throws IOException {
+        ident = new ReferenceIdent();
+        ident.readFrom(in);
+        type = DataTypes.fromStream(in);
+        granularity = RowGranularity.fromStream(in);
+
+        columnPolicy = ColumnPolicy.values()[in.readVInt()];
+        indexType = IndexType.values()[in.readVInt()];
+        nullable = in.readBoolean();
+    }
 
     public Reference() {
 
@@ -115,7 +118,7 @@ public class Reference extends Symbol implements Streamable {
     /**
      * Returns a cloned Reference with the given ident
      */
-    public Reference getRelocated(ReferenceIdent newIdent){
+    public Reference getRelocated(ReferenceIdent newIdent) {
         return new Reference(newIdent, granularity, type, columnPolicy, indexType, nullable);
     }
 
@@ -164,8 +167,12 @@ public class Reference extends Symbol implements Streamable {
 
         if (granularity != that.granularity) return false;
         if (ident != null ? !ident.equals(that.ident) : that.ident != null) return false;
-        if (columnPolicy.ordinal() != that.columnPolicy.ordinal()) { return false; }
-        if (indexType.ordinal() != that.indexType.ordinal()) { return false; }
+        if (columnPolicy.ordinal() != that.columnPolicy.ordinal()) {
+            return false;
+        }
+        if (indexType.ordinal() != that.indexType.ordinal()) {
+            return false;
+        }
         if (type != null ? !type.equals(that.type) : that.type != null) return false;
         if (nullable != that.nullable) return false;
         return true;
@@ -180,27 +187,15 @@ public class Reference extends Symbol implements Streamable {
     @Override
     public String toString() {
         MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(this)
-                .add("ident", ident)
-                .add("granularity", granularity)
-                .add("type", type);
+            .add("ident", ident)
+            .add("granularity", granularity)
+            .add("type", type);
         if (type.equals(DataTypes.OBJECT)) {
             helper.add("column policy", columnPolicy.name());
         }
         helper.add("index type", indexType.toString());
         helper.add("nullable", nullable);
         return helper.toString();
-    }
-
-    @Override
-    public void readFrom(StreamInput in) throws IOException {
-        ident = new ReferenceIdent();
-        ident.readFrom(in);
-        type = DataTypes.fromStream(in);
-        granularity = RowGranularity.fromStream(in);
-
-        columnPolicy = ColumnPolicy.values()[in.readVInt()];
-        indexType = IndexType.values()[in.readVInt()];
-        nullable = in.readBoolean();
     }
 
     @Override
@@ -221,8 +216,6 @@ public class Reference extends Symbol implements Streamable {
     }
 
     public static <R extends Reference> R fromStream(StreamInput in) throws IOException {
-        Symbol symbol = SymbolType.values()[in.readVInt()].newInstance();
-        symbol.readFrom(in);
-        return (R) symbol;
+        return (R) SymbolType.VALUES.get(in.readVInt()).newInstance(in);
     }
 }

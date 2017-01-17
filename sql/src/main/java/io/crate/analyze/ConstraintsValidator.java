@@ -32,6 +32,7 @@ import java.util.Locale;
 public final class ConstraintsValidator {
 
     public static void validate(Object value, Reference targetColumn) {
+        assert targetColumn != null: "targetColumn is required to be able to validate it";
         // Validate NOT NULL constraint
         if (value == null && !targetColumn.isNullable()) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
@@ -43,7 +44,7 @@ public final class ConstraintsValidator {
      * Called to validate constraints for insert statements.
      * We need to validate constraints for all table columns that even if they are not
      * part of the insert statement.
-     *
+     * <p>
      * example:
      * <pre>
      *     create table test (a int, b int, c int not null);
@@ -51,7 +52,7 @@ public final class ConstraintsValidator {
      * </pre>
      *
      * @param notUsedNonGeneratedColumns Non-Generated Columns of the target table that are not used in insert statement
-     * @param tableInfo The target table info
+     * @param tableInfo                  The target table info
      */
     public static void validateConstraintsForNotUsedColumns(Collection<ColumnIdent> notUsedNonGeneratedColumns,
                                                             DocTableInfo tableInfo) {

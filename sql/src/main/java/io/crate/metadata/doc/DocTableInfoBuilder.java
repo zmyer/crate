@@ -90,11 +90,11 @@ class DocTableInfoBuilder {
             docIndexMetaData = buildDocIndexMetaDataFromTemplate(ident.indexName(), templateName);
             createdFromTemplate = true;
             concreteIndices = indexNameExpressionResolver.concreteIndices(
-                    state, IndicesOptions.lenientExpandOpen(), ident.indexName());
+                state, IndicesOptions.lenientExpandOpen(), ident.indexName());
         } else {
             try {
                 concreteIndices = indexNameExpressionResolver.concreteIndices(
-                        state, IndicesOptions.strictExpandOpen(), ident.indexName());
+                    state, IndicesOptions.strictExpandOpen(), ident.indexName());
                 if (concreteIndices.length == 0) {
                     // no matching index found
                     throw new TableUnknownException(ident);
@@ -109,6 +109,10 @@ class DocTableInfoBuilder {
             return docIndexMetaData;
         }
         for (String concreteIndice : concreteIndices) {
+            if (IndexMetaData.State.CLOSE.equals(metaData.indices().get(concreteIndice).getState())) {
+                throw new UnhandledServerException(
+                    String.format(Locale.ENGLISH, "Unable to access the partition %s, it is closed", concreteIndice));
+            }
             try {
                 docIndexMetaData = docIndexMetaData.merge(
                     buildDocIndexMetaData(concreteIndice),
@@ -137,11 +141,11 @@ class DocTableInfoBuilder {
         try {
             IndexMetaData.Builder builder = new IndexMetaData.Builder(index);
             builder.putMapping(Constants.DEFAULT_MAPPING_TYPE,
-                    indexTemplateMetaData.getMappings().get(Constants.DEFAULT_MAPPING_TYPE).toString());
+                indexTemplateMetaData.getMappings().get(Constants.DEFAULT_MAPPING_TYPE).toString());
 
             Settings.Builder settingsBuilder = Settings.builder()
-                    .put(indexTemplateMetaData.settings())
-                    .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT);
+                .put(indexTemplateMetaData.settings())
+                .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT);
 
             Settings settings = settingsBuilder.build();
             builder.settings(settings);
@@ -157,11 +161,11 @@ class DocTableInfoBuilder {
     private List<PartitionName> buildPartitions(DocIndexMetaData md) {
         List<PartitionName> partitions = new ArrayList<>();
         if (md.partitionedBy().size() > 0) {
-            for(String index : concreteIndices) {
+            for (String index : concreteIndices) {
                 if (PartitionName.isPartition(index)) {
                     try {
                         PartitionName partitionName = PartitionName.fromIndexOrTemplate(index);
-                        assert partitionName.tableIdent().equals(ident);
+                        assert partitionName.tableIdent().equals(ident) : "ident must equal partitionName";
                         partitions.add(partitionName);
                     } catch (IllegalArgumentException e) {
                         // ignore

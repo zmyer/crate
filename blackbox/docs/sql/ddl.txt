@@ -48,13 +48,13 @@ it will be created::
 
 ::
 
-    cr> select schema_name, table_name from information_schema.tables
+    cr> select table_schema, table_name from information_schema.tables
     ... where table_name='my_table';
-    +-------------+------------+
-    | schema_name | table_name |
-    +-------------+------------+
-    | my_schema   | my_table   |
-    +-------------+------------+
+    +--------------+------------+
+    | table_schema | table_name |
+    +--------------+------------+
+    | my_schema    | my_table   |
+    +--------------+------------+
     SELECT 1 row in set (... sec)
 
 The following schema names are reserved and may not be used:
@@ -86,13 +86,13 @@ the ``doc`` schema::
 
 ::
 
-    cr> select schema_name, table_name from information_schema.tables
+    cr> select table_schema, table_name from information_schema.tables
     ... where table_name='my_doc_table';
-    +-------------+--------------+
-    | schema_name | table_name   |
-    +-------------+--------------+
-    | doc         | my_doc_table |
-    +-------------+--------------+
+    +--------------+--------------+
+    | table_schema | table_name   |
+    +--------------+--------------+
+    | doc          | my_doc_table |
+    +--------------+--------------+
     SELECT 1 row in set (... sec)
 
 
@@ -673,7 +673,7 @@ Here is a simple Example::
     cr> create table hidden_test_table(
     ...     fc string index using fulltext with(analyzer=myanalyzer)
     ... );
-    CREATE OK, 1 row affected (... sec)
+    CREATE OK...
 
     cr> drop table hidden_test_table;
     DROP OK, 1 row affected  (... sec)
@@ -720,11 +720,6 @@ Tokenizer and token-filters can be customized in the same way.
 .. note::
 
     Altering analyzers is not supported yet.
-
-.. note::
-
-    Use of camelCase names on custom analyzers, tokenizers, token filters and
-    char filters is deprecated.
 
 .. seealso::
 
@@ -927,11 +922,11 @@ settings::
 ::
 
     cr> select settings['stats'] from sys.cluster;
-    +-----------------------------------------------------------------------+
-    | settings['stats']                                                     |
-    +-----------------------------------------------------------------------+
-    | {"enabled": true, "jobs_log_size": 2048, "operations_log_size": 8192} |
-    +-----------------------------------------------------------------------+
+    +-------------------------------------------------------------------------------------------------+
+    | settings['stats']                                                                               |
+    +-------------------------------------------------------------------------------------------------+
+    | {"enabled": true, "jobs_log_size": 2048, "operations_log_size": 8192, "service.interval": "1h"} |
+    +-------------------------------------------------------------------------------------------------+
     SELECT 1 row in set (... sec)
 
 Using the ``RESET`` statement, a setting will be reset to either on
@@ -943,11 +938,11 @@ node startup defined configuration file value or to its default value::
 ::
 
     cr> select settings['stats'] from sys.cluster;
-    +-------------------------------------------------------------------------+
-    | settings['stats']                                                       |
-    +-------------------------------------------------------------------------+
-    | {"enabled": false, "jobs_log_size": 2048, "operations_log_size": 10000} |
-    +-------------------------------------------------------------------------+
+    +---------------------------------------------------------------------------------------------------+
+    | settings['stats']                                                                                 |
+    +---------------------------------------------------------------------------------------------------+
+    | {"enabled": false, "jobs_log_size": 2048, "operations_log_size": 10000, "service.interval": "1h"} |
+    +---------------------------------------------------------------------------------------------------+
     SELECT 1 row in set (... sec)
 
 ``RESET`` can also be done on objects::
@@ -958,11 +953,11 @@ node startup defined configuration file value or to its default value::
 ::
 
     cr> select settings['stats'] from sys.cluster;
-    +--------------------------------------------------------------------------+
-    | settings['stats']                                                        |
-    +--------------------------------------------------------------------------+
-    | {"enabled": false, "jobs_log_size": 10000, "operations_log_size": 10000} |
-    +--------------------------------------------------------------------------+
+    +----------------------------------------------------------------------------------------------------+
+    | settings['stats']                                                                                  |
+    +----------------------------------------------------------------------------------------------------+
+    | {"enabled": false, "jobs_log_size": 10000, "operations_log_size": 10000, "service.interval": "1h"} |
+    +----------------------------------------------------------------------------------------------------+
     SELECT 1 row in set (... sec)
 
 

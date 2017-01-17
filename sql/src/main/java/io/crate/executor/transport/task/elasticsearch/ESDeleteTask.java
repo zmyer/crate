@@ -27,13 +27,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.Constants;
 import io.crate.analyze.where.DocKeys;
+import io.crate.core.collections.Row;
 import io.crate.core.collections.Row1;
 import io.crate.exceptions.Exceptions;
 import io.crate.executor.JobTask;
 import io.crate.jobs.ESJobContext;
 import io.crate.jobs.JobContextService;
 import io.crate.jobs.JobExecutionContext;
-import io.crate.operation.projectors.FlatProjectorChain;
 import io.crate.operation.projectors.RowReceiver;
 import io.crate.operation.projectors.RowReceivers;
 import io.crate.planner.node.dml.ESDelete;
@@ -63,35 +63,45 @@ public class ESDeleteTask extends JobTask {
         super(esDelete.jobId());
         this.esDelete = esDelete;
         this.jobContextService = jobContextService;
-        results = new ArrayList<>(esDelete.docKeys().size());
+
+        results = new ArrayList<>(esDelete.getBulkSize());
+        for (int i = 0; i < esDelete.getBulkSize(); i++) {
+            SettableFuture<Long> result = SettableFuture.create();
+            results.add(result);
+        }
 
         List<DeleteRequest> requests = new ArrayList<>(esDelete.docKeys().size());
         List<ActionListener> listeners = new ArrayList<>(esDelete.docKeys().size());
+        int resultIdx = 0;
         for (DocKeys.DocKey docKey : esDelete.docKeys()) {
             DeleteRequest request = new DeleteRequest(
-                    ESGetTask.indexName(esDelete.tableInfo(), docKey.partitionValues().orNull()),
-                    Constants.DEFAULT_MAPPING_TYPE, docKey.id());
+                ESGetTask.indexName(esDelete.tableInfo(), docKey.partitionValues().orNull()),
+                Constants.DEFAULT_MAPPING_TYPE, docKey.id());
             request.routing(docKey.routing());
             if (docKey.version().isPresent()) {
                 //noinspection OptionalGetWithoutIsPresent
                 request.version(docKey.version().get());
             }
             requests.add(request);
-            SettableFuture<Long> result = SettableFuture.create();
-            results.add(result);
+            SettableFuture<Long> result = results.get(esDelete.getItemToBulkIdx().get(resultIdx));
             listeners.add(new DeleteResponseListener(result));
+            resultIdx++;
         }
 
-        createContextBuilder("delete", requests, listeners, transport, null);
+        for (int i = 0; i < results.size(); i++) {
+            if (!esDelete.getItemToBulkIdx().values().contains(i)) {
+                results.get(i).set(0L);
+            }
+        }
+        createContextBuilder("delete", requests, listeners, transport);
     }
 
     private void createContextBuilder(String operationName,
                                       List<? extends ActionRequest> requests,
                                       List<? extends ActionListener> listeners,
-                                      TransportAction transportAction,
-                                      @Nullable FlatProjectorChain projectorChain) {
+                                      TransportAction transportAction) {
         ESJobContext esJobContext = new ESJobContext(esDelete.executionPhaseId(), operationName,
-            requests, listeners, results, transportAction, projectorChain);
+            requests, listeners, results, transportAction);
         builder = jobContextService.newBuilder(jobId());
         builder.addSubContext(esJobContext);
     }
@@ -103,7 +113,7 @@ public class ESDeleteTask extends JobTask {
     }
 
     @Override
-    public void execute(final RowReceiver rowReceiver) {
+    public void execute(final RowReceiver rowReceiver, Row parameters) {
         SettableFuture<Long> result = results.get(0);
         try {
             startContext();

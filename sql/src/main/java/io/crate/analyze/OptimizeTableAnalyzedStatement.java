@@ -26,7 +26,7 @@ import org.elasticsearch.common.settings.Settings;
 
 import java.util.Set;
 
-public class OptimizeTableAnalyzedStatement extends AbstractDDLAnalyzedStatement {
+public class OptimizeTableAnalyzedStatement implements DDLStatement {
 
     private final Set<String> indexNames;
     private final Settings settings;
@@ -40,7 +40,7 @@ public class OptimizeTableAnalyzedStatement extends AbstractDDLAnalyzedStatement
         return indexNames;
     }
 
-    public Settings settings(){
+    public Settings settings() {
         return settings;
     }
 
@@ -48,5 +48,4 @@ public class OptimizeTableAnalyzedStatement extends AbstractDDLAnalyzedStatement
     public <C, R> R accept(AnalyzedStatementVisitor<C, R> analyzedStatementVisitor, C context) {
         return analyzedStatementVisitor.visitOptimizeTableStatement(this, context);
     }
-
 }

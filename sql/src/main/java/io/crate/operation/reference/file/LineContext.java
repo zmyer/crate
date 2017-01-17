@@ -75,8 +75,8 @@ public class LineContext {
             if (o == null) {
                 return null;
             }
-            assert o instanceof Map;
-            parentMap = (Map)o;
+            assert o instanceof Map : "o must be instance of Map";
+            parentMap = (Map) o;
         }
 
         Object o = parentMap.get(path.peekFirst());

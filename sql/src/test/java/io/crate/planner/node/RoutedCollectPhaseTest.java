@@ -23,26 +23,34 @@ package io.crate.planner.node;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.crate.action.sql.SessionContext;
+import io.crate.analyze.EvaluatingNormalizer;
+import io.crate.analyze.OrderBy;
 import io.crate.analyze.WhereClause;
+import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.Value;
+import io.crate.metadata.ReplaceMode;
 import io.crate.metadata.Routing;
 import io.crate.metadata.RowGranularity;
+import io.crate.metadata.TransactionContext;
+import io.crate.operation.scalar.cast.CastFunctionResolver;
 import io.crate.planner.distribution.DistributionInfo;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.planner.projection.Projection;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.types.DataTypes;
-import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
+import static io.crate.testing.TestingHelpers.getFunctions;
+import static org.hamcrest.Matchers.*;
 
 public class RoutedCollectPhaseTest extends CrateUnitTest {
 
@@ -51,15 +59,15 @@ public class RoutedCollectPhaseTest extends CrateUnitTest {
         ImmutableList<Symbol> toCollect = ImmutableList.<Symbol>of(new Value(DataTypes.STRING));
         UUID jobId = UUID.randomUUID();
         RoutedCollectPhase cn = new RoutedCollectPhase(
-                jobId,
-                0,
-                "cn",
-                new Routing(ImmutableMap.<String, Map<String,List<Integer>>>of()),
-                RowGranularity.DOC,
-                toCollect,
-                ImmutableList.<Projection>of(),
-                WhereClause.MATCH_ALL,
-                DistributionInfo.DEFAULT_MODULO
+            jobId,
+            0,
+            "cn",
+            new Routing(ImmutableMap.<String, Map<String, List<Integer>>>of()),
+            RowGranularity.DOC,
+            toCollect,
+            ImmutableList.<Projection>of(),
+            WhereClause.MATCH_ALL,
+            DistributionInfo.DEFAULT_MODULO
         );
 
         BytesStreamOutput out = new BytesStreamOutput();
@@ -71,10 +79,32 @@ public class RoutedCollectPhaseTest extends CrateUnitTest {
         assertThat(cn, equalTo(cn2));
 
         assertThat(cn.toCollect(), is(cn2.toCollect()));
-        assertThat(cn.executionNodes(), is(cn2.executionNodes()));
+        assertThat(cn.nodeIds(), is(cn2.nodeIds()));
         assertThat(cn.jobId(), is(cn2.jobId()));
-        assertThat(cn.executionPhaseId(), is(cn2.executionPhaseId()));
+        assertThat(cn.phaseId(), is(cn2.phaseId()));
         assertThat(cn.maxRowGranularity(), is(cn2.maxRowGranularity()));
         assertThat(cn.distributionInfo(), is(cn2.distributionInfo()));
+    }
+
+    @Test
+    public void testNormalizeDoesNotRemoveOrderBy() throws Exception {
+        Symbol toInt10 = CastFunctionResolver.generateCastFunction(Literal.of(10L), DataTypes.INTEGER, false);
+        RoutedCollectPhase collect = new RoutedCollectPhase(
+            UUID.randomUUID(),
+            1,
+            "collect",
+            new Routing(Collections.emptyMap()),
+            RowGranularity.DOC,
+            Collections.singletonList(toInt10),
+            Collections.emptyList(),
+            WhereClause.MATCH_ALL,
+            DistributionInfo.DEFAULT_SAME_NODE
+        );
+        collect.orderBy(new OrderBy(Collections.singletonList(toInt10), new boolean[]{false}, new Boolean[]{null}));
+        EvaluatingNormalizer normalizer = EvaluatingNormalizer.functionOnlyNormalizer(getFunctions(), ReplaceMode.COPY);
+        RoutedCollectPhase normalizedCollect = collect.normalize(
+            normalizer, new TransactionContext(SessionContext.SYSTEM_SESSION));
+
+        assertThat(normalizedCollect.orderBy(), notNullValue());
     }
 }

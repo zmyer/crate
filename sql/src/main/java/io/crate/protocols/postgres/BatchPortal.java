@@ -22,15 +22,17 @@
 
 package io.crate.protocols.postgres;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.action.sql.ResultReceiver;
 import io.crate.action.sql.RowReceiverToResultReceiver;
+import io.crate.action.sql.SessionContext;
 import io.crate.analyze.Analysis;
 import io.crate.analyze.AnalyzedStatement;
 import io.crate.analyze.ParameterContext;
 import io.crate.analyze.symbol.Field;
 import io.crate.analyze.symbol.Symbols;
-import io.crate.concurrent.CompletionListener;
-import io.crate.concurrent.CompletionState;
+import io.crate.concurrent.CountdownFutureCallback;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.exceptions.Exceptions;
@@ -47,14 +49,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 class BatchPortal extends AbstractPortal {
 
     private final List<List<Object>> batchParams = new ArrayList<>();
     private final List<String> queries = new ArrayList<>();
-    private final List<Analysis> analysis= new ArrayList<>();
+    private final List<Analysis> analysis = new ArrayList<>();
     private final List<FormatCodes.FormatCode[]> resultFormatCodes = new ArrayList<>();
     private final List<List<? extends DataType>> outputTypes = new ArrayList<>();
     private final List<ResultReceiver> resultReceivers = new ArrayList<>();
@@ -65,8 +65,9 @@ class BatchPortal extends AbstractPortal {
                 List<? extends DataType> outputTypes,
                 ResultReceiver resultReceiver,
                 List<Object> params,
-                SessionData sessionData) {
-        super(name, sessionData);
+                SessionContext sessionContext,
+                PortalContext portalContext) {
+        super(name, sessionContext, portalContext);
         queries.add(query);
         this.analysis.add(analysis);
         this.outputTypes.add(outputTypes);
@@ -100,11 +101,8 @@ class BatchPortal extends AbstractPortal {
         queries.add(query);
         batchParams.add(params);
         this.resultFormatCodes.add(resultFormatCodes);
-        analysis.add(sessionData.getAnalyzer().analyze(statement,
-            new ParameterContext(getArgs(),
-                Collections.<Row>emptyList(),
-                sessionData.getDefaultSchema(),
-                sessionData.options())));
+        analysis.add(portalContext.getAnalyzer().boundAnalyze(
+            statement, sessionContext, new ParameterContext(getArgs(), Collections.<Row>emptyList())));
         return this;
     }
 
@@ -126,8 +124,8 @@ class BatchPortal extends AbstractPortal {
     }
 
     @Override
-    public void sync(Planner planner, StatsTables statsTables, CompletionListener listener) {
-        BatchCompletionListener batchCompletionListener = new BatchCompletionListener(analysis.size(), listener);
+    public ListenableFuture<Void> sync(Planner planner, StatsTables statsTables) {
+        CountdownFutureCallback completionCallback = new CountdownFutureCallback(analysis.size());
         for (int i = 0; i < analysis.size(); i++) {
             UUID jobId = UUID.randomUUID();
             Plan plan;
@@ -140,11 +138,12 @@ class BatchPortal extends AbstractPortal {
             }
             ResultReceiver resultReceiver = resultReceivers.get(i);
             statsTables.logExecutionStart(jobId, stmt);
-            resultReceiver.addListener(new StatsTablesUpdateListener(jobId, statsTables));
-            resultReceiver.addListener(batchCompletionListener);
+            Futures.addCallback(resultReceiver.completionFuture(), new StatsTablesUpdateListener(jobId, statsTables));
+            Futures.addCallback(resultReceiver.completionFuture(), completionCallback);
             RowReceiver rowReceiver = new RowReceiverToResultReceiver(resultReceiver, 0);
-            sessionData.getExecutor().execute(plan, rowReceiver);
+            portalContext.getExecutor().execute(plan, rowReceiver, new RowN(batchParams.toArray()));
         }
+        return completionCallback;
     }
 
     private Row getArgs() {
@@ -156,45 +155,8 @@ class BatchPortal extends AbstractPortal {
         if (!analyzedStatement.isWriteOperation()) {
             throw new UnsupportedOperationException("Only write operations are allowed in Batch statements");
         }
-        if (sessionData.isReadOnly()) {
+        if (portalContext.isReadOnly()) {
             throw new ReadOnlyException();
-        }
-    }
-
-    private static class BatchCompletionListener implements CompletionListener {
-
-        private final AtomicInteger counter;
-        private final AtomicReference<Throwable> lastThrowable = new AtomicReference<>(null);
-        private final AtomicReference<CompletionState> lastResult = new AtomicReference<>(null);
-        private final CompletionListener delegate;
-
-
-        public BatchCompletionListener(int numResponses, CompletionListener completionListener) {
-            counter = new AtomicInteger(numResponses);
-            delegate = completionListener;
-        }
-
-        @Override
-        public void onSuccess(@Nullable CompletionState result) {
-            lastResult.set(result);
-            countdown();
-        }
-
-        @Override
-        public void onFailure(Throwable e) {
-            lastThrowable.set(e);
-            countdown();
-        }
-
-        private void countdown() {
-            if (counter.decrementAndGet() == 0) {
-                Throwable t = lastThrowable.get();
-                if (t == null) {
-                    delegate.onSuccess(lastResult.get());
-                } else {
-                    delegate.onFailure(t);
-                }
-            }
         }
     }
 }

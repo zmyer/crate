@@ -27,12 +27,12 @@ import io.crate.metadata.FunctionIdent;
 import io.crate.operation.aggregation.AggregationTest;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
-import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.junit.Test;
 
-import static org.hamcrest.Matchers.equalTo;
+import static io.crate.testing.SymbolMatchers.isLiteral;
+
 
 public class CountAggregationTest extends AggregationTest {
 
@@ -87,6 +87,12 @@ public class CountAggregationTest extends AggregationTest {
         Object[][] result = executeAggregation(DataTypes.STRING, new Object[][]{{"Youri"}, {"Ruben"}});
 
         assertEquals(2L, result[0][0]);
+    }
+
+    @Test
+    public void testNormalizeWithNullLiteral() {
+        assertThat(normalize("count", null, DataTypes.STRING), isLiteral(0L));
+        assertThat(normalize("count", null, DataTypes.UNDEFINED), isLiteral(0L));
     }
 
     @Test

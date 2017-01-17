@@ -168,16 +168,15 @@ public class RemoteCollector implements CrateCollector {
             RECEIVER_PHASE_ID,
             "remoteCollectReceiver",
             new IteratorPageDownstream(rowReceiver, pagingIterator, Optional.<Executor>absent()),
-            DataTypes.getStreamer(collectPhase.outputTypes()),
+            DataTypes.getStreamers(collectPhase.outputTypes()),
             ramAccountingContext,
-            1,
-            null
+            1
         ));
         return builder;
     }
 
     private void killRemoteContext() {
-        transportKillJobsNodeAction.executeKillOnAllNodes(new KillJobsRequest(Collections.singletonList(jobId)),
+        transportKillJobsNodeAction.broadcast(new KillJobsRequest(Collections.singletonList(jobId)),
             new ActionListener<KillResponse>() {
 
                 @Override

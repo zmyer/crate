@@ -21,7 +21,7 @@
 
 package io.crate.blob;
 
-import io.crate.blob.v2.BlobIndices;
+import io.crate.blob.v2.BlobIndicesService;
 import io.crate.blob.v2.BlobShard;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.replication.TransportReplicationAction;
@@ -39,9 +39,9 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
 public class TransportDeleteBlobAction extends TransportReplicationAction<DeleteBlobRequest, DeleteBlobRequest,
-        DeleteBlobResponse> {
+    DeleteBlobResponse> {
 
-    private final BlobIndices blobIndices;
+    private final BlobIndicesService blobIndicesService;
 
     @Inject
     public TransportDeleteBlobAction(Settings settings,
@@ -50,13 +50,13 @@ public class TransportDeleteBlobAction extends TransportReplicationAction<Delete
                                      IndicesService indicesService,
                                      ThreadPool threadPool,
                                      ShardStateAction shardStateAction,
-                                     BlobIndices blobIndices,
+                                     BlobIndicesService blobIndicesService,
                                      MappingUpdatedAction mappingUpdatedAction,
                                      ActionFilters actionFilters,
                                      IndexNameExpressionResolver indexNameExpressionResolver) {
         super(settings, DeleteBlobAction.NAME, transportService, clusterService, indicesService, threadPool, shardStateAction,
-                mappingUpdatedAction, actionFilters, indexNameExpressionResolver, DeleteBlobRequest.class, DeleteBlobRequest.class, ThreadPool.Names.INDEX);
-        this.blobIndices = blobIndices;
+            mappingUpdatedAction, actionFilters, indexNameExpressionResolver, DeleteBlobRequest.class, DeleteBlobRequest.class, ThreadPool.Names.INDEX);
+        this.blobIndicesService = blobIndicesService;
         logger.trace("Constructor");
     }
 
@@ -69,7 +69,7 @@ public class TransportDeleteBlobAction extends TransportReplicationAction<Delete
     protected Tuple<DeleteBlobResponse, DeleteBlobRequest> shardOperationOnPrimary(MetaData metaData,
                                                                                    DeleteBlobRequest request) throws Throwable {
         logger.trace("shardOperationOnPrimary {}", request);
-        BlobShard blobShard = blobIndices.blobShardSafe(request.index(), request.shardId().id());
+        BlobShard blobShard = blobIndicesService.blobShardSafe(request.shardId());
         boolean deleted = blobShard.delete(request.id());
         final DeleteBlobResponse response = new DeleteBlobResponse(deleted);
         return new Tuple<>(response, request);
@@ -78,14 +78,14 @@ public class TransportDeleteBlobAction extends TransportReplicationAction<Delete
     @Override
     protected void shardOperationOnReplica(DeleteBlobRequest request) {
         logger.warn("shardOperationOnReplica operating on replica but relocation is not implemented {}", request);
-        BlobShard blobShard = blobIndices.blobShardSafe(request.index(), request.shardId().id());
+        BlobShard blobShard = blobIndicesService.blobShardSafe(request.shardId());
         blobShard.delete(request.id());
     }
 
     @Override
     protected void resolveRequest(MetaData metaData, String concreteIndex, DeleteBlobRequest request) {
         ShardIterator shardIterator = clusterService.operationRouting()
-                .indexShards(clusterService.state(), concreteIndex, null, request.id(), null);
+            .indexShards(clusterService.state(), concreteIndex, null, request.id(), null);
         request.setShardId(shardIterator.shardId());
     }
 

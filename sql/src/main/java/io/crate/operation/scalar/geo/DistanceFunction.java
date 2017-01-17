@@ -21,8 +21,7 @@
 
 package io.crate.operation.scalar.geo;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableList;
 import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
@@ -38,8 +37,6 @@ import org.elasticsearch.common.unit.DistanceUnit;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 public class DistanceFunction extends Scalar<Double, Object> {
 
@@ -47,7 +44,7 @@ public class DistanceFunction extends Scalar<Double, Object> {
 
     private final FunctionInfo info;
     private final static FunctionInfo geoPointInfo =
-            genInfo(Arrays.<DataType>asList(DataTypes.GEO_POINT, DataTypes.GEO_POINT));
+        genInfo(Arrays.asList(DataTypes.GEO_POINT, DataTypes.GEO_POINT));
 
     public static void register(ScalarFunctionModule module) {
         module.register(NAME, new Resolver());
@@ -68,7 +65,7 @@ public class DistanceFunction extends Scalar<Double, Object> {
 
     @Override
     public Double evaluate(Input[] args) {
-        assert args.length == 2;
+        assert args.length == 2 : "number of args must be 2";
         return evaluate(args[0], args[1]);
     }
 
@@ -86,27 +83,27 @@ public class DistanceFunction extends Scalar<Double, Object> {
         double targetLongitude;
         double targetLatitude;
 
-         // need to handle list also - because e.g. ESSearchTask returns geo_points as list
+        // need to handle list also - because e.g. ESSearchTask returns geo_points as list
         if (value1 instanceof List) {
-            sourceLongitude = (Double)((List) value1).get(0);
-            sourceLatitude = (Double)((List) value1).get(1);
+            sourceLongitude = (Double) ((List) value1).get(0);
+            sourceLatitude = (Double) ((List) value1).get(1);
         } else {
             sourceLongitude = ((Double[]) value1)[0];
             sourceLatitude = ((Double[]) value1)[1];
         }
         if (value2 instanceof List) {
-            targetLongitude = (Double)((List) value2).get(0);
-            targetLatitude = (Double)((List) value2).get(1);
+            targetLongitude = (Double) ((List) value2).get(0);
+            targetLatitude = (Double) ((List) value2).get(1);
         } else {
             targetLongitude = ((Double[]) value2)[0];
             targetLatitude = ((Double[]) value2)[1];
         }
         return GeoDistance.SLOPPY_ARC.calculate(
-                sourceLatitude, sourceLongitude, targetLatitude, targetLongitude, DistanceUnit.METERS);
+            sourceLatitude, sourceLongitude, targetLatitude, targetLongitude, DistanceUnit.METERS);
     }
 
     @Override
-    public Symbol normalizeSymbol(Function symbol, StmtCtx stmtCtx) {
+    public Symbol normalizeSymbol(Function symbol, TransactionContext transactionContext) {
         Symbol arg1 = symbol.arguments().get(0);
         Symbol arg2 = symbol.arguments().get(1);
         DataType arg1Type = arg1.valueType();
@@ -138,7 +135,7 @@ public class DistanceFunction extends Scalar<Double, Object> {
         }
 
         if (numLiterals == 2) {
-            return Literal.newLiteral(evaluate((Input) arg1, (Input) arg2));
+            return Literal.of(evaluate((Input) arg1, (Input) arg2));
         }
 
         // ensure reference is the first argument.
@@ -154,31 +151,24 @@ public class DistanceFunction extends Scalar<Double, Object> {
     private void validateType(Symbol symbol, DataType dataType) {
         if (!dataType.equals(DataTypes.GEO_POINT)) {
             throw new IllegalArgumentException(SymbolFormatter.format(
-                    "Cannot convert %s to a geo point", symbol));
+                "Cannot convert %s to a geo point", symbol));
         }
     }
 
-    static class Resolver implements DynamicFunctionResolver {
+    static class Resolver implements FunctionResolver {
 
-        private final static Set<DataType> ALLOWED_TYPES = Sets.<DataType>newHashSet(
-                DataTypes.STRING, DataTypes.GEO_POINT, new ArrayType(DataTypes.DOUBLE)
-        );
+        private final static List<DataType> ALLOWED_TYPES = ImmutableList.of(
+            DataTypes.STRING, DataTypes.GEO_POINT, new ArrayType(DataTypes.DOUBLE));
+        private static final List<Signature> SIGNATURES = Signature.pairedCombinationsOf(ALLOWED_TYPES);
 
         @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-            Preconditions.checkArgument(dataTypes.size() == 2,
-                    "%s takes 2 arguments, not %s", NAME, dataTypes.size());
-            validateType(dataTypes.get(0));
-            validateType(dataTypes.get(1));
+        public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
             return new DistanceFunction(genInfo(dataTypes));
         }
 
-        private void validateType(DataType dataType) {
-            if (!ALLOWED_TYPES.contains(dataType)) {
-                throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                        "%s can't handle arguments of type \"%s\"", NAME, dataType.getName()));
-
-            }
+        @Override
+        public List<Signature> signatures() {
+            return SIGNATURES;
         }
     }
 }

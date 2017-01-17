@@ -32,13 +32,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 public class BlobContainer {
 
-    private final static ESLogger logger = Loggers.getLogger(BlobContainer.class);
-
-    public static final String[] SUB_DIRS = new String[256];
+    private static final ESLogger logger = Loggers.getLogger(BlobContainer.class);
+    private static final String[] SUB_DIRS = new String[256];
 
     public static final byte[] PREFIXES = new byte[256];
 
@@ -47,33 +47,32 @@ public class BlobContainer {
     static {
         for (int i = 0; i < 256; i++) {
             SUB_DIRS[i] = String.format(Locale.ENGLISH, "%02x", i & 0xFFFFF);
-            PREFIXES[i] = (byte)i;
+            PREFIXES[i] = (byte) i;
         }
     }
 
-    private final File baseDirectory;
-    private final File tmpDirectory;
-    private final File varDirectory;
+    private final Path baseDirectory;
+    private final Path tmpDirectory;
+    private final Path varDirectory;
 
-    public BlobContainer(File baseDirectory) {
+    public BlobContainer(Path baseDirectory) {
         this.baseDirectory = baseDirectory;
-        this.tmpDirectory = new File(baseDirectory, "tmp");
-        this.varDirectory = new File(baseDirectory, "var");
+        this.tmpDirectory = baseDirectory.resolve("tmp");
+        this.varDirectory = baseDirectory.resolve("var");
         try {
-            Files.createDirectories(this.varDirectory.toPath());
+            Files.createDirectories(this.varDirectory);
+            createSubDirectories(this.varDirectory);
         } catch (IOException e) {
-            logger.error("Could not create 'var' path {}", this.varDirectory.getAbsolutePath());
+            logger.error("Could not create 'var' path {}", this.varDirectory);
             Throwables.propagate(e);
         }
 
         try {
-            Files.createDirectories(this.tmpDirectory.toPath());
+            Files.createDirectories(this.tmpDirectory);
         } catch (IOException e) {
-            logger.error("Could not create 'tmp' path {}", this.tmpDirectory.getAbsolutePath());
+            logger.error("Could not create 'tmp' path {}", this.tmpDirectory);
             Throwables.propagate(e);
         }
-
-        createSubDirectories(this.varDirectory);
     }
 
     /**
@@ -83,10 +82,11 @@ public class BlobContainer {
      *
      * @param parentDir
      */
-    private void createSubDirectories(File parentDir) {
+    private void createSubDirectories(Path parentDir) throws IOException {
         for (int i = 0; i < SUB_DIRS.length; i++) {
-            subDirs[i] = new File(parentDir, SUB_DIRS[i]);
-            subDirs[i].mkdir();
+            Path subDir = parentDir.resolve(SUB_DIRS[i]);
+            subDirs[i] = subDir.toFile();
+            Files.createDirectories(subDir);
         }
     }
 
@@ -97,7 +97,7 @@ public class BlobContainer {
     /**
      * get all digests in a subfolder
      * the digests are returned as byte[][] instead as String[] to save overhead in the BlobRecovery
-     *
+     * <p>
      * incomplete files leftover from a previous recovery are deleted.
      *
      * @param prefix the subfolder for which to get the digests
@@ -107,7 +107,7 @@ public class BlobContainer {
         int index = prefix & 0xFF;  // byte is signed and may be negative, convert to int to get correct index
         String[] names = cleanDigests(subDirs[index].list(), index);
         byte[][] digests = new byte[names.length][];
-        for(int i = 0; i < names.length; i ++){
+        for (int i = 0; i < names.length; i++) {
             try {
                 digests[i] = Hex.decodeHex(names[i]);
             } catch (IllegalStateException ex) {
@@ -140,20 +140,16 @@ public class BlobContainer {
         return newNames.toArray(new String[newNames.size()]);
     }
 
-    public File getBaseDirectory() {
+    public Path getBaseDirectory() {
         return baseDirectory;
     }
 
-    public File getTmpDirectory() {
+    public Path getTmpDirectory() {
         return tmpDirectory;
     }
 
-    public File getVarDirectory() {
-        return varDirectory;
-    }
-
     public File getFile(String digest) {
-        return new File(getVarDirectory(), digest.substring(0, 2) + File.separator + digest);
+        return varDirectory.resolve(digest.substring(0, 2)).resolve(digest).toFile();
     }
 
     public DigestBlob createBlob(String digest, UUID transferId) {
@@ -173,7 +169,7 @@ public class BlobContainer {
 
         private final File[] subDirs;
 
-        public RecursiveFileIterable(File[] subDirs) {
+        private RecursiveFileIterable(File[] subDirs) {
             this.subDirs = subDirs;
         }
 
@@ -192,7 +188,7 @@ public class BlobContainer {
         private File[] files = null;
         private int fileIndex = -1;
 
-        public RecursiveFileIterator(File[] subDirs) {
+        private RecursiveFileIterator(File[] subDirs) {
             this.subDirs = subDirs;
         }
 
@@ -219,12 +215,12 @@ public class BlobContainer {
                 return files[++fileIndex];
             }
 
-            throw new NoSuchElementException();
+            throw new NoSuchElementException("List of files is empty");
         }
 
         @Override
         public void remove() {
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException("remove is unsupported for " + BlobContainer.class.getSimpleName());
         }
     }
 }

@@ -21,6 +21,7 @@
 
 package io.crate.planner.projection;
 
+import com.google.common.base.Function;
 import io.crate.analyze.symbol.InputColumn;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
@@ -48,24 +49,18 @@ import java.util.List;
 public class SourceIndexWriterProjection extends AbstractIndexWriterProjection {
 
     private Boolean overwriteDuplicates;
-    private @Nullable String[] includes;
-    private @Nullable String[] excludes;
+    private
+    @Nullable
+    String[] includes;
+    private
+    @Nullable
+    String[] excludes;
 
     protected Reference rawSourceReference;
     protected InputColumn rawSourceSymbol;
 
     private final static String OVERWRITE_DUPLICATES = "overwrite_duplicates";
     private final static boolean OVERWRITE_DUPLICATES_DEFAULT = false;
-
-    public static final ProjectionFactory<SourceIndexWriterProjection> FACTORY =
-            new ProjectionFactory<SourceIndexWriterProjection>() {
-                @Override
-                public SourceIndexWriterProjection newInstance() {
-                    return new SourceIndexWriterProjection();
-                }
-            };
-
-    protected SourceIndexWriterProjection() {}
 
     public SourceIndexWriterProjection(TableIdent tableIdent,
                                        @Nullable String partitionIdent,
@@ -111,7 +106,7 @@ public class SourceIndexWriterProjection extends AbstractIndexWriterProjection {
                 if (idx > -1) {
                     // copy from into partition where partitioned column is a primary key
                     // set partition value as primary key input
-                    idSymbols.set(idx, Literal.newLiteral(partitionValues.get(i)));
+                    idSymbols.set(idx, Literal.of(partitionValues.get(i)));
                 }
                 continue;
             }
@@ -125,14 +120,43 @@ public class SourceIndexWriterProjection extends AbstractIndexWriterProjection {
         }
         this.partitionedBySymbols = partitionedBySymbols;
 
+        // if clusteredByColumn equals _id then the routing is implicit.
+        if (clusteredByIdx == -1 && clusteredByColumn != null && !DocSysColumns.ID.equals(clusteredByColumn)) {
+            clusteredBySymbol = new InputColumn(currentInputIndex++, null);
+        }
+
         overwriteDuplicates = settings.getAsBoolean(OVERWRITE_DUPLICATES, OVERWRITE_DUPLICATES_DEFAULT);
         rawSourceSymbol = new InputColumn(currentInputIndex, DataTypes.STRING);
+    }
+
+    public SourceIndexWriterProjection(StreamInput in) throws IOException {
+        super(in);
+        overwriteDuplicates = in.readBoolean();
+        rawSourceReference = Reference.fromStream(in);
+        rawSourceSymbol = (InputColumn) Symbols.fromStream(in);
+
+
+        if (in.readBoolean()) {
+            int length = in.readVInt();
+            includes = new String[length];
+            for (int i = 0; i < length; i++) {
+                includes[i] = in.readString();
+            }
+        }
+        if (in.readBoolean()) {
+            int length = in.readVInt();
+            excludes = new String[length];
+            for (int i = 0; i < length; i++) {
+                excludes[i] = in.readString();
+            }
+        }
     }
 
     @Override
     public <C, R> R accept(ProjectionVisitor<C, R> visitor, C context) {
         return visitor.visitSourceIndexWriterProjection(this, context);
     }
+
     public InputColumn rawSource() {
         return rawSourceSymbol;
     }
@@ -149,6 +173,10 @@ public class SourceIndexWriterProjection extends AbstractIndexWriterProjection {
     @Nullable
     public String[] excludes() {
         return excludes;
+    }
+
+    @Override
+    public void replaceSymbols(Function<Symbol, Symbol> replaceFunction) {
     }
 
     @Override
@@ -176,30 +204,6 @@ public class SourceIndexWriterProjection extends AbstractIndexWriterProjection {
         result = 31 * result + (excludes != null ? Arrays.hashCode(excludes) : 0);
         result = 31 * result + rawSourceSymbol.hashCode();
         return result;
-    }
-
-    @Override
-    public void readFrom(StreamInput in) throws IOException {
-        super.readFrom(in);
-        overwriteDuplicates = in.readBoolean();
-        rawSourceReference = Reference.fromStream(in);
-        rawSourceSymbol = (InputColumn) Symbols.fromStream(in);
-
-
-        if (in.readBoolean()) {
-            int length = in.readVInt();
-            includes = new String[length];
-            for (int i = 0; i < length; i++) {
-                includes[i] = in.readString();
-            }
-        }
-        if (in.readBoolean()) {
-            int length = in.readVInt();
-            excludes = new String[length];
-            for (int i = 0; i < length; i++) {
-                excludes[i] = in.readString();
-            }
-        }
     }
 
     @Override

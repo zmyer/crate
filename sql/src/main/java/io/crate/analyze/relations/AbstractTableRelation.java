@@ -22,7 +22,6 @@
 package io.crate.analyze.relations;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import io.crate.analyze.OrderBy;
 import io.crate.analyze.symbol.Field;
@@ -30,15 +29,15 @@ import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.Path;
 import io.crate.metadata.Reference;
 import io.crate.metadata.table.TableInfo;
+import io.crate.sql.tree.QualifiedName;
 import io.crate.types.ArrayType;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
+import io.crate.types.ObjectType;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class AbstractTableRelation<T extends TableInfo> implements AnalyzedRelation, FieldResolver {
 
@@ -46,17 +45,19 @@ public abstract class AbstractTableRelation<T extends TableInfo> implements Anal
         @Override
         public boolean apply(@Nullable Reference input) {
             return input != null
-                    && input.valueType().id() == ArrayType.ID
-                    && ((ArrayType) input.valueType()).innerType().equals(DataTypes.OBJECT);
+                   && input.valueType().id() == ArrayType.ID
+                   && ((ArrayType) input.valueType()).innerType().equals(DataTypes.OBJECT);
         }
     };
 
     protected T tableInfo;
     private List<Field> outputs;
     private Map<Path, Reference> allocatedFields = new HashMap<>();
+    private QualifiedName qualifiedName;
 
     public AbstractTableRelation(T tableInfo) {
         this.tableInfo = tableInfo;
+        qualifiedName = new QualifiedName(Arrays.asList(tableInfo.ident().schema(), tableInfo.ident().name()));
     }
 
     public T tableInfo() {
@@ -86,17 +87,19 @@ public abstract class AbstractTableRelation<T extends TableInfo> implements Anal
                 // TODO: remove this limitation with next type refactoring
                 throw new UnsupportedOperationException("cannot query for arrays inside object arrays explicitly");
             }
+
             // for child fields of object arrays
             // return references of primitive types as array
             if (dataType == null) {
                 dataType = new ArrayType(reference.valueType());
+                if (hasNestedObjectReference(tmpRI)) break;
             } else {
                 dataType = new ArrayType(dataType);
             }
             tmpCI = tmpCI.getParent();
             tmpRI = tableInfo.getReference(tmpCI);
-
         }
+
         if (dataType != null) {
             return new Reference(
                 reference.ident(),
@@ -138,6 +141,16 @@ public abstract class AbstractTableRelation<T extends TableInfo> implements Anal
         return outputs;
     }
 
+    @Override
+    public QualifiedName getQualifiedName() {
+        return qualifiedName;
+    }
+
+    @Override
+    public void setQualifiedName(@Nonnull QualifiedName qualifiedName) {
+        this.qualifiedName = qualifiedName;
+    }
+
     /**
      * return true if the given {@linkplain com.google.common.base.Predicate}
      * returns true for a parent column of this one.
@@ -151,6 +164,17 @@ public abstract class AbstractTableRelation<T extends TableInfo> implements Anal
                 return true;
             }
             parent = parent.getParent();
+        }
+        return false;
+    }
+
+    private boolean hasNestedObjectReference(Reference info) {
+        ColumnIdent parent = info.ident().columnIdent().getParent();
+        if (parent != null) {
+            Reference parentRef = tableInfo.getReference(parent);
+            if (parentRef.valueType().id() == ObjectType.ID) {
+                return hasMatchingParent(parentRef, IS_OBJECT_ARRAY);
+            }
         }
         return false;
     }

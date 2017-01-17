@@ -26,8 +26,7 @@ package io.crate.integrationtests;
 import com.google.common.base.Joiner;
 import io.crate.action.sql.SQLActionException;
 import io.crate.action.sql.SQLOperations;
-import io.crate.action.sql.SQLRequest;
-import io.crate.action.sql.SQLResponse;
+import io.crate.testing.SQLResponse;
 import io.crate.testing.SQLTransportExecutor;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
@@ -52,18 +51,23 @@ public class ReadOnlyNodeIntegrationTest extends SQLTransportIntegrationTest {
 
     public ReadOnlyNodeIntegrationTest() {
         super(new SQLTransportExecutor(
-                new SQLTransportExecutor.ClientProvider() {
-                    @Override
-                    public Client client() {
-                        // make sure we use the read-only client
-                        return internalCluster().client(internalCluster().getNodeNames()[1]);
-                    }
-
-                    @Override
-                    public String pgUrl() {
-                        return null;
-                    }
+            new SQLTransportExecutor.ClientProvider() {
+                @Override
+                public Client client() {
+                    // make sure we use the read-only client
+                    return internalCluster().client(internalCluster().getNodeNames()[1]);
                 }
+
+                @Override
+                public String pgUrl() {
+                    return null;
+                }
+
+                @Override
+                public SQLOperations sqlOperations() {
+                    return internalCluster().getInstance(SQLOperations.class, internalCluster().getNodeNames()[1]);
+                }
+            }
         ));
     }
 
@@ -89,19 +93,25 @@ public class ReadOnlyNodeIntegrationTest extends SQLTransportIntegrationTest {
     private SQLResponse executeWrite(String stmt, Object[] args) {
         if (readOnlyExecutor == null) {
             readOnlyExecutor = new SQLTransportExecutor(
-                    new SQLTransportExecutor.ClientProvider() {
-                        @Override
-                        public Client client() {
-                            // make sure we use NOT the read-only client
-                            return internalCluster().client(internalCluster().getNodeNames()[0]);
-                        }
-
-                        @Nullable
-                        @Override
-                        public String pgUrl() {
-                            return null;
-                        }
+                new SQLTransportExecutor.ClientProvider() {
+                    @Override
+                    public Client client() {
+                        // make sure we use NOT the read-only client
+                        return internalCluster().client(internalCluster().getNodeNames()[0]);
                     }
+
+                    @Nullable
+                    @Override
+                    public String pgUrl() {
+                        return null;
+                    }
+
+                    @Override
+                    public SQLOperations sqlOperations() {
+                        // make sure we use NOT the read-only operations
+                        return internalCluster().getInstance(SQLOperations.class, internalCluster().getNodeNames()[0]);
+                    }
+                }
             );
         }
         response = readOnlyExecutor.exec(stmt, args);
@@ -109,7 +119,7 @@ public class ReadOnlyNodeIntegrationTest extends SQLTransportIntegrationTest {
     }
 
     private SQLResponse executeWrite(String stmt) {
-        return executeWrite(stmt, SQLRequest.EMPTY_ARGS);
+        return executeWrite(stmt, null);
     }
 
     private void assertReadOnly(String stmt, Object[] args) throws Exception {
@@ -119,10 +129,12 @@ public class ReadOnlyNodeIntegrationTest extends SQLTransportIntegrationTest {
     }
 
     private void assertReadOnly(String stmt) throws Exception {
-        assertReadOnly(stmt, SQLRequest.EMPTY_ARGS);
+        assertReadOnly(stmt, null);
     }
 
-    /** ALLOWED STATEMENT TESTS **/
+    /**
+     * ALLOWED STATEMENT TESTS
+     **/
 
     @Test
     public void testAllowedSelectSys() throws Exception {
@@ -160,12 +172,14 @@ public class ReadOnlyNodeIntegrationTest extends SQLTransportIntegrationTest {
     @Test
     public void testAllowedCopyTo() throws Exception {
         String uri = folder.getRoot().toURI().toString();
-        SQLResponse response = execute("copy write_test to directory ?", new Object[] { uri });
+        SQLResponse response = execute("copy write_test to directory ?", new Object[]{uri});
         assertThat(response.rowCount(), greaterThanOrEqualTo(0L));
     }
 
 
-    /** FORBIDDEN STATEMENT TESTS **/
+    /**
+     * FORBIDDEN STATEMENT TESTS
+     **/
 
     @Test
     public void testForbiddenCreateTable() throws Exception {

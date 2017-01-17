@@ -44,21 +44,21 @@ import java.util.UUID;
 
 public class NestedLoopPhase extends AbstractProjectionsPhase implements UpstreamPhase {
 
-    public static final ExecutionPhaseFactory<NestedLoopPhase> FACTORY = new ExecutionPhaseFactory<NestedLoopPhase>() {
-        @Override
-        public NestedLoopPhase create() {
-            return new NestedLoopPhase();
-        }
-    };
+    public static final ExecutionPhaseFactory<NestedLoopPhase> FACTORY = NestedLoopPhase::new;
 
     private Collection<String> executionNodes;
     private MergePhase leftMergePhase;
     private MergePhase rightMergePhase;
     private DistributionInfo distributionInfo = DistributionInfo.DEFAULT_BROADCAST;
-    @Nullable
-    private Symbol filterSymbol;
+    private JoinType joinType;
 
-    public NestedLoopPhase() {}
+    @Nullable
+    private Symbol joinCondition;
+    private int numLeftOutputs;
+    private int numRightOutputs;
+
+    public NestedLoopPhase() {
+    }
 
     public NestedLoopPhase(UUID jobId,
                            int executionNodeId,
@@ -67,15 +67,21 @@ public class NestedLoopPhase extends AbstractProjectionsPhase implements Upstrea
                            @Nullable MergePhase leftMergePhase,
                            @Nullable MergePhase rightMergePhase,
                            Collection<String> executionNodes,
-                           @Nullable Symbol filterSymbol) {
+                           JoinType joinType,
+                           @Nullable Symbol joinCondition,
+                           int numLeftOutputs,
+                           int numRightOutputs) {
         super(jobId, executionNodeId, name, projections);
         Projection lastProjection = Iterables.getLast(projections, null);
-        assert lastProjection != null;
+        assert lastProjection != null : "lastProjection must not be null";
         outputTypes = Symbols.extractTypes(lastProjection.outputs());
         this.leftMergePhase = leftMergePhase;
         this.rightMergePhase = rightMergePhase;
         this.executionNodes = executionNodes;
-        this.filterSymbol = filterSymbol;
+        this.joinType = joinType;
+        this.joinCondition = joinCondition;
+        this.numLeftOutputs = numLeftOutputs;
+        this.numRightOutputs = numRightOutputs;
     }
 
     @Override
@@ -84,7 +90,7 @@ public class NestedLoopPhase extends AbstractProjectionsPhase implements Upstrea
     }
 
     @Override
-    public Collection<String> executionNodes() {
+    public Collection<String> nodeIds() {
         if (executionNodes == null) {
             return ImmutableSet.of();
         } else {
@@ -103,8 +109,20 @@ public class NestedLoopPhase extends AbstractProjectionsPhase implements Upstrea
     }
 
     @Nullable
-    public Symbol filterSymbol() {
-        return filterSymbol;
+    public Symbol joinCondition() {
+        return joinCondition;
+    }
+
+    public JoinType joinType() {
+        return joinType;
+    }
+
+    public int numLeftOutputs() {
+        return numLeftOutputs;
+    }
+
+    public int numRightOutputs() {
+        return numRightOutputs;
     }
 
     @Override
@@ -135,8 +153,11 @@ public class NestedLoopPhase extends AbstractProjectionsPhase implements Upstrea
             rightMergePhase.readFrom(in);
         }
         if (in.readBoolean()) {
-            filterSymbol = Symbols.fromStream(in);
+            joinCondition = Symbols.fromStream(in);
         }
+        joinType = JoinType.values()[in.readVInt()];
+        numLeftOutputs = in.readVInt();
+        numRightOutputs = in.readVInt();
     }
 
     @Override
@@ -167,23 +188,28 @@ public class NestedLoopPhase extends AbstractProjectionsPhase implements Upstrea
             rightMergePhase.writeTo(out);
         }
 
-        if (filterSymbol == null) {
+        if (joinCondition == null) {
             out.writeBoolean(false);
         } else {
             out.writeBoolean(true);
-            Symbols.toStream(filterSymbol, out);
+            Symbols.toStream(joinCondition, out);
         }
+
+        out.writeVInt(joinType.ordinal());
+        out.writeVInt(numLeftOutputs);
+        out.writeVInt(numRightOutputs);
     }
 
     @Override
     public String toString() {
         MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(this)
-                .add("executionPhaseId", executionPhaseId())
-                .add("name", name())
-                .add("outputTypes", outputTypes)
-                .add("jobId", jobId())
-                .add("executionNodes", executionNodes)
-                .add("filterSymbol", filterSymbol);
+            .add("executionPhaseId", phaseId())
+            .add("name", name())
+            .add("joinType", joinType)
+            .add("joinCondition", joinCondition)
+            .add("outputTypes", outputTypes)
+            .add("jobId", jobId())
+            .add("executionNodes", executionNodes);
         return helper.toString();
     }
 

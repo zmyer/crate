@@ -23,6 +23,7 @@
 package io.crate.planner.fetch;
 
 import io.crate.analyze.MultiSourceSelect;
+import io.crate.analyze.RelationSource;
 import io.crate.analyze.relations.DocTableRelation;
 import io.crate.analyze.symbol.*;
 import io.crate.metadata.DocReferenceConverter;
@@ -36,45 +37,38 @@ import io.crate.types.DataTypes;
 
 import java.util.*;
 
-public class MultiSourceFetchPushDown {
+class MultiSourceFetchPushDown {
 
     private final MultiSourceSelect statement;
 
     private List<Symbol> remainingOutputs;
     private Map<TableIdent, FetchSource> fetchSources;
 
-
-    public static MultiSourceFetchPushDown pushDown(MultiSourceSelect statement) {
-        MultiSourceFetchPushDown pd = new MultiSourceFetchPushDown(statement);
-        pd.process();
-        return pd;
-    }
-
-    private MultiSourceFetchPushDown(MultiSourceSelect statement) {
+    MultiSourceFetchPushDown(MultiSourceSelect statement) {
         this.statement = statement;
         this.fetchSources = new HashMap<>(statement.sources().size());
     }
 
-    public Map<TableIdent, FetchSource> fetchSources() {
+    Map<TableIdent, FetchSource> fetchSources() {
         return fetchSources;
     }
 
-    public List<Symbol> remainingOutputs() {
+    List<Symbol> remainingOutputs() {
         return remainingOutputs;
     }
 
-    private void process() {
+    void process() {
         remainingOutputs = statement.querySpec().outputs();
-        statement.querySpec().outputs(new ArrayList<Symbol>());
+        statement.querySpec().outputs(new ArrayList<>());
 
         HashMap<Symbol, Symbol> topLevelOutputMap = new HashMap<>(statement.canBeFetched().size());
         HashMap<Symbol, Symbol> mssOutputMap = new HashMap<>(statement.querySpec().outputs().size() + 2);
 
         ArrayList<Symbol> mssOutputs = new ArrayList<>(
-                statement.sources().size() + statement.requiredForQuery().size());
+            statement.sources().size() + statement.requiredForQuery().size());
 
-        for (Map.Entry<QualifiedName, MultiSourceSelect.Source> entry : statement.sources().entrySet()) {
-            MultiSourceSelect.Source source = entry.getValue();
+        for (Map.Entry<QualifiedName, RelationSource> entry : statement.sources().entrySet()) {
+            RelationSource source = entry.getValue();
             if (!(source.relation() instanceof DocTableRelation)) {
                 int index = 0;
                 for (Symbol output : source.querySpec().outputs()) {
@@ -94,7 +88,7 @@ public class MultiSourceFetchPushDown {
                 InputColumn docIdInput = new InputColumn(mssOutputs.size() - 1);
 
                 ArrayList<Symbol> qtOutputs = new ArrayList<>(
-                        source.querySpec().outputs().size() - canBeFetched.size() + 1);
+                    source.querySpec().outputs().size() - canBeFetched.size() + 1);
                 Reference docId = rel.tableInfo().getReference(DocSysColumns.DOCID);
                 qtOutputs.add(docId);
 
@@ -102,7 +96,7 @@ public class MultiSourceFetchPushDown {
                     if (!canBeFetched.contains(output)) {
                         qtOutputs.add(output);
                         RelationColumn rc = new RelationColumn(entry.getKey(),
-                                qtOutputs.size() - 1, output.valueType());
+                            qtOutputs.size() - 1, output.valueType());
                         mssOutputs.add(rc);
                         mssOutputMap.put(output, rc);
                         topLevelOutputMap.put(output, new InputColumn(mssOutputs.size() - 1, output.valueType()));
@@ -110,7 +104,7 @@ public class MultiSourceFetchPushDown {
                 }
                 for (Field field : canBeFetched) {
                     FetchReference fr = new FetchReference(
-                            docIdInput, DocReferenceConverter.toSourceLookup(rel.resolveField(field)));
+                        docIdInput, DocReferenceConverter.toSourceLookup(rel.resolveField(field)));
                     allocateFetchedReference(fr, rel);
                     topLevelOutputMap.put(field, fr);
                 }
@@ -122,18 +116,6 @@ public class MultiSourceFetchPushDown {
                     mssOutputs.add(rc);
                     mssOutputMap.put(output, rc);
                     topLevelOutputMap.put(output, new InputColumn(mssOutputs.size() - 1, output.valueType()));
-                }
-            }
-        }
-
-        // replace the remaining order by symbols
-        if (statement.remainingOrderBy().isPresent()) {
-            for (Symbol symbol : statement.remainingOrderBy().get().orderBySymbols()) {
-                if (!mssOutputMap.containsKey(symbol)) {
-                    assert !mssOutputs.contains(symbol);
-                    mssOutputs.add(symbol);
-                    InputColumn inputColumn = new InputColumn(mssOutputs.size() - 1, symbol.valueType());
-                    topLevelOutputMap.put(symbol, inputColumn);
                 }
             }
         }
@@ -167,4 +149,3 @@ public class MultiSourceFetchPushDown {
         }
     }
 }
-

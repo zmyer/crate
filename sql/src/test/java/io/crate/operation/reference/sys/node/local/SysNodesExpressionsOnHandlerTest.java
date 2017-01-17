@@ -76,16 +76,13 @@ public class SysNodesExpressionsOnHandlerTest extends CrateUnitTest {
         // jvm
         JvmStats jvmStats = mock(JvmStats.class);
         JvmStats.Mem jvmStatsMem = mock(JvmStats.Mem.class);
-        ByteSizeValue heapByteSizeValueMax = mock(ByteSizeValue.class);
-        when(heapByteSizeValueMax.bytes()).thenReturn(123456L);
+        ByteSizeValue heapByteSizeValueMax = new ByteSizeValue(123456L);
         when(jvmStatsMem.getHeapMax()).thenReturn(heapByteSizeValueMax);
         when(jvmStatsMem.getHeapUsed()).thenReturn(heapByteSizeValueMax);
         when(jvmStats.getMem()).thenReturn(jvmStatsMem);
 
         // mem
-        ByteSizeValue byteSizeValue = mock(ByteSizeValue.class);
-        when(byteSizeValue.bytes()).thenReturn(12345342234L);
-        when(byteSizeValue.toString()).thenReturn("11.4gb");
+        ByteSizeValue byteSizeValue = new ByteSizeValue(12345342234L);
 
         // os service
         OsService osService = mock(OsService.class);
@@ -203,9 +200,9 @@ public class SysNodesExpressionsOnHandlerTest extends CrateUnitTest {
 
         Map<String, Object> v = (Map<String, Object>) collectExpression.value();
         assertThat((long) v.get("free"), is(12345342234L));
-        assertThat((short) v.get("free_percent"), is(new Short("78")));
+        assertThat((short) v.get("free_percent"), is(Short.valueOf("78")));
         assertThat((long) v.get("used"), is(12345342234L));
-        assertThat((short) v.get("used_percent"), is(new Short("22")));
+        assertThat((short) v.get("used_percent"), is(Short.valueOf("22")));
     }
 
     @Test
@@ -232,31 +229,31 @@ public class SysNodesExpressionsOnHandlerTest extends CrateUnitTest {
         Object[] disks = (Object[]) v.get("disks");
         assertThat(disks.length, is(2));
         Map<String, Object> disk0 = (Map<String, Object>) disks[0];
-        assertThat((BytesRef) disk0.get("dev"), is(BytesRefs.toBytesRef(resolveCanonicalPath("/dev/sda1"))));
+        assertThat((BytesRef) disk0.get("dev"), is(BytesRefs.toBytesRef("/dev/sda1")));
         assertThat((Long) disk0.get("size"), is(42L));
 
         Map<String, Object> disk1 = (Map<String, Object>) disks[1];
-        assertThat((BytesRef) disk1.get("dev"), is(BytesRefs.toBytesRef(resolveCanonicalPath("/dev/sda2"))));
+        assertThat((BytesRef) disk1.get("dev"), is(BytesRefs.toBytesRef("/dev/sda2")));
         assertThat((Long) disk0.get("used"), is(42L));
 
         Object[] data = (Object[]) v.get("data");
         assertThat(data.length, is(2));
         assertThat(
             (BytesRef) ((Map<String, Object>) data[0]).get("dev"),
-            is(BytesRefs.toBytesRef(resolveCanonicalPath("/dev/sda1")))
+            is(BytesRefs.toBytesRef("/dev/sda1"))
         );
         assertThat(
             (BytesRef) ((Map<String, Object>) data[0]).get("path"),
-            is(BytesRefs.toBytesRef(resolveCanonicalPath("/foo")))
+            is(BytesRefs.toBytesRef("/foo"))
         );
 
         assertThat(
             (BytesRef) ((Map<String, Object>) data[1]).get("dev"),
-            is(BytesRefs.toBytesRef(resolveCanonicalPath("/dev/sda2")))
+            is(BytesRefs.toBytesRef("/dev/sda2"))
         );
         assertThat(
             (BytesRef) ((Map<String, Object>) data[1]).get("path"),
-            is(BytesRefs.toBytesRef(resolveCanonicalPath("/bar")))
+            is(BytesRefs.toBytesRef("/bar"))
         );
 
         refInfo = refInfo("sys.nodes.fs", DataTypes.STRING, RowGranularity.NODE, "data", "dev");
@@ -265,15 +262,6 @@ public class SysNodesExpressionsOnHandlerTest extends CrateUnitTest {
         for (Object arrayElement : (Object[]) collectExpression.value()) {
             assertThat(arrayElement, instanceOf(BytesRef.class));
         }
-    }
-
-    private String resolveCanonicalPath(String path) {
-        try {
-            return new File(path).getCanonicalPath();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     @Test
@@ -297,9 +285,9 @@ public class SysNodesExpressionsOnHandlerTest extends CrateUnitTest {
         Map<String, Object> networkStats = (Map<String, Object>) collectExpression.value();
         assertThat(mapToSortedString(networkStats),
             is("probe_timestamp=0, tcp={" +
-                "connections={accepted=42, curr_established=42, dropped=42, embryonic_dropped=42, initiated=42}, " +
-                "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}" +
-                "}"));
+               "connections={accepted=42, curr_established=42, dropped=42, embryonic_dropped=42, initiated=42}, " +
+               "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}" +
+               "}"));
     }
 
     @Test
@@ -312,7 +300,7 @@ public class SysNodesExpressionsOnHandlerTest extends CrateUnitTest {
         assertThat(tcpStats, instanceOf(Map.class));
         assertThat(mapToSortedString(tcpStats),
             is("connections={accepted=42, curr_established=42, dropped=42, embryonic_dropped=42, initiated=42}, " +
-                "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}"));
+               "packets={errors_received=42, received=42, retransmitted=42, rst_sent=42, sent=42}"));
     }
 
     @Test

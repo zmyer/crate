@@ -21,6 +21,7 @@
 
 package io.crate.planner.node.dql;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import io.crate.analyze.EvaluatingNormalizer;
 import io.crate.analyze.OrderBy;
@@ -29,9 +30,10 @@ import io.crate.analyze.WhereClause;
 import io.crate.analyze.relations.TableFunctionRelation;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.Symbols;
+import io.crate.collections.Lists2;
 import io.crate.metadata.Routing;
 import io.crate.metadata.RowGranularity;
-import io.crate.metadata.StmtCtx;
+import io.crate.metadata.TransactionContext;
 import io.crate.metadata.table.TableInfo;
 import io.crate.operation.Paging;
 import io.crate.planner.Planner;
@@ -43,6 +45,7 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -52,12 +55,7 @@ import java.util.UUID;
  */
 public class RoutedCollectPhase extends AbstractProjectionsPhase implements CollectPhase {
 
-    public static final ExecutionPhaseFactory<RoutedCollectPhase> FACTORY = new ExecutionPhaseFactory<RoutedCollectPhase>() {
-        @Override
-        public RoutedCollectPhase create() {
-            return new RoutedCollectPhase();
-        }
-    };
+    public static final ExecutionPhaseFactory<RoutedCollectPhase> FACTORY = RoutedCollectPhase::new;
 
     private Routing routing;
     private List<Symbol> toCollect;
@@ -67,8 +65,11 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
 
     private boolean isPartitioned = false;
 
-    private @Nullable Integer nodePageSizeHint = null;
-    private @Nullable OrderBy orderBy = null;
+    @Nullable
+    private Integer nodePageSizeHint = null;
+
+    @Nullable
+    private OrderBy orderBy = null;
 
     protected RoutedCollectPhase() {
         super();
@@ -93,6 +94,22 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
     }
 
     @Override
+    public void replaceSymbols(Function<Symbol, Symbol> replaceFunction) {
+        super.replaceSymbols(replaceFunction);
+        if (whereClause.hasQuery()) {
+            Symbol query = whereClause.query();
+            Symbol newQuery = replaceFunction.apply(query);
+            if (query != newQuery) {
+                whereClause = new WhereClause(newQuery, whereClause.docKeys().orElse(null), whereClause.partitions());
+            }
+        }
+        Lists2.replaceItems(toCollect, replaceFunction);
+        if (orderBy != null) {
+            orderBy.replace(replaceFunction);
+        }
+    }
+
+    @Override
     public Type type() {
         return Type.COLLECT;
     }
@@ -101,7 +118,7 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
      * @return a set of node ids where this collect operation is executed,
      */
     @Override
-    public Set<String> executionNodes() {
+    public Set<String> nodeIds() {
         if (routing == null) {
             return ImmutableSet.of();
         }
@@ -125,16 +142,18 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
      * E.g. in a query like <pre>select * from t limit 1000</pre> in a 2 node cluster each node probably only has to return 500 rows.
      * </p>
      */
-    public @Nullable Integer nodePageSizeHint() {
+    public
+    @Nullable
+    Integer nodePageSizeHint() {
         return nodePageSizeHint;
     }
 
     /**
      * <p><
      * set the nodePageSizeHint
-     *
+     * <p>
      * See {@link #nodePageSizeHint()}
-     *
+     * <p>
      * NOTE: if the collectPhase provides a directResult (instead of push result) the nodePageSizeHint has to be set
      * to the query hard-limit because there is no way to fetch more rows.
      */
@@ -146,16 +165,15 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
     /**
      * Similar to {@link #nodePageSizeHint(Integer)} in that it sets the nodePageSizeHint, but the given
      * pageSize is the total pageSize.
-     *
      */
     public void pageSizeHint(Integer pageSize) {
-        nodePageSizeHint(Paging.getWeightedPageSize(pageSize, 1.0d / Math.max(1, executionNodes().size())));
+        nodePageSizeHint(Paging.getWeightedPageSize(pageSize, 1.0d / Math.max(1, nodeIds().size())));
     }
 
     /**
      * returns the shardQueueSize for a given node. <br />
      * This depends on the {@link #nodePageSizeHint()} and the number of shards that are on the given node.
-     *
+     * <p>
      * <p>
      * E.g. Given 10 shards in total in an uneven distribution (8 and 2) and a nodePageSize of 10000 <br />
      * The shardQueueSize on the node with 2 shards is ~5000 (+ overhead). <br />
@@ -164,13 +182,15 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
      * <p>
      * This is because numShardsOnNode * shardQueueSize should be >= nodePageSizeHint
      * </p>
+     *
      * @param nodeId the node for which to get the shardQueueSize
      */
     public int shardQueueSize(String nodeId) {
         return Paging.getWeightedPageSize(nodePageSizeHint, 1.0d / Math.max(1, routing.numShards(nodeId)));
     }
 
-    public @Nullable OrderBy orderBy() {
+    @Nullable
+    public OrderBy orderBy() {
         return orderBy;
     }
 
@@ -218,7 +238,7 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
 
         whereClause = new WhereClause(in);
 
-        if( in.readBoolean()) {
+        if (in.readBoolean()) {
             nodePageSizeHint = in.readVInt();
         }
 
@@ -245,7 +265,7 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
         }
         whereClause.writeTo(out);
 
-        if (nodePageSizeHint != null ) {
+        if (nodePageSizeHint != null) {
             out.writeBoolean(true);
             out.writeVInt(nodePageSizeHint);
         } else {
@@ -265,27 +285,33 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
      *
      * @return a normalized node, if no changes occurred returns this
      */
-    public RoutedCollectPhase normalize(EvaluatingNormalizer normalizer, StmtCtx stmtCtx) {
-        assert whereClause() != null;
+    public RoutedCollectPhase normalize(EvaluatingNormalizer normalizer, TransactionContext transactionContext) {
+        assert whereClause() != null : "whereClause must not be null";
         RoutedCollectPhase result = this;
-        List<Symbol> newToCollect = normalizer.normalize(toCollect(), stmtCtx);
+        List<Symbol> newToCollect = normalizer.normalize(toCollect(), transactionContext);
         boolean changed = newToCollect != toCollect();
-        WhereClause newWhereClause = whereClause().normalize(normalizer, stmtCtx);
-        if (newWhereClause != whereClause()) {
-            changed = changed || newWhereClause != whereClause();
+        WhereClause newWhereClause = whereClause().normalize(normalizer, transactionContext);
+        OrderBy orderBy = this.orderBy;
+        if (orderBy != null) {
+            List<Symbol> orderBySymbols = orderBy.orderBySymbols();
+            List<Symbol> normalizedOrderBy = normalizer.normalize(orderBySymbols, transactionContext);
+            changed = changed || orderBySymbols != normalizedOrderBy;
+            orderBy = new OrderBy(normalizedOrderBy, this.orderBy.reverseFlags(), this.orderBy.nullsFirst());
         }
+        changed = changed || newWhereClause != whereClause();
         if (changed) {
             result = new RoutedCollectPhase(
-                    jobId(),
-                    executionPhaseId(),
-                    name(),
-                    routing,
-                    maxRowGranularity,
-                    newToCollect,
-                    projections,
-                    newWhereClause,
-                    distributionInfo
+                jobId(),
+                phaseId(),
+                name(),
+                routing,
+                maxRowGranularity,
+                newToCollect,
+                projections,
+                newWhereClause,
+                distributionInfo
             );
+            result.orderBy(orderBy);
         }
         return result;
     }
@@ -298,27 +324,30 @@ public class RoutedCollectPhase extends AbstractProjectionsPhase implements Coll
         WhereClause where = table.querySpec().where();
         if (table.tableRelation() instanceof TableFunctionRelation) {
             TableFunctionRelation tableFunctionRelation = (TableFunctionRelation) table.tableRelation();
+            List<Symbol> args = new ArrayList<>();
+            args.addAll(tableFunctionRelation.arguments());
+            plannerContext.normalizer().normalizeInplace(args, plannerContext.transactionContext());
             return new TableFunctionCollectPhase(
-                    plannerContext.jobId(),
-                    plannerContext.nextExecutionPhaseId(),
-                    plannerContext.allocateRouting(tableInfo, where, null),
-                    tableFunctionRelation.functionName(),
-                    tableFunctionRelation.arguments(),
-                    projections,
-                    toCollect,
-                    where
+                plannerContext.jobId(),
+                plannerContext.nextExecutionPhaseId(),
+                plannerContext.allocateRouting(tableInfo, where, null),
+                tableFunctionRelation.functionName(),
+                args,
+                projections,
+                toCollect,
+                where
             );
         }
         return new RoutedCollectPhase(
-                plannerContext.jobId(),
-                plannerContext.nextExecutionPhaseId(),
-                "collect",
-                plannerContext.allocateRouting(tableInfo, where, null),
-                tableInfo.rowGranularity(),
-                toCollect,
-                projections,
-                where,
-                DistributionInfo.DEFAULT_BROADCAST
+            plannerContext.jobId(),
+            plannerContext.nextExecutionPhaseId(),
+            "collect",
+            plannerContext.allocateRouting(tableInfo, where, null),
+            tableInfo.rowGranularity(),
+            toCollect,
+            projections,
+            where,
+            DistributionInfo.DEFAULT_BROADCAST
         );
     }
 }

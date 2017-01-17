@@ -26,6 +26,7 @@ import io.crate.Streamer;
 import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
+import io.crate.analyze.symbol.ValueSymbolVisitor;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.metadata.*;
 import io.crate.operation.Input;
@@ -57,10 +58,15 @@ public class CountAggregation extends AggregationFunction<CountAggregation.LongS
         mod.register(NAME, new CountAggregationFunctionResolver());
     }
 
-    private static class CountAggregationFunctionResolver implements DynamicFunctionResolver {
+    private static class CountAggregationFunctionResolver implements FunctionResolver {
+
+        private static List<Signature> SIGNATURES = ImmutableList.<Signature>builder()
+            .add(new Signature())
+            .addAll(Signature.SIGNATURES_SINGLE_ALL)
+            .build();
 
         @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
+        public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
             if (dataTypes.size() == 0) {
                 return new CountAggregation(COUNT_STAR_FUNCTION, false);
             } else {
@@ -68,6 +74,11 @@ public class CountAggregation extends AggregationFunction<CountAggregation.LongS
                     new FunctionInfo(new FunctionIdent(NAME, dataTypes),
                         DataTypes.LONG, FunctionInfo.Type.AGGREGATE), true);
             }
+        }
+
+        @Override
+        public List<Signature> signatures() {
+            return SIGNATURES;
         }
     }
 
@@ -96,13 +107,13 @@ public class CountAggregation extends AggregationFunction<CountAggregation.LongS
     }
 
     @Override
-    public Symbol normalizeSymbol(Function function, StmtCtx stmtCtx) {
-        assert (function.arguments().size() <= 1);
+    public Symbol normalizeSymbol(Function function, TransactionContext transactionContext) {
+        assert function.arguments().size() <= 1 : "function's number of arguments must be 0 or 1";
 
         if (function.arguments().size() == 1) {
             if (function.arguments().get(0).symbolType().isValueSymbol()) {
-                if ((function.arguments().get(0)).valueType() == DataTypes.UNDEFINED) {
-                    return Literal.newLiteral(0L);
+                if (ValueSymbolVisitor.VALUE.process(function.arguments().get(0)) == null) {
+                    return Literal.of(0L);
                 } else {
                     return new Function(COUNT_STAR_FUNCTION, ImmutableList.<Symbol>of());
                 }
@@ -130,7 +141,7 @@ public class CountAggregation extends AggregationFunction<CountAggregation.LongS
 
         long value = 0L;
 
-        public LongState() {
+        LongState() {
         }
 
         public LongState(long value) {

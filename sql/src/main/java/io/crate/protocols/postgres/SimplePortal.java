@@ -22,40 +22,37 @@
 
 package io.crate.protocols.postgres;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Constants;
 import io.crate.action.sql.ResultReceiver;
 import io.crate.action.sql.RowReceiverToResultReceiver;
-import io.crate.action.sql.SQLOperations;
+import io.crate.action.sql.SessionContext;
 import io.crate.analyze.Analysis;
 import io.crate.analyze.Analyzer;
 import io.crate.analyze.ParameterContext;
 import io.crate.analyze.relations.AnalyzedRelation;
 import io.crate.analyze.symbol.Field;
 import io.crate.analyze.symbol.Symbols;
-import io.crate.concurrent.CompletionListener;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.exceptions.Exceptions;
 import io.crate.exceptions.ReadOnlyException;
 import io.crate.executor.Executor;
-import io.crate.executor.transport.kill.KillJobsRequest;
-import io.crate.executor.transport.kill.KillResponse;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 import io.crate.operation.collect.StatsTables;
 import io.crate.operation.projectors.ResumeHandle;
 import io.crate.planner.Plan;
 import io.crate.planner.Planner;
 import io.crate.sql.tree.Statement;
 import io.crate.types.DataType;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 public class SimplePortal extends AbstractPortal {
@@ -73,17 +70,15 @@ public class SimplePortal extends AbstractPortal {
     private RowReceiverToResultReceiver rowReceiver = null;
     private int maxRows = 0;
     private int defaultLimit;
+    private Row rowParams;
 
     public SimplePortal(String name,
-                        String defaultSchema,
-                        Set<SQLOperations.Option> options,
                         Analyzer analyzer,
                         Executor executor,
-                        TransportKillJobsNodeAction transportKillJobsNodeAction,
                         boolean isReadOnly,
-                        int defaultLimit) {
-        super(name, defaultSchema, options, analyzer, executor, transportKillJobsNodeAction, isReadOnly);
-        this.defaultLimit = defaultLimit;
+                        SessionContext sessionContext) {
+        super(name, analyzer, executor, isReadOnly, sessionContext);
+        this.defaultLimit = sessionContext.defaultLimit();
     }
 
     @Override
@@ -103,38 +98,46 @@ public class SimplePortal extends AbstractPortal {
     }
 
     @Override
-    public Portal bind(String statementName, String query, Statement statement,
-                       List<Object> params, @Nullable FormatCodes.FormatCode[] resultFormatCodes) {
+    public Portal bind(String statementName,
+                       String query,
+                       Statement statement,
+                       List<Object> params,
+                       @Nullable FormatCodes.FormatCode[] resultFormatCodes) {
 
         if (statement.equals(this.statement)) {
-            if (sessionData.isReadOnly()) { // Cannot have a bulk operation in read only mode
+            if (portalContext.isReadOnly()) { // Cannot have a bulk operation in read only mode
                 throw new ReadOnlyException();
             }
-            BulkPortal portal = new BulkPortal(name, this.query, this.statement, outputTypes,
-                resultReceiver, maxRows, this.params, sessionData);
+            BulkPortal portal = new BulkPortal(
+                name,
+                this.query,
+                this.statement,
+                outputTypes,
+                fields(),
+                resultReceiver, maxRows, this.params, sessionContext, portalContext);
             return portal.bind(statementName, query, statement, params, resultFormatCodes);
         } else if (this.statement != null) {
-            if (sessionData.isReadOnly()) { // Cannot have a batch operation in read only mode
+            if (portalContext.isReadOnly()) { // Cannot have a batch operation in read only mode
                 throw new ReadOnlyException();
             }
-            BatchPortal portal = new BatchPortal(name, this.query, analysis, outputTypes, resultReceiver,
-                this.params, sessionData);
+            BatchPortal portal = new BatchPortal(
+                name, this.query, analysis, outputTypes, resultReceiver, this.params, sessionContext, portalContext);
             return portal.bind(statementName, query, statement, params, resultFormatCodes);
         }
 
         this.query = query;
         this.statement = statement;
         this.params = params;
+        this.rowParams = new RowN(params.toArray());
         this.resultFormatCodes = resultFormatCodes;
         if (analysis == null) {
-            analysis = sessionData.getAnalyzer().analyze(statement,
-                new ParameterContext(new RowN(params.toArray()),
-                    Collections.<Row>emptyList(),
-                    sessionData.getDefaultSchema(),
-                    sessionData.options()));
+            analysis = portalContext.getAnalyzer().boundAnalyze(
+                statement,
+                sessionContext,
+                new ParameterContext(this.rowParams, Collections.<Row>emptyList()));
             AnalyzedRelation rootRelation = analysis.rootRelation();
             if (rootRelation != null) {
-                this.outputTypes = Symbols.extractTypes(rootRelation.fields());
+                this.outputTypes = new ArrayList<>(Symbols.extractTypes(rootRelation.fields()));
             }
         }
         return this;
@@ -142,10 +145,7 @@ public class SimplePortal extends AbstractPortal {
 
     @Override
     public List<Field> describe() {
-        if (analysis.rootRelation() == null) {
-            return null;
-        }
-        return analysis.rootRelation().fields();
+        return fields();
     }
 
     @Override
@@ -156,7 +156,7 @@ public class SimplePortal extends AbstractPortal {
     }
 
     @Override
-    public void sync(Planner planner, StatsTables statsTables, CompletionListener listener) {
+    public ListenableFuture<?> sync(Planner planner, StatsTables statsTables) {
         UUID jobId = UUID.randomUUID();
         Plan plan;
         try {
@@ -165,26 +165,25 @@ public class SimplePortal extends AbstractPortal {
             statsTables.logPreExecutionFailure(jobId, query, Exceptions.messageOf(t));
             throw t;
         }
-        resultReceiver.addListener(listener);
         statsTables.logExecutionStart(jobId, query);
-        resultReceiver.addListener(new StatsTablesUpdateListener(jobId, statsTables));
+
+        Futures.addCallback(resultReceiver.completionFuture(), new StatsTablesUpdateListener(jobId, statsTables));
 
         if (!analysis.analyzedStatement().isWriteOperation()) {
             resultReceiver = new ResultReceiverRetryWrapper(
                 resultReceiver,
                 this,
-                sessionData.getAnalyzer(),
+                portalContext.getAnalyzer(),
                 planner,
-                sessionData.getExecutor(),
-                sessionData.getTransportKillJobsNodeAction(),
+                portalContext.getExecutor(),
                 jobId,
-                sessionData.getDefaultSchema(),
-                sessionData.options());
+                sessionContext);
         }
-
-        if (resumeIfSuspended()) return;
-        this.rowReceiver = new RowReceiverToResultReceiver(resultReceiver, maxRows);
-        sessionData.getExecutor().execute(plan, rowReceiver);
+        if (!resumeIfSuspended()) {
+            this.rowReceiver = new RowReceiverToResultReceiver(resultReceiver, maxRows);
+            portalContext.getExecutor().execute(plan, rowReceiver, this.rowParams);
+        }
+        return resultReceiver.completionFuture();
     }
 
     @Override
@@ -214,11 +213,17 @@ public class SimplePortal extends AbstractPortal {
     }
 
     private void validateReadOnly(Analysis analysis) {
-        if (analysis != null && analysis.analyzedStatement().isWriteOperation() && sessionData.isReadOnly()) {
+        if (analysis != null && analysis.analyzedStatement().isWriteOperation() && portalContext.isReadOnly()) {
             throw new ReadOnlyException();
         }
     }
 
+    private List<Field> fields() {
+        if (analysis.rootRelation() == null) {
+            return null;
+        }
+        return analysis.rootRelation().fields();
+    }
     private static class ResultReceiverRetryWrapper implements ResultReceiver {
 
         private final ResultReceiver delegate;
@@ -226,10 +231,8 @@ public class SimplePortal extends AbstractPortal {
         private final Analyzer analyzer;
         private final Planner planner;
         private final Executor executor;
-        private final TransportKillJobsNodeAction transportKillJobsNodeAction;
         private final UUID jobId;
-        private final String defaultSchema;
-        private Set<SQLOperations.Option> options;
+        private final SessionContext sessionContext;
         int attempt = 1;
 
         ResultReceiverRetryWrapper(ResultReceiver delegate,
@@ -237,19 +240,15 @@ public class SimplePortal extends AbstractPortal {
                                    Analyzer analyzer,
                                    Planner planner,
                                    Executor executor,
-                                   TransportKillJobsNodeAction transportKillJobsNodeAction,
                                    UUID jobId,
-                                   String defaultSchema,
-                                   Set<SQLOperations.Option> options) {
+                                   SessionContext sessionContext) {
             this.delegate = delegate;
             this.portal = portal;
             this.analyzer = analyzer;
             this.planner = planner;
             this.executor = executor;
-            this.transportKillJobsNodeAction = transportKillJobsNodeAction;
             this.jobId = jobId;
-            this.defaultSchema = defaultSchema;
-            this.options = options;
+            this.sessionContext = sessionContext;
         }
 
         @Override
@@ -271,38 +270,25 @@ public class SimplePortal extends AbstractPortal {
         public void fail(@Nonnull Throwable t) {
             if (attempt <= Constants.MAX_SHARD_MISSING_RETRIES && Exceptions.isShardFailure(t)) {
                 attempt += 1;
-                killAndRetry();
+                retry();
             } else {
                 delegate.fail(t);
             }
         }
 
-        private void killAndRetry() {
-            transportKillJobsNodeAction.executeKillOnAllNodes(
-                new KillJobsRequest(Collections.singletonList(jobId)), new ActionListener<KillResponse>() {
-                    @Override
-                    public void onResponse(KillResponse killResponse) {
-                        LOGGER.debug("Killed {} jobs before Retry", killResponse.numKilled());
+        private void retry() {
+            UUID newJobId = UUID.randomUUID();
+            LOGGER.debug("Retrying statement due to a shard failure, attempt={}, jobId={}->{}", attempt, jobId, newJobId);
+            Analysis analysis = analyzer.boundAnalyze(portal.statement, sessionContext,
+                new ParameterContext(portal.rowParams, Collections.<Row>emptyList()));
 
-                        Analysis analysis = analyzer.analyze(portal.statement,
-                            new ParameterContext(new RowN(portal.params.toArray()), Collections.<Row>emptyList(), defaultSchema, options));
-                        Plan plan = planner.plan(analysis, jobId, 0, portal.maxRows);
-                        executor.execute(plan, portal.rowReceiver);
-                    }
-
-                    @Override
-                    public void onFailure(Throwable e) {
-                        LOGGER.warn("Failed to kill job before Retry", e);
-                        delegate.fail(e);
-                    }
-                }
-            );
-
+            Plan plan = planner.plan(analysis, newJobId, 0, portal.maxRows);
+            executor.execute(plan, portal.rowReceiver, portal.rowParams);
         }
 
         @Override
-        public void addListener(CompletionListener listener) {
-            throw new UnsupportedOperationException("not supported, listener should be registered already");
+        public ListenableFuture<?> completionFuture() {
+            return delegate.completionFuture();
         }
     }
 }

@@ -27,7 +27,7 @@ import io.crate.types.DataTypes;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Test;
 
-import static io.crate.testing.TestingHelpers.isLiteral;
+import static io.crate.testing.SymbolMatchers.isLiteral;
 import static org.hamcrest.core.Is.is;
 
 public class SubstrFunctionTest extends AbstractScalarFunctionsTest {
@@ -48,7 +48,7 @@ public class SubstrFunctionTest extends AbstractScalarFunctionsTest {
     public void testSubstring() throws Exception {
         assertThat(SubstrFunction.substring(new BytesRef("cratedata"), 2, 5), is(new BytesRef("ate")));
         assertThat(SubstrFunction.substring(TestingHelpers.bytesRef("cratedata", random()), 2, 5),
-                                            is(new BytesRef("ate")));
+            is(new BytesRef("ate")));
     }
 
     @Test
@@ -58,31 +58,37 @@ public class SubstrFunctionTest extends AbstractScalarFunctionsTest {
 
     @Test
     public void testEvaluateWithArgsAsNonLiterals() throws Exception {
-        assertEvaluate("substr('cratedata', id, id)", "crate", Literal.newLiteral(1L), Literal.newLiteral(5L));
+        assertEvaluate("substr('cratedata', id, id)", "crate", Literal.of(1L), Literal.of(5L));
     }
 
     @Test
     public void testEvaluateWithArgsAsNonLiteralsIntShort() throws Exception {
         assertEvaluate("substr(name, id, id)", "crate",
-            Literal.newLiteral("cratedata"),
-            Literal.newLiteral(DataTypes.SHORT, (short) 1),
-            Literal.newLiteral(DataTypes.SHORT, (short) 5));
+            Literal.of("cratedata"),
+            Literal.of(DataTypes.SHORT, (short) 1),
+            Literal.of(DataTypes.SHORT, (short) 5));
     }
 
     @Test
     public void testNullInputs() throws Exception {
         assertEvaluate("substr(name, id, id)", null,
-            Literal.newLiteral(DataTypes.STRING, null),
-            Literal.newLiteral(1),
-            Literal.newLiteral(1));
+            Literal.of(DataTypes.STRING, null),
+            Literal.of(1),
+            Literal.of(1));
         assertEvaluate("substr(name, id, id)", null,
-            Literal.newLiteral("crate"),
-            Literal.newLiteral(DataTypes.INTEGER, null),
-            Literal.newLiteral(1));
+            Literal.of("crate"),
+            Literal.of(DataTypes.INTEGER, null),
+            Literal.of(1));
         assertEvaluate("substr(name, id, id)", null,
-            Literal.newLiteral("crate"),
-            Literal.newLiteral(1),
-            Literal.newLiteral(DataTypes.SHORT, null));
+            Literal.of("crate"),
+            Literal.of(1),
+            Literal.of(DataTypes.SHORT, null));
+    }
+
+    @Test
+    public void testInvalidArgs() throws Exception {
+        expectedException.expectMessage("unknown function: substr(string, string)");
+        assertNormalize("substr('foo', 'b')", null);
     }
 }
 

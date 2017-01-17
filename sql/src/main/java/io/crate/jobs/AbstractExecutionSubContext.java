@@ -22,7 +22,7 @@
 
 package io.crate.jobs;
 
-import io.crate.concurrent.CompletionListener;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.exceptions.JobKilledException;
 import org.elasticsearch.common.logging.ESLogger;
 
@@ -55,7 +55,7 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
     public final void prepare() throws Exception {
         try {
             innerPrepare();
-        } catch (Exception e){
+        } catch (Exception e) {
             cleanup();
             throw e;
         }
@@ -126,7 +126,7 @@ public abstract class AbstractExecutionSubContext implements ExecutionSubContext
     }
 
     @Override
-    public void addListener(final CompletionListener listener) {
-        future.addCallback(listener);
+    public ListenableFuture<CompletionState> completionFuture() {
+        return future;
     }
 }

@@ -21,7 +21,6 @@
 
 package io.crate.analyze.relations;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import io.crate.analyze.OrderBy;
 import io.crate.analyze.symbol.*;
@@ -38,6 +37,7 @@ import io.crate.metadata.table.Operation;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 
 public class DocTableRelation extends AbstractTableRelation<DocTableInfo> {
 
@@ -58,14 +58,14 @@ public class DocTableRelation extends AbstractTableRelation<DocTableInfo> {
         public Void visitReference(Reference symbol, DocTableRelation context) {
             if (context.tableInfo.partitionedBy().contains(symbol.ident().columnIdent())) {
                 throw new UnsupportedOperationException(
-                        SymbolFormatter.format(
-                                "cannot use partitioned column %s in ORDER BY clause", symbol));
+                    SymbolFormatter.format(
+                        "cannot use partitioned column %s in ORDER BY clause", symbol));
             } else if (symbol.indexType() == Reference.IndexType.ANALYZED) {
                 throw new UnsupportedOperationException(
-                        SymbolFormatter.format("Cannot ORDER BY '%s': sorting on analyzed/fulltext columns is not possible", symbol));
+                    SymbolFormatter.format("Cannot ORDER BY '%s': sorting on analyzed/fulltext columns is not possible", symbol));
             } else if (symbol.indexType() == Reference.IndexType.NO) {
                 throw new UnsupportedOperationException(
-                        SymbolFormatter.format("Cannot ORDER BY '%s': sorting on non-indexed columns is not possible", symbol));
+                    SymbolFormatter.format("Cannot ORDER BY '%s': sorting on non-indexed columns is not possible", symbol));
             }
             return null;
         }
@@ -100,7 +100,8 @@ public class DocTableRelation extends AbstractTableRelation<DocTableInfo> {
         if (reference == null) {
             reference = tableInfo.indexColumn(ci);
             if (reference == null) {
-                DynamicReference dynamic = tableInfo.getDynamic(ci, operation == Operation.INSERT || operation == Operation.UPDATE);
+                DynamicReference dynamic = tableInfo.getDynamic(ci,
+                    operation == Operation.INSERT || operation == Operation.UPDATE);
                 if (dynamic == null) {
                     return null;
                 } else {
@@ -154,7 +155,6 @@ public class DocTableRelation extends AbstractTableRelation<DocTableInfo> {
             }
         }
     }
-
 
 
 }

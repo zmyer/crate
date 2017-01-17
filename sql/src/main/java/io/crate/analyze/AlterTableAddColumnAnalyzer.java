@@ -30,26 +30,23 @@ import io.crate.sql.tree.DefaultTraversalVisitor;
 import io.crate.sql.tree.Node;
 import io.crate.sql.tree.Table;
 import io.crate.types.CollectionType;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.inject.Singleton;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 
-@Singleton
-public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColumnAnalyzedStatement, Analysis> {
+class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColumnAnalyzedStatement, Analysis> {
 
     private final Schemas schemas;
     private final FulltextAnalyzerResolver fulltextAnalyzerResolver;
-    private final AnalysisMetaData analysisMetaData;
+    private final Functions functions;
 
-    @Inject
-    public AlterTableAddColumnAnalyzer(Schemas schemas,
-                                       FulltextAnalyzerResolver fulltextAnalyzerResolver,
-                                       AnalysisMetaData analysisMetaData) {
+    AlterTableAddColumnAnalyzer(Schemas schemas,
+                                FulltextAnalyzerResolver fulltextAnalyzerResolver,
+                                Functions functions) {
         this.schemas = schemas;
         this.fulltextAnalyzerResolver = fulltextAnalyzerResolver;
-        this.analysisMetaData = analysisMetaData;
+        this.functions = functions;
     }
 
     public AddColumnAnalyzedStatement analyze(Node node, Analysis analysis) {
@@ -59,19 +56,20 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
     @Override
     protected AddColumnAnalyzedStatement visitNode(Node node, Analysis analysis) {
         throw new RuntimeException(
-                String.format(Locale.ENGLISH, "Encountered node %s but expected a AlterTableAddColumn node", node));
+            String.format(Locale.ENGLISH, "Encountered node %s but expected a AlterTableAddColumn node", node));
     }
 
     @Override
     public AddColumnAnalyzedStatement visitAlterTableAddColumnStatement(AlterTableAddColumn node, Analysis analysis) {
         AddColumnAnalyzedStatement statement = new AddColumnAnalyzedStatement(schemas);
-        setTableAndPartitionName(node.table(), statement, analysis.parameterContext());
+        setTableAndPartitionName(node.table(), statement, analysis.sessionContext().defaultSchema());
         Operation.blockedRaiseException(statement.table(), Operation.ALTER);
 
         statement.analyzedTableElements(TableElementsAnalyzer.analyze(
-                node.tableElement(),
-                analysis.parameterContext(),
-                fulltextAnalyzerResolver
+            node.tableElement(),
+            analysis.parameterContext(),
+            fulltextAnalyzerResolver,
+            statement.table()
         ));
 
         for (AnalyzedColumnDefinition column : statement.analyzedTableElements().columns()) {
@@ -80,7 +78,11 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
         addExistingPrimaryKeys(statement);
         ensureNoIndexDefinitions(statement.analyzedTableElements().columns());
         statement.analyzedTableElements().finalizeAndValidate(
-                statement.table().ident(), statement.table(), analysisMetaData, analysis.parameterContext(), analysis.statementContext());
+            statement.table().ident(),
+            statement.table(),
+            functions,
+            analysis.parameterContext(),
+            analysis.sessionContext());
 
         int numCurrentPks = statement.table().primaryKey().size();
         if (statement.table().primaryKey().contains(DocSysColumns.ID)) {
@@ -94,9 +96,9 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
     private void ensureColumnLeafsAreNew(AnalyzedColumnDefinition column, TableInfo tableInfo) {
         if ((!column.isParentColumn() || !column.hasChildren()) && tableInfo.getReference(column.ident()) != null) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                    "The table %s already has a column named %s",
-                    tableInfo.ident().sqlFqn(),
-                    column.ident().sqlFqn()));
+                "The table %s already has a column named %s",
+                tableInfo.ident().sqlFqn(),
+                column.ident().sqlFqn()));
         }
         for (AnalyzedColumnDefinition child : column.children()) {
             ensureColumnLeafsAreNew(child, tableInfo);
@@ -109,14 +111,14 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
                 continue;
             }
             Reference pkInfo = context.table().getReference(pkIdent);
-            assert pkInfo != null;
+            assert pkInfo != null : "pk must not be null";
 
             AnalyzedColumnDefinition pkColumn = new AnalyzedColumnDefinition(null);
             pkColumn.ident(pkIdent);
             pkColumn.name(pkIdent.name());
-            pkColumn.isPrimaryKey(true);
+            pkColumn.setPrimaryKeyConstraint();
 
-            assert !(pkInfo.valueType() instanceof CollectionType); // pk can't be an array
+            assert !(pkInfo.valueType() instanceof CollectionType) : "pk can't be an array";
             pkColumn.dataType(pkInfo.valueType().getName());
             context.analyzedTableElements().add(pkColumn);
         }
@@ -128,19 +130,19 @@ public class AlterTableAddColumnAnalyzer extends DefaultTraversalVisitor<AddColu
 
     private void ensureNoIndexDefinitions(List<AnalyzedColumnDefinition> columns) {
         for (AnalyzedColumnDefinition column : columns) {
-            if (column.isIndex()) {
+            if (column.isIndexColumn()) {
                 throw new UnsupportedOperationException(
-                        "Adding an index using ALTER TABLE ADD COLUMN is not supported");
+                    "Adding an index using ALTER TABLE ADD COLUMN is not supported");
             }
             ensureNoIndexDefinitions(column.children());
         }
     }
 
-    private void setTableAndPartitionName(Table node, AddColumnAnalyzedStatement context, ParameterContext parameterContext) {
+    private void setTableAndPartitionName(Table node, AddColumnAnalyzedStatement context, @Nullable String defaultSchema) {
         if (!node.partitionProperties().isEmpty()) {
             throw new UnsupportedOperationException("Adding a column to a single partition is not supported");
         }
-        context.table(TableIdent.of(node, parameterContext.defaultSchema()));
+        context.table(TableIdent.of(node, defaultSchema));
     }
 
 }

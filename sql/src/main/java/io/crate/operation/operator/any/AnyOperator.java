@@ -21,13 +21,10 @@
 
 package io.crate.operation.operator.any;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import io.crate.analyze.symbol.Function;
 import io.crate.core.collections.MapComparator;
-import io.crate.metadata.DynamicFunctionResolver;
-import io.crate.metadata.FunctionIdent;
-import io.crate.metadata.FunctionImplementation;
-import io.crate.metadata.FunctionInfo;
+import io.crate.metadata.*;
 import io.crate.operation.Input;
 import io.crate.operation.operator.Operator;
 import io.crate.types.BooleanType;
@@ -44,9 +41,9 @@ public abstract class AnyOperator extends Operator<Object> {
     public static final String OPERATOR_PREFIX = "any_";
 
     /**
-     * called inside {@link #normalizeSymbol(io.crate.analyze.symbol.Function)}
+     * called inside {@link #normalizeSymbol(Function, TransactionContext)}
      * in order to interpret the result of compareTo
-     *
+     * <p>
      * subclass has to implement this to evaluate the -1, 0, 1 to boolean
      * e.g. for Lt  -1 is true, 0 and 1 is false.
      *
@@ -58,7 +55,8 @@ public abstract class AnyOperator extends Operator<Object> {
 
     protected FunctionInfo functionInfo;
 
-    protected AnyOperator() {}
+    protected AnyOperator() {
+    }
 
     protected AnyOperator(FunctionInfo functionInfo) {
         this.functionInfo = functionInfo;
@@ -71,14 +69,14 @@ public abstract class AnyOperator extends Operator<Object> {
 
     @SuppressWarnings("unchecked")
     protected Boolean doEvaluate(Object left, Iterable<?> rightIterable) {
-
+        boolean anyNulls = false;
         if (left instanceof Comparable) {
             for (Object elem : rightIterable) {
                 if (elem == null) {
-                    // ignore null values
+                    anyNulls = true;
                     continue;
                 }
-                assert (left.getClass().equals(elem.getClass()));
+                assert left.getClass().equals(elem.getClass()) : "class of left must be equal to the class of right";
 
                 if (compare(((Comparable) left).compareTo(elem))) {
                     return true;
@@ -90,16 +88,15 @@ public abstract class AnyOperator extends Operator<Object> {
                     return true;
                 }
             }
-
         }
-        return false;
+        return anyNulls ? null : false;
     }
 
     @Override
     public Boolean evaluate(Input<Object>... args) {
-        assert (args != null);
-        assert (args.length == 2);
-        assert args[0] != null;
+        assert args != null : "args must not be null";
+        assert args.length == 2 : "number of args must be 2";
+        assert args[0] != null : "1st argument must not be null";
 
         Object value = args[0].value();
         Object collectionReference = args[1].value();
@@ -109,7 +106,7 @@ public abstract class AnyOperator extends Operator<Object> {
         }
         Iterable<?> rightIterable;
         try {
-           rightIterable = collectionValueToIterable(collectionReference);
+            rightIterable = collectionValueToIterable(collectionReference);
         } catch (IllegalArgumentException e) {
             return false;
         }
@@ -118,28 +115,36 @@ public abstract class AnyOperator extends Operator<Object> {
 
     public static Iterable<?> collectionValueToIterable(Object collectionRef) throws IllegalArgumentException {
         if (collectionRef instanceof Object[]) {
-            return Arrays.asList((Object[])collectionRef);
+            return Arrays.asList((Object[]) collectionRef);
         } else if (collectionRef instanceof Collection) {
-            return (Collection<?>)collectionRef;
+            return (Collection<?>) collectionRef;
         } else {
             throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "cannot cast %s to Iterable", collectionRef));
+                String.format(Locale.ENGLISH, "cannot cast %s to Iterable", collectionRef));
         }
     }
 
-    public abstract static class AnyResolver implements DynamicFunctionResolver {
+    public abstract static class AnyResolver implements FunctionResolver {
 
-        public abstract FunctionImplementation<Function> newInstance(FunctionInfo info);
+        private static final List<Signature> SIGNATURES = ImmutableList.<Signature>builder()
+            .add(new Signature(DataTypes.ANY, DataTypes.ANY_ARRAY))
+            .add(new Signature(DataTypes.ANY, DataTypes.ANY_SET))
+            .build();
+
+        public abstract FunctionImplementation newInstance(FunctionInfo info);
 
         public abstract String name();
 
         @Override
-        public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-            checkArgument(dataTypes.size() == 2, "ANY operator requires exactly 2 arguments");
-            checkArgument(DataTypes.isCollectionType(dataTypes.get(1)), "The second argument to ANY must be an array or set");
+        public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
             checkArgument(((CollectionType) dataTypes.get(1)).innerType().equals(dataTypes.get(0)),
-                    "The inner type of the array/set passed to ANY must match its left expression");
+                "The inner type of the array/set passed to ANY must match its left expression");
             return newInstance(new FunctionInfo(new FunctionIdent(name(), dataTypes), BooleanType.INSTANCE));
+        }
+
+        @Override
+        public List<Signature> signatures() {
+            return SIGNATURES;
         }
     }
 }

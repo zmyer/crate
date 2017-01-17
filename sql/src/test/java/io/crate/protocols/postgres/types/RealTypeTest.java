@@ -24,6 +24,8 @@ package io.crate.protocols.postgres.types;
 
 import org.junit.Test;
 
+import java.nio.charset.StandardCharsets;
+
 public class RealTypeTest extends BasePGTypeTest<Float> {
 
     public RealTypeTest() {
@@ -32,17 +34,17 @@ public class RealTypeTest extends BasePGTypeTest<Float> {
 
     @Test
     public void testWriteValue() throws Exception {
-        assertBytesWritten(Float.MIN_VALUE, new byte[]{ 0, 0, 0, 4, 0, 0, 0, 1 });
+        assertBytesWritten(Float.MIN_VALUE, new byte[]{0, 0, 0, 4, 0, 0, 0, 1});
     }
 
     @Test
     public void testReadValueBinary() throws Exception {
-        assertBytesReadBinary(new byte[]{ 127, 127, -1, -1 }, Float.MAX_VALUE);
+        assertBytesReadBinary(new byte[]{127, 127, -1, -1}, Float.MAX_VALUE);
     }
 
     @Test
     public void testReadValueText() throws Exception {
-        byte[] bytesToRead = String.valueOf(Float.MAX_VALUE).getBytes();
+        byte[] bytesToRead = String.valueOf(Float.MAX_VALUE).getBytes(StandardCharsets.UTF_8);
         assertBytesReadText(bytesToRead, Float.MAX_VALUE, bytesToRead.length);
     }
 }

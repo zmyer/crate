@@ -21,9 +21,8 @@
 
 package io.crate.integrationtests;
 
-import io.crate.action.sql.SQLAction;
-import io.crate.action.sql.SQLRequest;
-import io.crate.action.sql.SQLResponse;
+import io.crate.testing.SQLResponse;
+import io.crate.testing.SQLTransportExecutor;
 import io.crate.testing.UseJdbc;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.common.settings.Settings;
@@ -43,10 +42,10 @@ public class ThreadPoolsExhaustedIntegrationTest extends SQLTransportIntegration
     @Override
     protected Settings nodeSettings(int nodeOrdinal) {
         return Settings.settingsBuilder()
-                .put(super.nodeSettings(nodeOrdinal))
-                .put("threadpool.search.size", 2)
-                .put("threadpool.search.queue_size", 2)
-                .build();
+            .put(super.nodeSettings(nodeOrdinal))
+            .put("threadpool.search.size", 2)
+            .put("threadpool.search.queue_size", 2)
+            .build();
     }
 
     @Test
@@ -57,23 +56,18 @@ public class ThreadPoolsExhaustedIntegrationTest extends SQLTransportIntegration
 
         List<ActionFuture<SQLResponse>> futures = new ArrayList<>();
         for (int i = 0; i < 1000; i++) {
-            ActionFuture<SQLResponse> future = client().execute(
-                    SQLAction.INSTANCE, new SQLRequest("select * from t limit ?", new Object[] { 10 }));
+            ActionFuture<SQLResponse> future = sqlExecutor.execute(
+                "select * from t limit ?", new Object[]{10});
             futures.add(future);
         }
 
         for (ActionFuture<SQLResponse> future : futures) {
             try {
-                future.get(500, TimeUnit.MILLISECONDS);
+                future.get(SQLTransportExecutor.REQUEST_TIMEOUT.getMillis(), TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 fail("query run into a timeout");
             } catch (Exception e) {
-                assertThat(e.getMessage(), Matchers.anyOf(
-                    Matchers.containsString("rejected execution"),
-                    // FIXME: the original cause should bubble, not killed - ignore this for now
-                    // the main purpose of this test is to make sure queries don't get stuck
-                    Matchers.containsString("Job killed")
-                ));
+                assertThat(e.getMessage(), Matchers.containsString("rejected execution"));
             }
         }
     }

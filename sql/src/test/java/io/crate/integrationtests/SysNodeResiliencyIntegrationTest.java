@@ -23,10 +23,6 @@
 package io.crate.integrationtests;
 
 import com.google.common.collect.Sets;
-import io.crate.action.sql.SQLAction;
-import io.crate.action.sql.SQLRequest;
-import io.crate.testing.SQLTransportExecutor;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESIntegTestCase;
@@ -66,21 +62,14 @@ public class SysNodeResiliencyIntegrationTest extends SQLTransportIntegrationTes
         setDisruptionScheme(partition);
         partition.startDisrupting();
 
-        SQLRequest request = new SQLRequest("select version, hostname, id, name from sys.nodes where name = ?", new Object[]{unluckyNode});
-        Client client = internalCluster().client(randomFrom(luckyNodes.toArray(Strings.EMPTY_ARRAY)));
-        assert client != null;
-        response = client.execute(SQLAction.INSTANCE, request).actionGet(SQLTransportExecutor.REQUEST_TIMEOUT);
+        execute("select version, hostname, id, name from sys.nodes where name = ?",
+                 new Object[]{unluckyNode},
+                 createSessionOnNode(randomFrom(luckyNodes.toArray(Strings.EMPTY_ARRAY))));
 
         assertThat(response.rowCount(), is(1L));
         assertThat(response.rows()[0][0], is(nullValue()));
         assertThat(response.rows()[0][1], is(nullValue()));
         assertThat(response.rows()[0][2], is(notNullValue()));
-        assertThat((String)response.rows()[0][3], is(unluckyNode));
-    }
-
-    @Test
-    public void testNoMatchingNode() throws Exception {
-        execute("select id, name, hostname from sys.nodes where id = 'does-not-exist'");
-        assertThat(response.rowCount(), is(0L));
+        assertThat(response.rows()[0][3], is(unluckyNode));
     }
 }

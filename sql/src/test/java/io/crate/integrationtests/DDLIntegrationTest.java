@@ -21,6 +21,7 @@
 
 package io.crate.integrationtests;
 
+import com.google.common.collect.ImmutableMap;
 import io.crate.Version;
 import io.crate.action.sql.SQLActionException;
 import io.crate.metadata.PartitionName;
@@ -56,24 +57,24 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
                 "clustered into 5 shards with (number_of_replicas = 1)");
         ensureYellow();
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String expectedMapping = "{\"default\":{" +
-                "\"dynamic\":\"true\"," +
-                "\"_meta\":{\"primary_keys\":[\"col1\"]}," +
-                "\"_all\":{\"enabled\":false}," +
-                "\"properties\":{" +
-                 // doc_values: true is default and not included
-                "\"col1\":{\"type\":\"integer\"}," +
-                "\"col2\":{\"type\":\"string\",\"index\":\"not_analyzed\"}" +
-                "}}}";
+                                 "\"dynamic\":\"true\"," +
+                                 "\"_meta\":{\"primary_keys\":[\"col1\"]}," +
+                                 "\"_all\":{\"enabled\":false}," +
+                                 "\"properties\":{" +
+                                 // doc_values: true is default and not included
+                                 "\"col1\":{\"type\":\"integer\"}," +
+                                 "\"col2\":{\"type\":\"string\",\"index\":\"not_analyzed\"}" +
+                                 "}}}";
 
         String expectedSettings = "{\"test\":{" +
-                "\"settings\":{" +
-                "\"index.number_of_replicas\":\"1\"," +
-                "\"index.number_of_shards\":\"5\"," +
-                "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
-                "}}}";
+                                  "\"settings\":{" +
+                                  "\"index.number_of_replicas\":\"1\"," +
+                                  "\"index.number_of_shards\":\"5\"," +
+                                  "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
+                                  "}}}";
 
         assertEquals(expectedMapping, getIndexMapping("test"));
         JSONAssert.assertEquals(expectedSettings, getIndexSettings("test"), false);
@@ -93,35 +94,35 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
                 "with (refresh_interval=0, number_of_replicas = 0)");
         ensureYellow();
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String expectedSettings = "{\"test\":{" +
-                "\"settings\":{" +
-                "\"index.number_of_replicas\":\"0\"," +
-                "\"index.number_of_shards\":\"5\"," +
-                "\"index.refresh_interval\":\"0ms\"," +
-                "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
-                "}}}";
+                                  "\"settings\":{" +
+                                  "\"index.number_of_replicas\":\"0\"," +
+                                  "\"index.number_of_shards\":\"5\"," +
+                                  "\"index.refresh_interval\":\"0ms\"," +
+                                  "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
+                                  "}}}";
         JSONAssert.assertEquals(expectedSettings, getIndexSettings("test"), false);
 
         execute("ALTER TABLE test SET (refresh_interval = 5000)");
         String expectedSetSettings = "{\"test\":{" +
-                "\"settings\":{" +
-                "\"index.number_of_replicas\":\"0\"," +
-                "\"index.number_of_shards\":\"5\"," +
-                "\"index.refresh_interval\":\"5000ms\"," +
-                "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
-                "}}}";
+                                     "\"settings\":{" +
+                                     "\"index.number_of_replicas\":\"0\"," +
+                                     "\"index.number_of_shards\":\"5\"," +
+                                     "\"index.refresh_interval\":\"5000ms\"," +
+                                     "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
+                                     "}}}";
         JSONAssert.assertEquals(expectedSetSettings, getIndexSettings("test"), false);
 
         execute("ALTER TABLE test RESET (refresh_interval)");
         String expectedResetSettings = "{\"test\":{" +
-                "\"settings\":{" +
-                "\"index.number_of_replicas\":\"0\"," +
-                "\"index.number_of_shards\":\"5\"," +
-                "\"index.refresh_interval\":\"1000ms\"," +
-                "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
-                "}}}";
+                                       "\"settings\":{" +
+                                       "\"index.number_of_replicas\":\"0\"," +
+                                       "\"index.number_of_shards\":\"5\"," +
+                                       "\"index.refresh_interval\":\"1000ms\"," +
+                                       "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
+                                       "}}}";
         JSONAssert.assertEquals(expectedResetSettings, getIndexSettings("test"), false);
     }
 
@@ -141,25 +142,25 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("create table test (col1 integer primary key, col2 string)" +
                 "clustered by (col1) into 10 shards with (number_of_replicas=2)");
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String expectedMapping = "{\"default\":{" +
-                "\"dynamic\":\"true\"," +
-                "\"_meta\":{" +
-                "\"primary_keys\":[\"col1\"]," +
-                "\"routing\":\"col1\"}," +
-                "\"_all\":{\"enabled\":false}," +
-                "\"properties\":{" +
-                "\"col1\":{\"type\":\"integer\"}," +
-                "\"col2\":{\"type\":\"string\",\"index\":\"not_analyzed\"}" +
-                "}}}";
+                                 "\"dynamic\":\"true\"," +
+                                 "\"_meta\":{" +
+                                 "\"primary_keys\":[\"col1\"]," +
+                                 "\"routing\":\"col1\"}," +
+                                 "\"_all\":{\"enabled\":false}," +
+                                 "\"properties\":{" +
+                                 "\"col1\":{\"type\":\"integer\"}," +
+                                 "\"col2\":{\"type\":\"string\",\"index\":\"not_analyzed\"}" +
+                                 "}}}";
 
         String expectedSettings = "{\"test\":{" +
-                "\"settings\":{" +
-                "\"index.number_of_replicas\":\"2\"," +
-                "\"index.number_of_shards\":\"10\"," +
-                "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
-                "}}}";
+                                  "\"settings\":{" +
+                                  "\"index.number_of_replicas\":\"2\"," +
+                                  "\"index.number_of_shards\":\"10\"," +
+                                  "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
+                                  "}}}";
 
         JSONAssert.assertEquals(expectedMapping, getIndexMapping("test"), JSONCompareMode.LENIENT);
         JSONAssert.assertEquals(expectedSettings, getIndexSettings("test"), JSONCompareMode.LENIENT);
@@ -171,26 +172,26 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
                 "clustered into 5 shards " +
                 "with (column_policy='strict', number_of_replicas = 0)");
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String expectedMapping = "{\"default\":{" +
-                "\"dynamic\":\"strict\"," +
-                "\"_meta\":{" +
-                "\"primary_keys\":[\"col1\"]}," +
-                "\"_all\":{\"enabled\":false}," +
-                "\"properties\":{" +
-                      // doc_values: true is default for integer and (string + not_analyzed)
-                     // defaults are not included so it's missing here
-                "\"col1\":{\"type\":\"integer\"}," +
-                "\"col2\":{\"type\":\"string\",\"index\":\"not_analyzed\"}" +
-                "}}}";
+                                 "\"dynamic\":\"strict\"," +
+                                 "\"_meta\":{" +
+                                 "\"primary_keys\":[\"col1\"]}," +
+                                 "\"_all\":{\"enabled\":false}," +
+                                 "\"properties\":{" +
+                                 // doc_values: true is default for integer and (string + not_analyzed)
+                                 // defaults are not included so it's missing here
+                                 "\"col1\":{\"type\":\"integer\"}," +
+                                 "\"col2\":{\"type\":\"string\",\"index\":\"not_analyzed\"}" +
+                                 "}}}";
 
         String expectedSettings = "{\"test\":{" +
-                "\"settings\":{" +
-                "\"index.number_of_replicas\":\"0\"," +
-                "\"index.number_of_shards\":\"5\"," +
-                "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
-                "}}}";
+                                  "\"settings\":{" +
+                                  "\"index.number_of_replicas\":\"0\"," +
+                                  "\"index.number_of_shards\":\"5\"," +
+                                  "\"index.version.created\":\"" + Version.CURRENT.esVersion.id + "\"" +
+                                  "}}}";
 
 
         assertEquals(expectedMapping, getIndexMapping("test"));
@@ -250,7 +251,7 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("create table quotes (quote string index using plain) with (number_of_replicas = 0)");
         ensureYellow();
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("quotes"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String quote = "Would it save you a lot of time if I just gave up and went mad now?";
         execute("insert into quotes values (?)", new Object[]{quote});
@@ -271,7 +272,7 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("create table quotes (quote string index using fulltext) with (number_of_replicas = 0)");
         ensureYellow();
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("quotes"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String quote = "Would it save you a lot of time if I just gave up and went mad now?";
         execute("insert into quotes values (?)", new Object[]{quote});
@@ -292,7 +293,7 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("create table quotes (id int, quote string index off) with (number_of_replicas = 0)");
         ensureYellow();
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("quotes"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String quote = "Would it save you a lot of time if I just gave up and went mad now?";
         execute("insert into quotes (id, quote) values (?, ?)", new Object[]{1, quote});
@@ -312,7 +313,7 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
                 "index quote_fulltext using fulltext(quote) with (analyzer='english')) with (number_of_replicas = 0)");
         ensureYellow();
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("quotes"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String quote = "Would it save you a lot of time if I just gave up and went mad now?";
         execute("insert into quotes values (?)", new Object[]{quote});
@@ -334,15 +335,15 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
                 "with(analyzer='english')) with (number_of_replicas = 0)");
         ensureYellow();
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("novels"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         String title = "So Long, and Thanks for All the Fish";
         String description = "Many were increasingly of the opinion that they'd all made a big " +
-                "mistake in coming down from the trees in the first place. And some said that " +
-                "even the trees had been a bad move, and that no one should ever have left " +
-                "the oceans.";
+                             "mistake in coming down from the trees in the first place. And some said that " +
+                             "even the trees had been a bad move, and that no one should ever have left " +
+                             "the oceans.";
         execute("insert into novels (title, description) values(?, ?)",
-                new Object[]{title, description});
+            new Object[]{title, description});
         refresh();
 
         // match token existing at field `title`
@@ -399,7 +400,7 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         ensureYellow();
         execute("alter table t add column name string primary key");
         execute("select constraint_name from information_schema.table_constraints " +
-                "where table_name = 't' and schema_name = 'doc' and constraint_type = 'PRIMARY_KEY'");
+                "where table_name = 't' and table_schema = 'doc' and constraint_type = 'PRIMARY_KEY'");
 
         assertThat(response.rowCount(), is(1L));
         assertThat((Object[]) response.rows()[0][0], arrayContaining(new Object[]{"name", "id"}));
@@ -462,7 +463,7 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
             assertThat(e.getMessage(), containsString("The table doc.t already has a column named o"));
         }
         execute("select * from information_schema.columns where " +
-                "table_name = 't' and schema_name='doc'" +
+                "table_name = 't' and table_schema='doc'" +
                 "order by column_name asc");
         assertThat(response.rowCount(), is(3L));
 
@@ -484,19 +485,19 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("alter table my_table add column book['author'] object as (\"authorId\" integer)");
         waitNoPendingTasksOnAll();
         execute("select column_name from information_schema.columns where " +
-                "table_name = 'my_table' and schema_name='doc'" +
+                "table_name = 'my_table' and table_schema='doc'" +
                 "order by column_name asc");
         assertThat(response.rowCount(), is(6L));
         assertThat(TestingHelpers.getColumn(response.rows(), 0),
-                is(Matchers.<Object>arrayContaining("age", "book", "book['author']", "book['author']['authorId']", "book['isbn']", "name")));
+            is(Matchers.<Object>arrayContaining("age", "book", "book['author']", "book['author']['authorId']", "book['isbn']", "name")));
         execute("alter table my_table add column book['author']['authorName'] string");
         waitNoPendingTasksOnAll();
         execute("select column_name from information_schema.columns where " +
-                "table_name = 'my_table' and schema_name='doc'" +
+                "table_name = 'my_table' and table_schema='doc'" +
                 "order by column_name asc");
         assertThat(response.rowCount(), is(7L));
         assertThat(TestingHelpers.getColumn(response.rows(), 0),
-                is(Matchers.<Object>arrayContaining("age", "book", "book['author']", "book['author']['authorId']", "book['author']['authorName']", "book['isbn']", "name")));
+            is(Matchers.<Object>arrayContaining("age", "book", "book['author']", "book['author']['authorId']", "book['author']['authorName']", "book['isbn']", "name")));
 
     }
 
@@ -507,12 +508,12 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("ALTER TABLE my_table ADD COLUMN col1['col2'] object as (col3 array(string))");
         waitNoPendingTasksOnAll();
         execute("SELECT column_name, data_type FROM information_schema.columns " +
-                "WHERE table_name = 'my_table' AND schema_name = 'doc' " +
+                "WHERE table_name = 'my_table' AND table_schema = 'doc' " +
                 "ORDER BY column_name asc");
         assertThat(TestingHelpers.getColumn(response.rows(), 0),
-                is(Matchers.<Object>arrayContaining("col1", "col1['col2']", "col1['col2']['col3']")));
+            is(Matchers.<Object>arrayContaining("col1", "col1['col2']", "col1['col2']['col3']")));
         assertThat(TestingHelpers.getColumn(response.rows(), 1),
-                is(Matchers.<Object>arrayContaining("object", "object", "string_array")));
+            is(Matchers.<Object>arrayContaining("object", "object", "string_array")));
 
         execute("DROP TABLE my_table");
         ensureYellow();
@@ -522,27 +523,44 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("ALTER TABLE my_table ADD COLUMN col1['col2']['col3'] object as (col4 array(long))");
         waitNoPendingTasksOnAll();
         execute("SELECT column_name, data_type FROM information_schema.columns " +
-                "WHERE table_name = 'my_table' AND schema_name = 'doc' " +
+                "WHERE table_name = 'my_table' AND table_schema = 'doc' " +
                 "ORDER BY column_name asc");
         assertThat(TestingHelpers.getColumn(response.rows(), 0),
-                is(Matchers.<Object>arrayContaining("col1", "col1['col2']", "col1['col2']['col3']", "col1['col2']['col3']['col4']")));
+            is(Matchers.<Object>arrayContaining("col1", "col1['col2']", "col1['col2']['col3']", "col1['col2']['col3']['col4']")));
         assertThat(TestingHelpers.getColumn(response.rows(), 1),
-                is(Matchers.<Object>arrayContaining("object", "object", "object", "long_array")));
+            is(Matchers.<Object>arrayContaining("object", "object", "object", "long_array")));
     }
 
     @Test
-    @UseJdbc(false) // drop table has no rowcount
+    public void testAlterTableAddObjectToObjectArray() throws Exception {
+        execute("CREATE TABLE t (" +
+                "   attributes ARRAY(" +
+                "       OBJECT (STRICT) as (" +
+                "           name STRING" +
+                "       )" +
+                "   )" +
+                ")");
+        ensureYellow();
+        execute("ALTER TABLE t ADD column attributes['is_nice'] BOOLEAN");
+        execute("INSERT INTO t (attributes) values ([{name='Trillian', is_nice=True}])");
+        refresh();
+        execute("select attributes from t");
+        assertThat(((Object[])response.rows()[0][0])[0], is(ImmutableMap.of("name", "Trillian", "is_nice", true)));
+    }
+
+    @Test
+    @UseJdbc(0) // drop table has no rowcount
     public void testDropTable() throws Exception {
         execute("create table test (col1 integer primary key, col2 string)");
         ensureYellow();
 
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
 
         execute("drop table test");
         assertThat(response.rowCount(), is(1L));
         assertFalse(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
     }
 
     @Test
@@ -562,17 +580,17 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
     }
 
     @Test
-    @UseJdbc(false) // drop table has no rowcount
+    @UseJdbc(0) // drop table has no rowcount
     public void testDropTableIfExists() {
         execute("create table test (col1 integer primary key, col2 string)");
         ensureYellow();
 
         assertTrue(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
         execute("drop table if exists test");
         assertThat(response.rowCount(), is(1L));
         assertFalse(client().admin().indices().exists(new IndicesExistsRequest("test"))
-                .actionGet().isExists());
+            .actionGet().isExists());
     }
 
     @Test
@@ -586,18 +604,19 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         execute("create blob table screenshots with (number_of_replicas=0)");
         execute("alter blob table screenshots set (number_of_replicas=1)");
         execute("select number_of_replicas from information_schema.tables " +
-                "where schema_name = 'blob' and table_name = 'screenshots'");
+                "where table_schema = 'blob' and table_name = 'screenshots'");
         assertEquals("1", response.rows()[0][0]);
         execute("drop blob table screenshots");
     }
 
     @Test
-    @UseJdbc(false) // drop table has no rowcount
+    @UseJdbc(0) // drop table has no rowcount
     public void testDropIfExistsBlobTable() throws Exception {
         execute("create blob table screenshots with (number_of_replicas=0)");
         execute("drop blob table if exists screenshots");
         assertEquals(response.rowCount(), 1);
     }
+
     @Test
     public void testDropBlobTableIfExistsUnknownTable() throws Exception {
         execute("drop blob table if exists nonexistent");
@@ -611,20 +630,20 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         ensureYellow();
 
         execute("insert into quotes (id, quote, date) values (?, ?, ?), (?, ?, ?)",
-                new Object[]{
-                        1, "Don't panic", 1395874800000L,
-                        2, "Now panic", 1395961200000L}
+            new Object[]{
+                1, "Don't panic", 1395874800000L,
+                2, "Now panic", 1395961200000L}
         );
         execute("alter table quotes set (number_of_shards=5)");
 
         String templateName = PartitionName.templateName(null, "quotes");
         GetIndexTemplatesResponse templatesResponse =
-                client().admin().indices().prepareGetTemplates(templateName).execute().actionGet();
+            client().admin().indices().prepareGetTemplates(templateName).execute().actionGet();
         Settings templateSettings = templatesResponse.getIndexTemplates().get(0).getSettings();
         assertThat(templateSettings.getAsInt(IndexMetaData.SETTING_NUMBER_OF_SHARDS, 0), is(5));
 
         execute("insert into quotes (id, quote, date) values (?, ?, ?)",
-                new Object[]{3, "Time is a illusion. Lunchtime doubles so", 1495961200000L}
+            new Object[]{3, "Time is a illusion. Lunchtime doubles so", 1495961200000L}
         );
         String partition = new PartitionName("quotes", Arrays.asList(new BytesRef("1495961200000"))).asIndexName();
         GetSettingsResponse settingsResponse = client().admin().indices().prepareGetSettings(partition).execute().get();
@@ -645,7 +664,7 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
         assertThat(response.rowCount(), is(1L));
         assertThat((String) response.rows()[0][0], is("Ford"));
 
-        execute("select schema_name from information_schema.tables where table_name = 't'");
+        execute("select table_schema from information_schema.tables where table_name = 't'");
         assertThat(response.rowCount(), is(1L));
         assertThat((String) response.rows()[0][0], is("a"));
     }
@@ -658,14 +677,14 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
     }
 
     @Test
-    @UseJdbc(false) // drop table has no rowcount
+    @UseJdbc(0) // drop table has no rowcount
     public void testDropTableWithCustomSchema() throws Exception {
         execute("create table a.t (name string) with (number_of_replicas=0)");
         ensureYellow();
         execute("drop table a.t");
         assertThat(response.rowCount(), is(1L));
 
-        execute("select schema_name from information_schema.tables where table_name = 't'");
+        execute("select table_schema from information_schema.tables where table_name = 't'");
         assertThat(response.rowCount(), is(0L));
     }
 
@@ -678,8 +697,8 @@ public class DDLIntegrationTest extends SQLTransportIntegrationTest {
                                  "\"_meta\":{\"generated_columns\":{\"day\":\"date_trunc('day', ts)\"}}," +
                                  "\"_all\":{\"enabled\":false}," +
                                  "\"properties\":{" +
-                                 "\"day\":{\"type\":\"date\",\"format\":\"strict_date_optional_time||epoch_millis\"}," +
-                                 "\"ts\":{\"type\":\"date\",\"format\":\"strict_date_optional_time||epoch_millis\"}" +
+                                 "\"day\":{\"type\":\"date\",\"format\":\"epoch_millis||strict_date_optional_time\"}," +
+                                 "\"ts\":{\"type\":\"date\",\"format\":\"epoch_millis||strict_date_optional_time\"}" +
                                  "}}}";
 
         assertEquals(expectedMapping, getIndexMapping("test"));

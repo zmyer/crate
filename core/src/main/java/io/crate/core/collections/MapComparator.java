@@ -32,7 +32,8 @@ public class MapComparator implements Comparator<Map> {
 
     private static final MapComparator INSTANCE = new MapComparator();
 
-    private MapComparator() {}
+    private MapComparator() {
+    }
 
     public static MapComparator getInstance() {
         return INSTANCE;
@@ -48,7 +49,17 @@ public class MapComparator implements Comparator<Map> {
         for (Map.Entry<K, V> entry : m1.entrySet()) {
             V thisValue = entry.getValue();
             V otherValue = m2.get(entry.getKey());
+            if (thisValue == null) {
+                if (otherValue != null) {
+                    return 1;
+                } else {
+                    continue;
+                }
+            }
             if (!thisValue.equals(otherValue)) {
+                if (otherValue == null) {
+                    return -1;
+                }
                 if (!thisValue.getClass().equals(otherValue.getClass())) {
                     DataType leftType = DataTypes.guessType(thisValue);
                     int cmp = leftType.compareValueTo(thisValue, leftType.value(otherValue));

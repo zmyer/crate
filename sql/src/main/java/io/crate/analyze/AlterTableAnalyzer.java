@@ -27,18 +27,14 @@ import io.crate.metadata.TableIdent;
 import io.crate.metadata.table.Operation;
 import io.crate.sql.tree.*;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.settings.Settings;
 
-@Singleton
-public class AlterTableAnalyzer extends DefaultTraversalVisitor<AlterTableAnalyzedStatement, Analysis> {
+class AlterTableAnalyzer extends DefaultTraversalVisitor<AlterTableAnalyzedStatement, Analysis> {
 
     private static final TablePropertiesAnalyzer TABLE_PROPERTIES_ANALYZER = new TablePropertiesAnalyzer();
     private final Schemas schemas;
 
-    @Inject
-    public AlterTableAnalyzer(Schemas schemas) {
+    AlterTableAnalyzer(Schemas schemas) {
         this.schemas = schemas;
     }
 
@@ -58,19 +54,20 @@ public class AlterTableAnalyzer extends DefaultTraversalVisitor<AlterTableAnalyz
 
         TableParameterInfo tableParameterInfo = statement.table().tableParameterInfo();
         if (statement.partitionName().isPresent()) {
-            assert tableParameterInfo instanceof AlterPartitionedTableParameterInfo;
+            assert tableParameterInfo instanceof PartitionedTableParameterInfo :
+                "tableParameterInfo must be " + PartitionedTableParameterInfo.class.getSimpleName();
             assert !node.table().excludePartitions() : "Alter table ONLY not supported when using a partition";
-            tableParameterInfo = ((AlterPartitionedTableParameterInfo) tableParameterInfo).partitionTableSettingsInfo();
+            tableParameterInfo = ((PartitionedTableParameterInfo) tableParameterInfo).partitionTableSettingsInfo();
         }
         statement.excludePartitions(node.table().excludePartitions());
 
         if (node.genericProperties().isPresent()) {
             TABLE_PROPERTIES_ANALYZER.analyze(
-                    statement.tableParameter(), tableParameterInfo, node.genericProperties(),
-                    analysis.parameterContext().parameters());
+                statement.tableParameter(), tableParameterInfo, node.genericProperties(),
+                analysis.parameterContext().parameters());
         } else if (!node.resetProperties().isEmpty()) {
             TABLE_PROPERTIES_ANALYZER.analyze(
-                    statement.tableParameter(), tableParameterInfo, node.resetProperties());
+                statement.tableParameter(), tableParameterInfo, node.resetProperties());
         }
 
         // Only check for permission if statement is not changing the metadata blocks, so don't block `re-enabling` these.
@@ -86,12 +83,12 @@ public class AlterTableAnalyzer extends DefaultTraversalVisitor<AlterTableAnalyz
     }
 
     private void setTableAndPartitionName(Table node, AlterTableAnalyzedStatement context, Analysis analysis) {
-        context.table(TableIdent.of(node, analysis.parameterContext().defaultSchema()));
+        context.table(TableIdent.of(node, analysis.sessionContext().defaultSchema()));
         if (!node.partitionProperties().isEmpty()) {
             PartitionName partitionName = PartitionPropertiesAnalyzer.toPartitionName(
-                    context.table(),
-                    node.partitionProperties(),
-                    analysis.parameterContext().parameters());
+                context.table(),
+                node.partitionProperties(),
+                analysis.parameterContext().parameters());
             if (!context.table().partitions().contains(partitionName)) {
                 throw new IllegalArgumentException("Referenced partition does not exist.");
             }

@@ -36,13 +36,14 @@ import org.elasticsearch.action.support.IndicesOptions;
 
 public class ESDeletePartitionTask extends JobTask {
 
-    private static final Function<Object, Row> TO_UNKNOWN_COUNT_ROW = Functions.<Row>constant(new Row1(-1L));;
+    private static final Function<Object, Row> TO_UNKNOWN_COUNT_ROW = Functions.<Row>constant(new Row1(-1L));
+    ;
 
     private final TransportDeleteIndexAction transport;
     private final DeleteIndexRequest request;
 
     @Override
-    public void execute(RowReceiver rowReceiver) {
+    public void execute(RowReceiver rowReceiver, Row parameters) {
         OneRowActionListener<DeleteIndexResponse> actionListener = new OneRowActionListener<>(rowReceiver, TO_UNKNOWN_COUNT_ROW);
         transport.execute(request, actionListener);
     }

@@ -25,11 +25,11 @@ import io.crate.analyze.relations.AbstractTableRelation;
 import io.crate.analyze.relations.QueriedRelation;
 import io.crate.analyze.symbol.Field;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.metadata.ColumnIndex;
-import io.crate.metadata.Path;
-import io.crate.metadata.StmtCtx;
+import io.crate.metadata.*;
 import io.crate.metadata.table.Operation;
+import io.crate.sql.tree.QualifiedName;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
@@ -69,9 +69,10 @@ public abstract class QueriedTableRelation<TR extends AbstractTableRelation> imp
         return tableRelation;
     }
 
-    public void normalize(AnalysisMetaData analysisMetaData, StmtCtx stmtCtx){
-        EvaluatingNormalizer normalizer = new EvaluatingNormalizer(analysisMetaData, tableRelation, true);
-        querySpec().normalize(normalizer, stmtCtx);
+    public void normalize(Functions functions, TransactionContext transactionContext) {
+        EvaluatingNormalizer normalizer = new EvaluatingNormalizer(
+            functions, RowGranularity.CLUSTER, ReplaceMode.MUTATE, null, tableRelation);
+        querySpec().normalize(normalizer, transactionContext);
     }
 
     @Nullable
@@ -86,5 +87,15 @@ public abstract class QueriedTableRelation<TR extends AbstractTableRelation> imp
     @Override
     public List<Field> fields() {
         return fields.asList();
+    }
+
+    @Override
+    public QualifiedName getQualifiedName() {
+        return tableRelation.getQualifiedName();
+    }
+
+    @Override
+    public void setQualifiedName(@Nonnull QualifiedName qualifiedName) {
+        tableRelation.setQualifiedName(qualifiedName);
     }
 }

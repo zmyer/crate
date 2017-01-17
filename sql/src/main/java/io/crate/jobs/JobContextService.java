@@ -21,9 +21,10 @@
 
 package io.crate.jobs;
 
-import io.crate.concurrent.CompletionState;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.*;
+import io.crate.concurrent.CountdownFutureCallback;
 import io.crate.exceptions.ContextMissingException;
-import io.crate.concurrent.CompletionListener;
 import io.crate.operation.collect.StatsTables;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.cluster.ClusterService;
@@ -37,7 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Stream;
 
 @Singleton
 public class JobContextService extends AbstractLifecycleComponent<JobContextService> {
@@ -45,11 +46,7 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
     private final ClusterService clusterService;
     private final StatsTables statsTables;
     private final ConcurrentMap<UUID, JobExecutionContext> activeContexts =
-            ConcurrentCollections.newConcurrentMapWithAggressiveConcurrency();
-
-    private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
-    private final ReentrantReadWriteLock.ReadLock readLock = rwLock.readLock();
-    private final ReentrantReadWriteLock.WriteLock writeLock = rwLock.writeLock();
+        ConcurrentCollections.newConcurrentMapWithAggressiveConcurrency();
 
     private final List<KillAllListener> killAllListeners = Collections.synchronizedList(new ArrayList<KillAllListener>());
 
@@ -87,14 +84,17 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
         return context;
     }
 
-    public Collection<JobExecutionContext> getContextsByCoordinatorNode(final String coordinatorNodeId) {
-        List<JobExecutionContext> contexts = new ArrayList<>();
-        for (JobExecutionContext jobExecutionContext : activeContexts.values()) {
-            if (jobExecutionContext.coordinatorNodeId().equals(coordinatorNodeId)) {
-                contexts.add(jobExecutionContext);
-            }
-        }
-        return contexts;
+    public Stream<UUID> getJobIdsByCoordinatorNode(final String coordinatorNodeId) {
+        return activeContexts.values()
+            .stream()
+            .filter(jobExecutionContext -> jobExecutionContext.coordinatorNodeId().equals(coordinatorNodeId))
+            .map(JobExecutionContext::jobId);
+    }
+
+    public Stream<UUID> getJobIdsByParticipatingNodes(final String nodeId) {
+        return activeContexts.values().stream()
+            .filter(i -> i.participatingNodes().contains(nodeId))
+            .map(JobExecutionContext::jobId);
     }
 
     @Nullable
@@ -103,11 +103,15 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
     }
 
     public JobExecutionContext.Builder newBuilder(UUID jobId) {
-        return new JobExecutionContext.Builder(jobId, clusterService.localNode().id(), statsTables);
+        return new JobExecutionContext.Builder(jobId, clusterService.localNode().getId(), Collections.emptyList(), statsTables);
     }
 
     public JobExecutionContext.Builder newBuilder(UUID jobId, String coordinatorNodeId) {
-        return new JobExecutionContext.Builder(jobId, coordinatorNodeId, statsTables);
+        return new JobExecutionContext.Builder(jobId, coordinatorNodeId, Collections.emptyList(), statsTables);
+    }
+
+    public JobExecutionContext.Builder newBuilder(UUID jobId, String coordinatorNodeId, Collection<String> participatingNodes) {
+        return new JobExecutionContext.Builder(jobId, coordinatorNodeId, participatingNodes, statsTables);
     }
 
     public JobExecutionContext createContext(JobExecutionContext.Builder contextBuilder) throws Exception {
@@ -116,72 +120,86 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
         }
         final UUID jobId = contextBuilder.jobId();
         JobExecutionContext newContext = contextBuilder.build();
-        readLock.lock();
-        try {
-            newContext.addListener(new JobContextListener(jobId));
-            JobExecutionContext existing = activeContexts.putIfAbsent(jobId, newContext);
-            if (existing != null) {
-                throw new IllegalArgumentException(
-                        String.format(Locale.ENGLISH, "context for job %s already exists:%n%s", jobId, existing));
-            }
-        } finally {
-            readLock.unlock();
+        Futures.addCallback(newContext.completionFuture(), new JobContextCallback(jobId));
+        JobExecutionContext existing = activeContexts.putIfAbsent(jobId, newContext);
+        if (existing != null) {
+            throw new IllegalArgumentException(
+                String.format(Locale.ENGLISH, "context for job %s already exists:%n%s", jobId, existing));
         }
         if (logger.isTraceEnabled()) {
             logger.trace("JobExecutionContext created for job {},  activeContexts: {}",
-                    jobId, activeContexts.size());
+                jobId, activeContexts.size());
         }
         return newContext;
     }
 
-    public long killAll() {
-        long numKilled = 0L;
+
+    /**
+     * kills all contexts which are active at the time of the call of this method.
+     *
+     * @return a future holding the number of contexts kill was called on, the future is finished when all contexts
+     * are completed and never fails.
+     */
+    public ListenableFuture<Integer> killAll() {
         long now = System.nanoTime();
-        writeLock.lock();
-        try {
-            for (KillAllListener killAllListener : killAllListeners) {
+        for (KillAllListener killAllListener : killAllListeners) {
+            try {
                 killAllListener.killAllJobs(now);
+            } catch (Throwable t) {
+                logger.error("Failed to call killAllJobs on listener {}", t, killAllListener);
             }
-            for (JobExecutionContext jobExecutionContext : activeContexts.values()) {
-                jobExecutionContext.kill();
-                // don't use  numKilled = activeContext.size() because the content of activeContexts could change
+        }
+        Collection<UUID> toKill = ImmutableList.copyOf(activeContexts.keySet());
+        if (toKill.isEmpty()) {
+            return Futures.immediateFuture(0);
+        }
+        return killContexts(toKill);
+    }
+
+    private ListenableFuture<Integer> killContexts(Collection<UUID> toKill) {
+        assert !toKill.isEmpty(): "toKill must not be empty";
+        int numKilled = 0;
+        CountdownFutureCallback countDownFuture = new CountdownFutureCallback(toKill.size());
+        for (UUID jobId : toKill) {
+            JobExecutionContext ctx = activeContexts.get(jobId);
+            if (ctx != null) {
+                Futures.addCallback(ctx.completionFuture(), countDownFuture);
+                ctx.kill();
                 numKilled++;
+            } else {
+                // no kill but we need to count down
+                countDownFuture.onSuccess(null);
             }
-            assert activeContexts.size() == 0 :
-                    "after killing all contexts, they should have been removed from the map due to the callbacks";
-        } finally {
-            writeLock.unlock();
         }
-        return numKilled;
+        final SettableFuture<Integer> result = SettableFuture.create();
+        final int finalNumKilled = numKilled;
+        countDownFuture.addListener(new Runnable() {
+            @Override
+            public void run() {
+                result.set(finalNumKilled);
+            }
+        }, MoreExecutors.directExecutor());
+        return result;
     }
 
-    public long killJobs(Collection<UUID> toKill) {
-        long numKilled = 0L;
-        writeLock.lock();
-        try {
-            for (KillAllListener killAllListener : killAllListeners) {
-                for (UUID job : toKill) {
+    public ListenableFuture<Integer> killJobs(Collection<UUID> toKill) {
+        for (KillAllListener killAllListener : killAllListeners) {
+            for (UUID job : toKill) {
+                try {
                     killAllListener.killJob(job);
+                } catch (Throwable t) {
+                    logger.error("Failed to call killJob on listener {}", t, killAllListener);
                 }
             }
-            for (UUID jobId : toKill) {
-                JobExecutionContext ctx = activeContexts.get(jobId);
-                if (ctx != null) {
-                    ctx.kill();
-                    numKilled++;
-                }
-            }
-        } finally {
-            writeLock.unlock();
         }
-        return numKilled;
+        return killContexts(toKill);
     }
 
-    private class JobContextListener implements CompletionListener {
+    private class JobContextCallback implements FutureCallback<Object> {
 
         private UUID jobId;
 
-        public JobContextListener(UUID jobId) {
+        JobContextCallback(UUID jobId) {
             this.jobId = jobId;
         }
 
@@ -195,7 +213,7 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
         }
 
         @Override
-        public void onSuccess(@Nullable CompletionState state) {
+        public void onSuccess(@Nullable Object result) {
             remove(null);
         }
 

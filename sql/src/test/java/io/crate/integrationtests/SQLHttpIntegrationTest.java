@@ -24,13 +24,15 @@ package io.crate.integrationtests;
 
 import io.crate.common.Hex;
 import io.crate.test.utils.Blobs;
-import org.apache.http.StatusLine;
+import org.apache.http.Header;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.http.HttpServerTransport;
@@ -45,37 +47,38 @@ import static org.hamcrest.Matchers.is;
 public abstract class SQLHttpIntegrationTest extends SQLTransportIntegrationTest {
 
     private HttpPost httpPost;
-    protected InetSocketAddress address;
+    private InetSocketAddress address;
+    private CloseableHttpClient httpClient = HttpClients.createDefault();
 
     @Override
     protected Settings nodeSettings(int nodeOrdinal) {
         return Settings.settingsBuilder()
-                .put(super.nodeSettings(nodeOrdinal))
-                .put("http.enabled", true)
-                .put("http.host", "127.0.0.1")
-                .build();
+            .put(super.nodeSettings(nodeOrdinal))
+            .put("http.enabled", true)
+            .put("http.host", "127.0.0.1")
+            .build();
     }
 
     @Before
     public void setup() {
         HttpServerTransport httpServerTransport = internalCluster().getInstance(HttpServerTransport.class);
         address = ((InetSocketTransportAddress) httpServerTransport.boundAddress().publishAddress())
-                .address();
+            .address();
         httpPost = new HttpPost(String.format(Locale.ENGLISH, "http://%s:%s/_sql?error_trace", address.getHostName(), address.getPort()));
     }
 
-    protected CloseableHttpClient httpClient = HttpClients.createDefault();
 
-    protected CloseableHttpResponse post(String body) throws IOException {
-        if(body != null){
-            StringEntity bodyEntity = new StringEntity(body);
+    protected CloseableHttpResponse post(String body, @Nullable Header[] headers) throws IOException {
+        if (body != null) {
+            StringEntity bodyEntity = new StringEntity(body, ContentType.APPLICATION_JSON);
             httpPost.setEntity(bodyEntity);
         }
+        httpPost.setHeaders(headers);
         return httpClient.execute(httpPost);
     }
 
-    protected CloseableHttpResponse post() throws IOException {
-        return post(null);
+    protected CloseableHttpResponse post(String body) throws IOException {
+        return post(body, null);
     }
 
     protected String upload(String table, String content) throws IOException {

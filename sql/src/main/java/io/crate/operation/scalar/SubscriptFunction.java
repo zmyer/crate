@@ -21,24 +21,25 @@
 
 package io.crate.operation.scalar;
 
-import com.google.common.base.Preconditions;
-import io.crate.analyze.symbol.Function;
-import io.crate.analyze.symbol.Symbol;
+import com.google.common.collect.ImmutableList;
 import io.crate.metadata.*;
 import io.crate.operation.Input;
-import io.crate.types.CollectionType;
-import io.crate.types.DataType;
-import io.crate.types.DataTypes;
+import io.crate.types.*;
 
 import java.util.List;
 
-public class SubscriptFunction extends Scalar<Object, Object[]> implements DynamicFunctionResolver {
+public class SubscriptFunction extends Scalar<Object, Object[]> implements FunctionResolver {
 
     public static final String NAME = "subscript";
+
+    private static final List<Signature> SIGNATURES = ImmutableList.of(
+        new Signature(DataTypes.ANY_ARRAY, DataTypes.INTEGER)
+    );
 
     private static FunctionInfo createInfo(List<DataType> argumentTypes, DataType returnType) {
         return new FunctionInfo(new FunctionIdent(NAME, argumentTypes), returnType);
     }
+
     public static void register(ScalarFunctionModule module) {
         module.register(NAME, new SubscriptFunction());
     }
@@ -48,7 +49,7 @@ public class SubscriptFunction extends Scalar<Object, Object[]> implements Dynam
     private SubscriptFunction() {
     }
 
-    public SubscriptFunction(FunctionInfo info) {
+    private SubscriptFunction(FunctionInfo info) {
         this.info = info;
     }
 
@@ -69,7 +70,7 @@ public class SubscriptFunction extends Scalar<Object, Object[]> implements Dynam
             return null;
         }
         assert (element instanceof Object[] || element instanceof List)
-                : "first argument must be of type array or list";
+            : "first argument must be of type array or list";
         assert index instanceof Integer : "second argument must be of type integer";
 
         // 1 based arrays as SQL standard says
@@ -85,13 +86,13 @@ public class SubscriptFunction extends Scalar<Object, Object[]> implements Dynam
     }
 
     @Override
-    public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-        Preconditions.checkArgument(dataTypes.size() == 2
-                && DataTypes.isCollectionType(dataTypes.get(0))
-                && dataTypes.get(1) == DataTypes.INTEGER);
-        DataType returnType = ((CollectionType)dataTypes.get(0)).innerType();
+    public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
+        DataType returnType = ((CollectionType) dataTypes.get(0)).innerType();
         return new SubscriptFunction(createInfo(dataTypes, returnType));
     }
 
-
+    @Override
+    public List<Signature> signatures() {
+        return SIGNATURES;
+    }
 }

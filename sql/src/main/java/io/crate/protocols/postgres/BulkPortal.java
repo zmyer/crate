@@ -24,11 +24,13 @@ package io.crate.protocols.postgres;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.crate.action.sql.ResultReceiver;
+import io.crate.action.sql.SessionContext;
 import io.crate.analyze.Analysis;
 import io.crate.analyze.ParameterContext;
 import io.crate.analyze.symbol.Field;
-import io.crate.concurrent.CompletionListener;
 import io.crate.core.collections.Row;
 import io.crate.core.collections.RowN;
 import io.crate.core.collections.Rows;
@@ -54,19 +56,23 @@ class BulkPortal extends AbstractPortal {
     private Statement statement;
     private int maxRows = 0;
     private List<? extends DataType> outputTypes;
+    private List<Field> fields;
 
     BulkPortal(String name,
                String query,
                Statement statement,
                List<? extends DataType> outputTypes,
+               @Nullable List<Field> fields,
                ResultReceiver resultReceiver,
                int maxRows,
                List<Object> params,
-               SessionData sessionData) {
-        super(name, sessionData);
+               SessionContext sessionContext,
+               PortalContext portalContext) {
+        super(name, sessionContext, portalContext);
         this.query = query;
         this.statement = statement;
         this.outputTypes = outputTypes;
+        this.fields = fields;
         this.resultReceivers.add(resultReceiver);
         this.maxRows = maxRows;
         this.bulkArgs.add(params);
@@ -99,7 +105,7 @@ class BulkPortal extends AbstractPortal {
 
     @Override
     public List<Field> describe() {
-        return null;
+        return fields;
     }
 
     @Override
@@ -112,14 +118,11 @@ class BulkPortal extends AbstractPortal {
     }
 
     @Override
-    public void sync(Planner planner, StatsTables statsTables, CompletionListener listener) {
+    public ListenableFuture<?> sync(Planner planner, StatsTables statsTables) {
         List<Row> bulkParams = Rows.of(bulkArgs);
-        Analysis analysis = sessionData.getAnalyzer().analyze(statement,
-            new ParameterContext(
-                Row.EMPTY,
-                bulkParams,
-                sessionData.getDefaultSchema(),
-                sessionData.options()));
+        Analysis analysis = portalContext.getAnalyzer().boundAnalyze(statement,
+            sessionContext,
+            new ParameterContext(Row.EMPTY, bulkParams));
         UUID jobId = UUID.randomUUID();
         Plan plan;
         try {
@@ -129,39 +132,40 @@ class BulkPortal extends AbstractPortal {
             throw t;
         }
         statsTables.logExecutionStart(jobId, query);
-        executeBulk(sessionData.getExecutor(), plan, jobId, statsTables, listener);
+        return executeBulk(portalContext.getExecutor(), plan, jobId, statsTables);
     }
 
-    private void executeBulk(Executor executor, Plan plan, final UUID jobId,
-                             final StatsTables statsTables, final CompletionListener listener) {
-
+    private ListenableFuture<Void> executeBulk(Executor executor, Plan plan, final UUID jobId,
+                             final StatsTables statsTables) {
+        final SettableFuture<Void> future = SettableFuture.create();
         Futures.addCallback(executor.executeBulk(plan), new FutureCallback<List<Long>>() {
-            @Override
-            public void onSuccess(@Nullable List<Long> result) {
-                assert result != null && result.size() == resultReceivers.size()
-                    : "number of result must match number of rowReceivers";
+                @Override
+                public void onSuccess(@Nullable List<Long> result) {
+                    assert result != null && result.size() == resultReceivers.size()
+                        : "number of result must match number of rowReceivers";
 
-                Long[] cells = new Long[1];
-                RowN row = new RowN(cells);
-                for (int i = 0; i < result.size(); i++) {
-                    cells[0] = result.get(i);
-                    ResultReceiver resultReceiver = resultReceivers.get(i);
-                    resultReceiver.setNextRow(row);
-                    resultReceiver.allFinished();
+                    Long[] cells = new Long[1];
+                    RowN row = new RowN(cells);
+                    for (int i = 0; i < result.size(); i++) {
+                        cells[0] = result.get(i);
+                        ResultReceiver resultReceiver = resultReceivers.get(i);
+                        resultReceiver.setNextRow(row);
+                        resultReceiver.allFinished();
+                    }
+                    future.set(null);
+                    statsTables.logExecutionEnd(jobId, null);
                 }
-                listener.onSuccess(null);
-                statsTables.logExecutionEnd(jobId, null);
-            }
 
-            @Override
-            public void onFailure(Throwable t) {
-                for (ResultReceiver resultReceiver : resultReceivers) {
-                    resultReceiver.fail(t);
+                @Override
+                public void onFailure(Throwable t) {
+                    for (ResultReceiver resultReceiver : resultReceivers) {
+                        resultReceiver.fail(t);
+                    }
+                    future.setException(t);
+                    statsTables.logExecutionEnd(jobId, Exceptions.messageOf(t));
+
                 }
-                listener.onFailure(t);
-                statsTables.logExecutionEnd(jobId, Exceptions.messageOf(t));
-
-            }
-        });
+            });
+        return future;
     }
 }

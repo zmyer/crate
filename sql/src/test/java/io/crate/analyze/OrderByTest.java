@@ -23,6 +23,7 @@ package io.crate.analyze;
 
 import com.google.common.collect.ImmutableList;
 import io.crate.analyze.symbol.Symbol;
+import io.crate.exceptions.AmbiguousOrderByException;
 import io.crate.metadata.Reference;
 import io.crate.metadata.ReferenceIdent;
 import io.crate.metadata.RowGranularity;
@@ -33,14 +34,16 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.junit.Test;
 
+import java.util.ArrayList;
+
 import static io.crate.testing.TestingHelpers.isSQL;
 import static org.hamcrest.Matchers.is;
 
 public class OrderByTest extends CrateUnitTest {
 
-    private static final TableIdent TI =  new TableIdent("doc", "people");
+    private static final TableIdent TI = new TableIdent("doc", "people");
 
-    private Reference ref(String name){
+    private Reference ref(String name) {
         return new Reference(new ReferenceIdent(TI, name), RowGranularity.DOC, DataTypes.STRING);
     }
 
@@ -63,8 +66,31 @@ public class OrderByTest extends CrateUnitTest {
     @Test
     public void testSubset() throws Exception {
         OrderBy orderBy = new OrderBy(ImmutableList.<Symbol>of(
-                ref("a"), ref("b"), ref("c")), new boolean[]{true, false, true}, new Boolean[]{true, null, false});
+            ref("a"), ref("b"), ref("c")), new boolean[]{true, false, true}, new Boolean[]{true, null, false});
         assertThat(orderBy.subset(ImmutableList.of(0, 2)), isSQL("doc.people.a DESC NULLS FIRST, doc.people.c DESC NULLS LAST"));
         assertThat(orderBy.subset(ImmutableList.of(1)), isSQL("doc.people.b"));
+    }
+
+    @Test
+    public void testMerge() throws Exception {
+        OrderBy orderBy1 = new OrderBy(new ArrayList<Symbol>() {{add(ref("a")); add(ref("b")); add(ref("c"));}},
+            new boolean[]{true, false, true}, new Boolean[]{true, null, false});
+        OrderBy orderBy2 = new OrderBy(new ArrayList<Symbol>() {{add(ref("b")); add(ref("c")); add(ref("d"));}},
+            new boolean[]{false, true, false}, new Boolean[]{null, false, null});
+
+        assertThat(orderBy1.merge(orderBy2),
+            isSQL("doc.people.b, doc.people.c DESC NULLS LAST, doc.people.d, doc.people.a DESC NULLS FIRST"));
+    }
+
+    @Test
+    public void testMergeAmbiguous() throws Exception {
+        OrderBy orderBy1 = new OrderBy(new ArrayList<Symbol>() {{add(ref("a"));}},
+            new boolean[]{true}, new Boolean[]{true});
+        OrderBy orderBy2 = new OrderBy(new ArrayList<Symbol>() {{add(ref("a"));}},
+            new boolean[]{false}, new Boolean[]{true});
+
+        expectedException.expect(AmbiguousOrderByException.class);
+        expectedException.expectMessage("is ambiguous");
+        orderBy1.merge(orderBy2);
     }
 }

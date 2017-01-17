@@ -27,7 +27,7 @@ public interface PageDownstream {
 
     /**
      * Called each time the first bucket of a new Page is received.
-     *
+     * <p>
      * After the first call this may only be called again if requested through the listener
      */
     void nextPage(BucketPage page, PageConsumeListener listener);
@@ -39,4 +39,9 @@ public interface PageDownstream {
     void finish();
 
     void fail(Throwable t);
+
+    /**
+     * Kill an PageDownstream and stop execution.
+     */
+    void kill(Throwable t);
 }

@@ -96,11 +96,20 @@ Columns of type string can also be analyzed. See :ref:`sql_ddl_index_fulltext`.
 numeric types
 =============
 
-Crate supports a set of numeric types: ``integer``, ``long``, ``short``, ``double``,
-``float`` and ``byte``. All types have the same ranges as corresponding `Java types`_.
-You can insert any number for any type, be it a ``float``, ``integer``, or ``byte``
-as long as its within the corresponding range.
-Example::
+Crate supports a set of numeric types: ``integer``, ``long``, ``short``,
+``double``, ``float`` and ``byte``.
+
+The ``float`` and ``double`` data types are inexact, variable-precision
+numeric types. It means that these types are stored as an approximation.
+Therefore, storage, calculation, and retrieval of the value will not always
+result in an exact representation of the actual floating-point value.
+For instance, the result of applying ``sum`` or ``avg`` aggregate functions
+may slightly vary between query executions or comparing floating-point values
+for equality might not always be correct.
+
+All types have the same ranges as corresponding `Java types`_. You can insert
+any number for any type, be it a ``float``, ``integer``, or ``byte`` as long
+as its within the corresponding range. Example::
 
     cr> create table my_table3 (
     ...   first_column integer,
@@ -143,14 +152,21 @@ Example::
 timestamp
 =========
 
-The timestamp type is a special type which maps to a formatted string. Internally it maps to
-the UTC milliseconds since 1970-01-01T00:00:00Z stored as ``long``. They are always returned as ``long``.
+The timestamp type is a special type which maps to a formatted string.
+Internally it maps to the UTC milliseconds since 1970-01-01T00:00:00Z stored
+as ``long``. Timestamps are always returned as ``long`` values.
 The default format is dateOptionalTime_ and cannot be changed currently.
 Formatted date strings containing timezone offset information will be converted to UTC.
 Formated string without timezone offset information will be treated as UTC.
 Timestamps will also accept a ``long`` representing UTC milliseconds since the epoch or
 a ``float`` or ``double`` representing UTC seconds since the epoch with milliseconds as
-fractions. Example::
+fractions.
+
+Due to internal date parsing, not the full ``long`` range is supported for
+timestamp values, but only dates between year ``292275054BC`` and ``292278993AD``,
+which is slightly smaller.
+
+Examples::
 
     cr> create table my_table4 (
     ...   id integer,
@@ -185,6 +201,11 @@ fractions. Example::
     cr> insert into my_table4 (id, first_column) values (3, 'wrong');
     SQLActionException[ColumnValidationException: Validation failed for first_column: 'wrong' cannot be cast to type timestamp]
 
+.. note::
+
+    When inserting timestamps smaller than ``-999999999999999`` (equals to
+    ``-29719-04-05T22:13:20.001Z``) or bigger than ``999999999999999`` (equals to
+    ``33658-09-27T01:46:39.999Z``) rouding issues may occur.
 
 .. note::
 
@@ -351,6 +372,8 @@ Alternatively a `WKT`_ string can be used to represent a geo_shape as well::
     using either :ref:`ref-create-table` or :ref:`ref-alter-table`.
 
 
+.. _object_data_type:
+
 object
 ======
 
@@ -487,9 +510,14 @@ but otherwise ignore them.
     cr> drop table my_table15;
     DROP OK, 1 row affected (... sec)
 
-New columns added to ``ignored`` objects can be retrieved as result column in a ``SELECT`` statement,
-but one cannot order by them or use them in a where clause. They are simply there for fetching,
-nothing else.
+.. note::
+
+   ``Ignored`` objects should be mainly used for storing and
+   fetching. Filtering by and ordering on them is possible but very
+   performance intensive. ``Ignored`` objects are a *black box* for
+   the storage engine, so the filtering/ordering is done using an
+   expensive table scan and a filter/order function outside of the
+   storage engine.
 
 .. _data-type-object-literals:
 
@@ -580,29 +608,49 @@ Array types are defined as follows::
     Currently arrays cannot be nested. Something like array(array(string))
     won't work.
 
-Array Literals
---------------
+.. _data-type-array-literals:
 
-Array literals are given in brackets and may contain zero or more elements.
+Array Constructor
+-----------------
 
-Synopsis (literal brackets are given in single quotes)::
+Arrays can be written using the array constructor ``ARRAY[]`` or short ``[]``.
+The array constructor is an expression that accepts both literals and expressions
+as its parameters. Parameters may contain zero or more elements.
 
-    '[' element [ , ... ] ']'
+Synopsis::
 
-Valid elements are literals and parameters.
+    [ ARRAY ] '[' element [ , ... ] ']'
 
-All array elements have to be of the type of the first element,
-which determines the element type. If an array contains no elements, its element
-type will be inferred by the context in which it occurs, if possible.
+All array elements must have the same data type, which determines the inner
+type of the array. If an array contains no elements, its element type will be
+inferred by the context in which it occurs, if possible.
 
-Some Examples::
+Examples
+........
+
+Some valid arrays are::
 
     []
-    [[], []]
-    [1, 2, 3, 4, 5, 6, 7, 8]
     [null]
+    [1, 2, 3, 4, 5, 6, 7, 8]
+    ['Zaphod', 'Ford', 'Arthur']
+    [?]
+    ARRAY[true, false]
+    ARRAY[column_a, column_b]
+    ARRAY[ARRAY[1, 2, 1 + 2], ARRAY[3, 4, 3 + 4]]
+
+
+Array Representation
+....................
+
+Arrays are always represented as zero or more literal elements inside
+square brackets (``[]``), for example::
+
+    [1, 2, 3]
     ['Zaphod', 'Ford', 'Arthur']
 
+
+.. _type_conversion:
 
 Type Conversion
 ===============
@@ -612,11 +660,13 @@ CAST
 
 A type ``cast`` specifies a conversion from one data type to
 another. It will only succeed if the value of the expression is
-convertable to the desired data type, otherwise an error is thrown.
+convertible to the desired data type, otherwise an error is thrown.
+Crate supports two equivalent syntaxes for type casts:
 
 ::
 
    cast(expression as type)
+   expression::type
 
 
 Example usages:
@@ -632,7 +682,7 @@ Example usages:
 
 ::
 
-    cr> select cast((2+10)/2 as string) from sys.nodes limit 1;
+    cr> select (2+10)/2::string;
     +--------------------------------+
     | CAST(((2 + 10) / 2) AS string) |
     +--------------------------------+

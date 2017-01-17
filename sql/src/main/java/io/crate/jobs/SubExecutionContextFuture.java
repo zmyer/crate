@@ -22,11 +22,8 @@
 
 package io.crate.jobs;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.crate.concurrent.CompletionState;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -64,13 +61,9 @@ public class SubExecutionContextFuture implements ListenableFuture<CompletionSta
     public boolean close(@Nullable Throwable t) {
         if (t == null) {
             return internalFuture.set(state);
-        }  else {
+        } else {
             return internalFuture.setException(t);
         }
-    }
-
-    public void addCallback(FutureCallback<? super CompletionState> callback) {
-        Futures.addCallback(internalFuture, callback);
     }
 
     @Override

@@ -35,6 +35,8 @@ import io.crate.metadata.Routing;
 import io.crate.metadata.RowGranularity;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
+import io.crate.operation.projectors.TopN;
+import io.crate.planner.Merge;
 import io.crate.planner.NoopPlan;
 import io.crate.planner.Plan;
 import io.crate.planner.Planner;
@@ -42,39 +44,50 @@ import io.crate.planner.distribution.DistributionInfo;
 import io.crate.planner.node.ddl.ESDeletePartition;
 import io.crate.planner.node.dml.Delete;
 import io.crate.planner.node.dml.ESDelete;
-import io.crate.planner.node.dql.CollectAndMerge;
-import io.crate.planner.node.dql.MergePhase;
+import io.crate.planner.node.dql.Collect;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import io.crate.planner.projection.DeleteProjection;
 import io.crate.planner.projection.MergeCountProjection;
 import io.crate.planner.projection.Projection;
 import io.crate.types.DataTypes;
 import org.elasticsearch.cluster.routing.Preference;
-import org.elasticsearch.common.inject.Singleton;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
-@Singleton
-public class DeleteStatementPlanner {
+public final class DeleteStatementPlanner {
 
-    public Plan planDelete(DeleteAnalyzedStatement analyzedStatement, Planner.Context context) {
+    public static Plan planDelete(DeleteAnalyzedStatement analyzedStatement, Planner.Context context) {
         DocTableRelation tableRelation = analyzedStatement.analyzedRelation();
         List<WhereClause> whereClauses = new ArrayList<>(analyzedStatement.whereClauses().size());
         List<DocKeys.DocKey> docKeys = new ArrayList<>(analyzedStatement.whereClauses().size());
+
+        Map<Integer, Integer> itemToBulkIdx = new HashMap<>();
+        int bulkIdx = -1;
+        int itemIdx = 0;
         for (WhereClause whereClause : analyzedStatement.whereClauses()) {
+            bulkIdx++;
             if (whereClause.noMatch()) {
                 continue;
             }
             if (whereClause.docKeys().isPresent() && whereClause.docKeys().get().size() == 1) {
-                docKeys.add(whereClause.docKeys().get().getOnlyKey());
+                DocKeys.DocKey docKey = whereClause.docKeys().get().getOnlyKey();
+                if (docKey.id() != null) {
+                    docKeys.add(docKey);
+                    itemToBulkIdx.put(itemIdx, bulkIdx);
+                    itemIdx++;
+                }
             } else if (!whereClause.noMatch()) {
                 whereClauses.add(whereClause);
             }
         }
+
         if (!docKeys.isEmpty()) {
-            return new ESDelete(context.jobId(), context.nextExecutionPhaseId(), tableRelation.tableInfo(), docKeys);
+            return new ESDelete(context.jobId(),
+                context.nextExecutionPhaseId(),
+                tableRelation.tableInfo(),
+                docKeys,
+                itemToBulkIdx,
+                analyzedStatement.whereClauses().size());
         } else if (!whereClauses.isEmpty()) {
             return deleteByQuery(tableRelation.tableInfo(), whereClauses, context);
         }
@@ -82,7 +95,7 @@ public class DeleteStatementPlanner {
         return new NoopPlan(context.jobId());
     }
 
-    private Plan deleteByQuery(DocTableInfo tableInfo,
+    private static Plan deleteByQuery(DocTableInfo tableInfo,
                                List<WhereClause> whereClauses,
                                Planner.Context context) {
 
@@ -109,7 +122,7 @@ public class DeleteStatementPlanner {
         return new Delete(planNodes, context.jobId());
     }
 
-    private Plan collectWithDeleteProjection(TableInfo tableInfo,
+    private static Plan collectWithDeleteProjection(TableInfo tableInfo,
                                              WhereClause whereClause,
                                              Planner.Context plannerContext) {
         // for delete, we always need to collect the `_uid`
@@ -117,27 +130,21 @@ public class DeleteStatementPlanner {
             new ReferenceIdent(tableInfo.ident(), "_uid"), RowGranularity.DOC, DataTypes.STRING);
 
         DeleteProjection deleteProjection = new DeleteProjection(
-                new InputColumn(0, DataTypes.STRING));
+            new InputColumn(0, DataTypes.STRING));
 
         Routing routing = plannerContext.allocateRouting(tableInfo, whereClause, Preference.PRIMARY.type());
         RoutedCollectPhase collectPhase = new RoutedCollectPhase(
-                plannerContext.jobId(),
-                plannerContext.nextExecutionPhaseId(),
-                "collect",
-                routing,
-                tableInfo.rowGranularity(),
-                ImmutableList.<Symbol>of(uidReference),
-                ImmutableList.<Projection>of(deleteProjection),
-                whereClause,
-                DistributionInfo.DEFAULT_BROADCAST
+            plannerContext.jobId(),
+            plannerContext.nextExecutionPhaseId(),
+            "collect",
+            routing,
+            tableInfo.rowGranularity(),
+            ImmutableList.<Symbol>of(uidReference),
+            ImmutableList.<Projection>of(deleteProjection),
+            whereClause,
+            DistributionInfo.DEFAULT_BROADCAST
         );
-        MergePhase mergeNode = MergePhase.localMerge(
-                plannerContext.jobId(),
-                plannerContext.nextExecutionPhaseId(),
-                ImmutableList.<Projection>of(MergeCountProjection.INSTANCE),
-                collectPhase.executionNodes().size(),
-                collectPhase.outputTypes()
-        );
-        return new CollectAndMerge(collectPhase, mergeNode);
+        Collect collect = new Collect(collectPhase, TopN.NO_LIMIT, 0, 1, 1, null);
+        return Merge.ensureOnHandler(collect, plannerContext, Collections.singletonList(MergeCountProjection.INSTANCE));
     }
 }

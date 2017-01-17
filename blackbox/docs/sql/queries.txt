@@ -24,11 +24,11 @@ If the '*' operator is used, all columns defined in the schema are returned
 for each row::
 
     cr> select * from locations order by id limit 1 offset 1;
-    +----...-+--------------...-+----+-------------+--...-+--...-+----------+------+
-    | date   | description      | id | information | kind | name | position | race |
-    +----...-+--------------...-+----+-------------+--...-+--...-+----------+------+
-    | 308... | Motivated by ... | 10 |        NULL | P... | A... | 3        | NULL |
-    +----...-+--------------...-+----+-------------+--...-+--...-+----------+------+
+    +----...-+--------------...-+----+-------------+--...-+--...-+----------+------------------...-+
+    | date   | description      | id | information | kind | name | position | race                 |
+    +----...-+--------------...-+----+-------------+--...-+--...-+----------+------------------...-+
+    | 308... | Motivated by ... | 10 |        NULL | P... | A... | 3        | {"description": ...} |
+    +----...-+--------------...-+----+-------------+--...-+--...-+----------+------------------...-+
     SELECT 1 row in set (... sec)
 
 Aliases can be used to change the output name of the columns::
@@ -144,20 +144,32 @@ Comparison Operators
 Usual comparison operators to be used in the where clause are available for
 all simple data types:
 
-    ================  =================================
+    ================  ==================================
     Operator          Description
-    ================  =================================
+    ================  ==================================
     <                 less than
+    ----------------  ----------------------------------
     >                 greater than
+    ----------------  ----------------------------------
     <=                less than or equal to
+    ----------------  ----------------------------------
     >=                greater than or equal to
+    ----------------  ----------------------------------
     =                 equal
+    ----------------  ----------------------------------
     <>                not equal
+    ----------------  ----------------------------------
     !=                not equal - same as <>
+    ----------------  ----------------------------------
     like              matches a part of the given value
+    ----------------  ----------------------------------
     ~                 regular expression match
+    ----------------  ----------------------------------
     !~                negated regular expression match
-    ================  =================================
+    ----------------  ----------------------------------
+    between           ``a BETWEEN x and y``:
+                      shortcut for ``a >= x AND a <= y``
+    ================  ==================================
 
 For strings a lexicographical comparison is performed based on the
 Lucene TermRangeQuery::
@@ -415,16 +427,17 @@ The result type is boolean.
     ==========  ======
     true        false
     false       true
-    null        true
+    null        null
     ==========  ======
 
-.. note::
+.. warning::
 
-   This is not compliant with the SQL standard and doesn't adhere to the
-   three-valued-logic.  According to the standard NOT ( NULL ) should actually
-   return NULL.
-
-
+   CrateDB handles the case of `NOT (NULL)` inconsistently. The above is only true when
+   the `NOT` appears in a `SELECT` clause or a `WHERE` clause that operates on system
+   tables. The result of `NOT (NULL)` in a `WHERE` clause that operates on user tables
+   will produce inconsistent but deterministic results (`NULL` or `TRUE`) depending on the
+   specifics of the clause. This does not adhere to standard SQL three-valued-logic and
+   will be fixed in a future release.
 
 .. _sql_dql_in:
 
@@ -481,13 +494,12 @@ does always return ``NULL`` when comparing ``NULL``.
     | Alpha Centauri                     |
     | Altair                             |
     | Argabuthon                         |
-    | Arkintoofle Minor                  |
     | Galactic Sector QQ7 Active J Gamma |
     | North West Ripple                  |
     | Outer Eastern Rim                  |
     | NULL                               |
     +------------------------------------+
-    SELECT 12 rows in set (... sec)
+    SELECT 11 rows in set (... sec)
 
 ::
 
@@ -516,12 +528,13 @@ does always return ``NULL`` when comparing ``NULL``.
 ::
 
     cr> select name from locations where race['interests'] is not null;
-    +-----------+
-    | name      |
-    +-----------+
-    | Bartledan |
-    +-----------+
-    SELECT 1 row in set (... sec)
+    +-------------------+
+    | name              |
+    +-------------------+
+    | Arkintoofle Minor |
+    | Bartledan         |
+    +-------------------+
+    SELECT 2 rows in set (... sec)
 
 ::
 
@@ -566,10 +579,10 @@ contains an element 'netball'::
     +----------------+-----------------------------------------+
     SELECT 1 row in set (... sec)
 
-It can also be used on array literals::
+It can also be used on arrays::
 
     cr> select name, race['interests'] from locations
-    ... where name = ANY (['Bartledan', 'Algol'])
+    ... where name = ANY(ARRAY['Bartledan', 'Algol'])
     ... order by name asc;
     +-----------+-----------------------------------------+
     | name      | race['interests']                       |
@@ -639,22 +652,22 @@ As you see, the result is the same in this case::
     +----------------+-----------------------------------------+
     | race['name']   | race['interests']                       |
     +----------------+-----------------------------------------+
+    | Minories       | ["baseball", "short stories"]           |
     | Bartledannians | ["netball", "books with 100.000 words"] |
     +----------------+-----------------------------------------+
-    SELECT 1 row in set (... sec)
+    SELECT 2 rows in set (... sec)
 
 Negating the ``=`` query from above is totally different. It can be translated to
 *get all rows where race['interests'] has no value that equals 'netball'*::
 
     cr> select race['name'], race['interests'] from locations
     ... where not 'netball' = ANY(race['interests']) order by race['name'];
-    +--------------+-------------------+
-    | race['name'] | race['interests'] |
-    +--------------+-------------------+
-    | NULL         | NULL              |
-    ...
-    +--------------+-------------------+
-    SELECT 12 rows in set (... sec)
+    +--------------+-------------------------------+
+    | race['name'] | race['interests']             |
+    +--------------+-------------------------------+
+    | Minories     | ["baseball", "short stories"] |
+    +--------------+-------------------------------+
+    SELECT 1 row in set (... sec)
 
 The same behaviour (though different comparison operations involved)
 holds true for operators
@@ -671,6 +684,8 @@ SELECT statements are limited by default to **10000** rows.
 You can expand this limit by using an explicit LIMIT-clause.
 But you are encouraged to make use of a windowing using LIMIT and OFFSET to iterate through all the results
 of a potentially large resultset instead of expanding the default limit.
+
+When using the PostgreSQL wire protocol, there is no implicit **10000** row limit on SELECT statements.
 
 .. _sql_dql_objects:
 
@@ -1104,20 +1119,32 @@ Comparison Operators
 
 The having clause supports the same operators as the :ref:`sql_dql_where_clause`:
 
-    ================  =================================
+    ================  ==================================
     Operator          Description
-    ================  =================================
+    ================  ==================================
     <                 less than
+    ----------------  ----------------------------------
     >                 greater than
+    ----------------  ----------------------------------
     <=                less than or equal to
+    ----------------  ----------------------------------
     >=                greater than or equal to
+    ----------------  ----------------------------------
     =                 equal
+    ----------------  ----------------------------------
     <>                not equal
+    ----------------  ----------------------------------
     !=                not equal - same as <>
+    ----------------  ----------------------------------
     like              matches a part of the given value
+    ----------------  ----------------------------------
     ~                 regular expression match
+    ----------------  ----------------------------------
     !~                negated regular expression match
-    ================  =================================
+    ----------------  ----------------------------------
+    between           ``a BETWEEN x and y``:
+                      shortcut for ``a >= x AND a <= y``
+    ================  ==================================
 
 Predicates
 ~~~~~~~~~~

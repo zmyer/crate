@@ -52,7 +52,7 @@ public class WriterProjector extends AbstractProjector {
     private static final byte NEW_LINE = (byte) '\n';
 
     private final URI uri;
-    private final Set<CollectExpression<Row, ?>> collectExpressions;
+    private final Iterable<CollectExpression<Row, ?>> collectExpressions;
     private final List<Input<?>> inputs;
     private final Map<String, Object> overwrites;
     @Nullable
@@ -62,7 +62,7 @@ public class WriterProjector extends AbstractProjector {
     private Output output;
 
     protected final AtomicLong counter = new AtomicLong();
-    private RowWriter rowWriter;
+    private final RowWriter rowWriter;
 
     /**
      * @param inputs a list of {@link io.crate.operation.Input}.
@@ -76,7 +76,7 @@ public class WriterProjector extends AbstractProjector {
                            String uri,
                            @Nullable WriterProjection.CompressionType compressionType,
                            @Nullable List<Input<?>> inputs,
-                           Set<CollectExpression<Row, ?>> collectExpressions,
+                           Iterable<CollectExpression<Row, ?>> collectExpressions,
                            Map<ColumnIdent, Object> overwrites,
                            @Nullable List<String> outputNames,
                            WriterProjection.OutputFormat outputFormat) {
@@ -98,6 +98,7 @@ public class WriterProjector extends AbstractProjector {
         } else {
             throw new UnsupportedFeatureException(String.format(Locale.ENGLISH, "Unknown scheme '%s'", this.uri.getScheme()));
         }
+        rowWriter = initWriter();
     }
 
     protected static Map<String, Object> toNestedStringObjectMap(Map<ColumnIdent, Object> columnIdentObjectMap) {
@@ -127,7 +128,7 @@ public class WriterProjector extends AbstractProjector {
                         parent.put(currentKey, child);
                         parent = child;
                     } else {
-                        assert o instanceof Map;
+                        assert o instanceof Map : "o must be instance of Map";
                         parent = (Map) o;
                     }
                 }
@@ -137,19 +138,18 @@ public class WriterProjector extends AbstractProjector {
         return nestedMap;
     }
 
-    @Override
-    public void prepare() {
+    private RowWriter initWriter() {
         counter.set(0);
         try {
             if (!overwrites.isEmpty()) {
-                rowWriter = new DocWriter(
-                        output.acquireOutputStream(), collectExpressions, overwrites);
+                return new DocWriter(
+                    output.acquireOutputStream(), collectExpressions, overwrites);
             } else if (outputFormat.equals(WriterProjection.OutputFormat.JSON_ARRAY)) {
-                rowWriter = new ColumnRowWriter(output.acquireOutputStream(), collectExpressions, inputs);
+                return new ColumnRowWriter(output.acquireOutputStream(), collectExpressions, inputs);
             } else if (outputNames != null && outputFormat.equals(WriterProjection.OutputFormat.JSON_OBJECT)) {
-                rowWriter = new ColumnRowObjectWriter(output.acquireOutputStream(), collectExpressions, inputs, outputNames);
+                return new ColumnRowObjectWriter(output.acquireOutputStream(), collectExpressions, inputs, outputNames);
             } else {
-                rowWriter = new RawRowWriter(output.acquireOutputStream());
+                return new RawRowWriter(output.acquireOutputStream());
             }
         } catch (IOException e) {
             throw new UnhandledServerException(String.format(Locale.ENGLISH, "Failed to open output: '%s'", e.getMessage()), e);
@@ -200,12 +200,12 @@ public class WriterProjector extends AbstractProjector {
     static class DocWriter implements RowWriter {
 
         private final OutputStream outputStream;
-        private final Set<CollectExpression<Row, ?>> collectExpressions;
+        private final Iterable<CollectExpression<Row, ?>> collectExpressions;
         private final Map<String, Object> overwrites;
         private final XContentBuilder builder;
 
         public DocWriter(OutputStream outputStream,
-                         Set<CollectExpression<Row, ?>> collectExpressions,
+                         Iterable<CollectExpression<Row, ?>> collectExpressions,
                          Map<String, Object> overwrites) throws IOException {
             this.outputStream = outputStream;
             this.collectExpressions = collectExpressions;
@@ -263,13 +263,13 @@ public class WriterProjector extends AbstractProjector {
 
     static class ColumnRowWriter implements RowWriter {
 
-        private final Set<CollectExpression<Row, ?>> collectExpressions;
+        private final Iterable<CollectExpression<Row, ?>> collectExpressions;
         private final OutputStream outputStream;
         protected final List<Input<?>> inputs;
         protected final XContentBuilder builder;
 
         ColumnRowWriter(OutputStream outputStream,
-                        Set<CollectExpression<Row, ?>> collectExpressions,
+                        Iterable<CollectExpression<Row, ?>> collectExpressions,
                         List<Input<?>> inputs) throws IOException {
             this.outputStream = outputStream;
             this.collectExpressions = collectExpressions;
@@ -310,7 +310,7 @@ public class WriterProjector extends AbstractProjector {
         private final List<String> outputNames;
 
         public ColumnRowObjectWriter(OutputStream outputStream,
-                                     Set<CollectExpression<Row, ?>> collectExpressions,
+                                     Iterable<CollectExpression<Row, ?>> collectExpressions,
                                      List<Input<?>> inputs,
                                      List<String> outputNames) throws IOException {
             super(outputStream, collectExpressions, inputs);

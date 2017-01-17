@@ -24,6 +24,8 @@ package io.crate.breaker;
 import io.crate.planner.node.ExecutionPhase;
 import org.elasticsearch.common.breaker.CircuitBreaker;
 import org.elasticsearch.common.breaker.CircuitBreakingException;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.Loggers;
 
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicLong;
@@ -41,9 +43,11 @@ public class RamAccountingContext {
     private volatile boolean closed = false;
     private volatile boolean tripped = false;
 
+    private static final ESLogger logger = Loggers.getLogger(RamAccountingContext.class);
+
     public static RamAccountingContext forExecutionPhase(CircuitBreaker breaker, ExecutionPhase executionPhase) {
         String ramAccountingContextId = String.format(Locale.ENGLISH, "%s: %d",
-                executionPhase.name(), executionPhase.executionPhaseId());
+            executionPhase.name(), executionPhase.phaseId());
         return new RamAccountingContext(ramAccountingContextId, breaker);
     }
 
@@ -74,7 +78,7 @@ public class RamAccountingContext {
     /**
      * Flush the {@code bytes} to the breaker, incrementing the total
      * bytes and adjusting the buffer.
-
+     *
      * @param bytes long value of bytes to be flushed to the breaker
      * @throws CircuitBreakingException
      */
@@ -115,6 +119,9 @@ public class RamAccountingContext {
         }
         closed = true;
         if (totalBytes.get() != 0) {
+            if (logger.isTraceEnabled() && totalBytes() > FLUSH_BUFFER_SIZE) {
+                logger.trace("context: {} bytes; breaker: {} of {} bytes", totalBytes(), breaker.getUsed(), breaker.getLimit());
+            }
             breaker.addWithoutBreaking(-totalBytes.get());
         }
         totalBytes.addAndGet(flushBuffer.getAndSet(0));

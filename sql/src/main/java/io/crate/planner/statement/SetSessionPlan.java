@@ -22,24 +22,25 @@
 
 package io.crate.planner.statement;
 
-import io.crate.action.sql.SQLOperations;
-import io.crate.planner.Plan;
+import io.crate.action.sql.SessionContext;
 import io.crate.planner.PlanVisitor;
-import org.elasticsearch.common.settings.Settings;
+import io.crate.planner.UnnestablePlan;
+import io.crate.sql.tree.Expression;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-/**
- * A plan with an empty result
- */
-public class SetSessionPlan implements Plan {
+public class SetSessionPlan extends UnnestablePlan {
 
     private final UUID id;
-    private final Settings settings;
+    private final Map<String, List<Expression>> settings;
+    private final SessionContext sessionContext;
 
-    public SetSessionPlan(UUID id, Settings settings) {
+    public SetSessionPlan(UUID id, Map<String, List<Expression>> settings, SessionContext sessionContext) {
         this.id = id;
         this.settings = settings;
+        this.sessionContext = sessionContext;
     }
 
     @Override
@@ -52,7 +53,11 @@ public class SetSessionPlan implements Plan {
         return id;
     }
 
-    public Settings settings() {
+    public Map<String, List<Expression>> settings() {
         return settings;
+    }
+
+    public SessionContext sessionContext() {
+        return sessionContext;
     }
 }

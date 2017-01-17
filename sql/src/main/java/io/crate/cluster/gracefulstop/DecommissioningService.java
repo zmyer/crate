@@ -58,7 +58,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 @Singleton
-public class DecommissioningService extends AbstractLifecycleComponent implements SignalHandler {
+public class DecommissioningService extends AbstractLifecycleComponent implements SignalHandler, ClusterStateListener {
 
     static final String DECOMMISSION_PREFIX = "crate.internal.decommission.";
 
@@ -95,12 +95,6 @@ public class DecommissioningService extends AbstractLifecycleComponent implement
         applySettings.onRefreshSettings(settings);
         nodeSettingsService.addListener(applySettings);
 
-        clusterService.add(new ClusterStateListener() {
-            @Override
-            public void clusterChanged(ClusterChangedEvent event) {
-                removeRemovedNodes(event);
-            }
-        });
         try {
             Signal signal = new Signal("USR2");
             Signal.handle(signal, this);
@@ -125,11 +119,12 @@ public class DecommissioningService extends AbstractLifecycleComponent implement
         Set<String> toRemove = null;
         for (DiscoveryNode discoveryNode : nodesDelta.removedNodes()) {
             Map<String, String> asMap = transientSettings.getByPrefix(DECOMMISSION_PREFIX).getAsMap();
-            if (asMap.containsKey(discoveryNode.id())) {
+            String nodeId = discoveryNode.getId();
+            if (asMap.containsKey(nodeId)) {
                 if (toRemove == null) {
                     toRemove = new HashSet<>();
                 }
-                toRemove.add(DECOMMISSION_PREFIX + discoveryNode.id());
+                toRemove.add(DECOMMISSION_PREFIX + nodeId);
             }
         }
         return toRemove;
@@ -137,6 +132,13 @@ public class DecommissioningService extends AbstractLifecycleComponent implement
 
     @Override
     protected void doStart() {
+        // add listener here to avoid guice proxy errors if the ClusterService could not be build
+        clusterService.add(this);
+    }
+
+    @Override
+    public void clusterChanged(ClusterChangedEvent event) {
+        removeRemovedNodes(event);
     }
 
     private void decommission() {
@@ -149,7 +151,7 @@ public class DecommissioningService extends AbstractLifecycleComponent implement
          * nodeIds are part of the key to prevent conflicts if other nodes are being decommissioned in parallel
          */
         Settings settings = Settings.builder().put(
-            DECOMMISSION_PREFIX + clusterService.localNode().id(), true).build();
+            DECOMMISSION_PREFIX + clusterService.localNode().getId(), true).build();
         updateSettingsAction.execute(new ClusterUpdateSettingsRequest().transientSettings(settings), new ActionListener<ClusterUpdateSettingsResponse>() {
             @Override
             public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
@@ -226,12 +228,13 @@ public class DecommissioningService extends AbstractLifecycleComponent implement
 
     @VisibleForTesting
     protected void removeDecommissioningSetting() {
-        HashSet<String> settingsToRemove = Sets.newHashSet(DECOMMISSION_PREFIX + clusterService.localNode().id());
+        HashSet<String> settingsToRemove = Sets.newHashSet(DECOMMISSION_PREFIX + clusterService.localNode().getId());
         updateSettingsAction.execute(new ClusterUpdateSettingsRequest().transientSettingsToRemove(settingsToRemove));
     }
 
     @Override
     protected void doStop() {
+        clusterService.remove(this);
     }
 
     @Override

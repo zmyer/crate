@@ -40,7 +40,6 @@ public class ProjectorChainContext extends AbstractExecutionSubContext {
 
     private final String name;
     private final RowReceiver rowReceiver;
-    private final FlatProjectorChain projectorChain;
 
     public ProjectorChainContext(int id,
                                  String name,
@@ -63,12 +62,12 @@ public class ProjectorChainContext extends AbstractExecutionSubContext {
                 ProjectorChainContext.this.close(t);
             }
         });
-        projectorChain = FlatProjectorChain.withAttachedDownstream(
-                projectorFactory,
-                ramAccountingContext,
-                projections,
-                listenableRowReceiver,
-                jobId
+        FlatProjectorChain projectorChain = FlatProjectorChain.withAttachedDownstream(
+            projectorFactory,
+            ramAccountingContext,
+            projections,
+            listenableRowReceiver,
+            jobId
         );
         this.rowReceiver = projectorChain.firstProjector();
     }
@@ -76,11 +75,6 @@ public class ProjectorChainContext extends AbstractExecutionSubContext {
     @Override
     protected void innerKill(@Nonnull Throwable t) {
         rowReceiver.kill(t);
-    }
-
-    @Override
-    public void innerPrepare() {
-        projectorChain.prepare();
     }
 
     @Override

@@ -22,6 +22,8 @@
 
 package io.crate.module;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.ClusterIdService;
 import io.crate.Version;
@@ -91,12 +93,17 @@ public class CrateCoreModule extends AbstractModule {
             encounter.register(new InjectionListener<I>() {
                 @Override
                 public void afterInjection(I injectee) {
-                    try {
-                        CrateRestMainAction crateRestMainAction = instanceFuture.get(10, TimeUnit.SECONDS);
-                        crateRestMainAction.registerHandler();
-                    } catch (Exception e) {
-                        logger.error("Could not register CrateRestMainAction handler", e);
-                    }
+                    Futures.addCallback(instanceFuture, new FutureCallback<CrateRestMainAction>() {
+                        @Override
+                        public void onSuccess(CrateRestMainAction result) {
+                            result.registerHandler();
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t) {
+                            logger.error("Could not register CrateRestMainAction handler", t);
+                        }
+                    });
                 }
             });
         }
@@ -130,7 +137,7 @@ public class CrateCoreModule extends AbstractModule {
             encounter.register(new InjectionListener<I>() {
                 @Override
                 public void afterInjection(I injectee) {
-                    instanceFuture.set((CrateRestMainAction)injectee);
+                    instanceFuture.set((CrateRestMainAction) injectee);
                 }
             });
         }

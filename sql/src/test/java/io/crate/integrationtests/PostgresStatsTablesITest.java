@@ -45,16 +45,17 @@ public class PostgresStatsTablesITest extends SQLTransportIntegrationTest {
     protected Settings nodeSettings(int nodeOrdinal) {
         Settings.Builder builder = Settings.builder();
         return builder.put(super.nodeSettings(nodeOrdinal))
-            .put("psql.enabled", true)
             .put("psql.port", "4244")
             .put("network.host", "127.0.0.1").build();
     }
 
     @Before
     public void initDriverAndStats() throws Exception {
-        Class.forName("org.postgresql.Driver");
         try (Connection conn = DriverManager.getConnection(JDBC_POSTGRESQL_URL)) {
-            conn.createStatement().execute("set global stats.enabled=true");
+            conn.createStatement().execute("set global stats.enabled = true");
+            ResultSet rs = conn.createStatement().executeQuery("select stmt from sys.jobs");
+            assertTrue("sys.jobs must contain statement", rs.next());
+            assertEquals(rs.getString(1), "select stmt from sys.jobs");
         }
     }
 
@@ -62,6 +63,8 @@ public class PostgresStatsTablesITest extends SQLTransportIntegrationTest {
     public void resetStats() throws Exception {
         try (Connection conn = DriverManager.getConnection(JDBC_POSTGRESQL_URL)) {
             conn.createStatement().execute("reset global stats.enabled");
+            ResultSet rs = conn.createStatement().executeQuery("select stmt from sys.jobs");
+            assertFalse("sys.jobs must not contain entries", rs.next());
         }
     }
 
@@ -76,7 +79,7 @@ public class PostgresStatsTablesITest extends SQLTransportIntegrationTest {
             final String stmtStrWhere = "select name, ''" + uniqueId + "'' from sys.cluster";
 
             conn.prepareStatement(stmtStr).execute();
-            assertJobLogContains(conn, new String[] {stmtStr}, new String[] {stmtStrWhere}, false);
+            assertJobLogContains(conn, new String[]{stmtStr}, new String[]{stmtStrWhere}, false);
         }
     }
 
@@ -97,11 +100,11 @@ public class PostgresStatsTablesITest extends SQLTransportIntegrationTest {
             statement.addBatch(stmtStr1);
             statement.addBatch(stmtStr2);
             int[] results = statement.executeBatch();
-            assertThat(results, is(new int[] {1, 1}));
+            assertThat(results, is(new int[]{1, 1}));
 
             assertJobLogContains(conn,
-                new String[] {stmtStr1, stmtStr2},
-                new String[] {stmtStr1Where, stmtStr2Where},
+                new String[]{stmtStr1, stmtStr2},
+                new String[]{stmtStr1Where, stmtStr2Where},
                 false);
         }
     }
@@ -110,7 +113,7 @@ public class PostgresStatsTablesITest extends SQLTransportIntegrationTest {
     public void testStatsTableFailure() throws Exception {
         try (Connection conn = DriverManager.getConnection(JDBC_POSTGRESQL_URL)) {
             conn.setAutoCommit(true);
-            conn.createStatement().executeUpdate("create table t (a integer not null, b string) "+
+            conn.createStatement().executeUpdate("create table t (a integer not null, b string) " +
                                                  "with (number_of_replicas = 0)");
             ensureGreen();
 
@@ -121,7 +124,7 @@ public class PostgresStatsTablesITest extends SQLTransportIntegrationTest {
                 conn.prepareStatement(stmtStr).execute();
                 fail("NOT NULL constraint is not respected");
             } catch (Exception e) {
-                assertJobLogContains(conn, new String[] {stmtStr}, new String[] {stmtStrWhere}, true);
+                assertJobLogContains(conn, new String[]{stmtStr}, new String[]{stmtStrWhere}, true);
             }
         }
     }
@@ -152,12 +155,12 @@ public class PostgresStatsTablesITest extends SQLTransportIntegrationTest {
                 fail("NOT NULL constraint is not respected");
             } catch (Exception e) {
                 assertJobLogContains(conn,
-                    new String[] {stmtStr1, stmtStr3},
-                    new String[] {stmtStr1Where, stmtStr3Where},
+                    new String[]{stmtStr1, stmtStr3},
+                    new String[]{stmtStr1Where, stmtStr3Where},
                     false);
                 assertJobLogContains(conn,
-                    new String[] {stmtStr2},
-                    new String[] {stmtStr2Where},
+                    new String[]{stmtStr2},
+                    new String[]{stmtStr2Where},
                     true);
             }
         }

@@ -21,7 +21,7 @@
 
 package io.crate.operation.scalar.regex;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import io.crate.analyze.symbol.Function;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
@@ -35,13 +35,19 @@ import org.apache.lucene.util.BytesRef;
 
 import java.util.List;
 
-public class ReplaceFunction extends Scalar<BytesRef, Object> implements DynamicFunctionResolver {
+public class ReplaceFunction extends Scalar<BytesRef, Object> implements FunctionResolver {
 
     public static final String NAME = "regexp_replace";
+
+    private static final List<Signature> SIGNATURES = ImmutableList.<Signature>builder()
+        .add(new Signature(DataTypes.STRING, DataTypes.STRING, DataTypes.STRING))
+        .add(new Signature(DataTypes.STRING, DataTypes.STRING, DataTypes.STRING, DataTypes.STRING))
+        .build();
 
     private static FunctionInfo createInfo(List<DataType> types) {
         return new FunctionInfo(new FunctionIdent(NAME, types), DataTypes.STRING);
     }
+
     public static void register(ScalarFunctionModule module) {
         module.register(NAME, new ReplaceFunction());
     }
@@ -52,7 +58,7 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
     private ReplaceFunction() {
     }
 
-    public ReplaceFunction(FunctionInfo info) {
+    private ReplaceFunction(FunctionInfo info) {
         this.info = info;
     }
 
@@ -62,9 +68,9 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
     }
 
     @Override
-    public Symbol normalizeSymbol(Function symbol, StmtCtx stmtCtx) {
+    public Symbol normalizeSymbol(Function symbol, TransactionContext transactionContext) {
         final int size = symbol.arguments().size();
-        assert (size >= 3 && size <= 4);
+        assert size == 3 || size == 4 : "function's number of arguments must be 3 or 4";
 
         if (anyNonLiterals(symbol.arguments())) {
             return symbol;
@@ -86,14 +92,14 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
         args[2] = (Input) replacement;
 
         if (size == 4) {
-            args[3] = (Input)symbol.arguments().get(3);
+            args[3] = (Input) symbol.arguments().get(3);
         }
-        return Literal.newLiteral(evaluate(args));
+        return Literal.of(evaluate(args));
     }
 
     @Override
     public Scalar<BytesRef, Object> compile(List<Symbol> arguments) {
-        assert arguments.size() >= 3;
+        assert arguments.size() >= 3 : "number of arguments muts be > 3";
         String pattern = null;
         if (arguments.get(1).symbolType() == SymbolType.LITERAL) {
             Literal literal = (Literal) arguments.get(1);
@@ -105,7 +111,8 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
         }
         BytesRef flags = null;
         if (arguments.size() == 4) {
-            assert arguments.get(3).symbolType() == SymbolType.LITERAL;
+            assert arguments.get(3).symbolType() == SymbolType.LITERAL
+                : "4th argument must be of type " + SymbolType.LITERAL;
             flags = (BytesRef) ((Literal) arguments.get(2)).value();
         }
 
@@ -119,7 +126,7 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
 
     @Override
     public BytesRef evaluate(Input[] args) {
-        assert (args.length >= 3 && args.length <= 4);
+        assert args.length == 3 || args.length == 4 : "number of args must be 3 or 4";
         Object val = args[0].value();
         Object patternValue = args[1].value();
         Object replacementValue = args[2].value();
@@ -152,16 +159,12 @@ public class ReplaceFunction extends Scalar<BytesRef, Object> implements Dynamic
     }
 
     @Override
-    public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-        Preconditions.checkArgument(dataTypes.size() >= 3 && dataTypes.size() <= 4);
-        Preconditions.checkArgument(dataTypes.get(0) == DataTypes.STRING, "source argument must be of type string");
-        Preconditions.checkArgument(dataTypes.get(1) == DataTypes.STRING, "pattern argument must be of type string");
-        Preconditions.checkArgument(dataTypes.get(2) == DataTypes.STRING, "replace argument must be of type string");
-        if (dataTypes.size() == 4) {
-            Preconditions.checkArgument(dataTypes.get(3) == DataTypes.STRING, "flags must be of type string");
-        }
+    public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
         return new ReplaceFunction(createInfo(dataTypes));
     }
 
-
+    @Override
+    public List<Signature> signatures() {
+        return SIGNATURES;
+    }
 }

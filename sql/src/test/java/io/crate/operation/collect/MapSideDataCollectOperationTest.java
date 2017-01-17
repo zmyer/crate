@@ -23,14 +23,13 @@ package io.crate.operation.collect;
 
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
-import io.crate.metadata.*;
+import io.crate.metadata.ColumnIdent;
+import io.crate.metadata.Functions;
 import io.crate.operation.collect.files.FileInputFactory;
 import io.crate.operation.collect.sources.CollectSourceResolver;
 import io.crate.operation.collect.sources.FileCollectSource;
-import io.crate.operation.reference.sys.node.local.NodeSysExpression;
 import io.crate.planner.node.dql.FileUriCollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
-import io.crate.planner.projection.Projection;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.CollectingRowReceiver;
 import io.crate.types.DataTypes;
@@ -43,7 +42,9 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
@@ -71,52 +72,42 @@ public class MapSideDataCollectOperationTest extends CrateUnitTest {
     public void testFileUriCollect() throws Exception {
         ClusterService clusterService = new NoopClusterService();
         Functions functions = getFunctions();
-        NestedReferenceResolver referenceResolver = new NestedReferenceResolver() {
-            @Override
-            public ReferenceImplementation getImplementation(Reference referenceInfo) {
-                return null;
-            }
-        };
         CollectSourceResolver collectSourceResolver = mock(CollectSourceResolver.class);
         when(collectSourceResolver.getService(any(RoutedCollectPhase.class)))
-                .thenReturn(new FileCollectSource(functions, clusterService, Collections.<String, FileInputFactory>emptyMap()));
+            .thenReturn(new FileCollectSource(functions, clusterService, Collections.<String, FileInputFactory>emptyMap()));
         MapSideDataCollectOperation collectOperation = new MapSideDataCollectOperation(
-                functions,
-                referenceResolver,
-                mock(NodeSysExpression.class),
-                collectSourceResolver,
-                threadPool
+            collectSourceResolver,
+            threadPool
         );
         File tmpFile = temporaryFolder.newFile("fileUriCollectOperation.json");
-        try (FileWriter writer = new FileWriter(tmpFile)) {
+        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(tmpFile), StandardCharsets.UTF_8)) {
             writer.write("{\"name\": \"Arthur\", \"id\": 4, \"details\": {\"age\": 38}}\n");
             writer.write("{\"id\": 5, \"name\": \"Trillian\", \"details\": {\"age\": 33}}\n");
         }
 
         FileUriCollectPhase collectNode = new FileUriCollectPhase(
-                UUID.randomUUID(),
-                0,
-                "test",
-                Collections.singletonList("noop_id"),
-                Literal.newLiteral(Paths.get(tmpFile.toURI()).toUri().toString()),
-                Arrays.<Symbol>asList(
-                        createReference("name", DataTypes.STRING),
-                        createReference(new ColumnIdent("details", "age"), DataTypes.INTEGER)
-                ),
-                Arrays.<Projection>asList(),
-                null,
-                false
+            UUID.randomUUID(),
+            0,
+            "test",
+            Collections.singletonList("noop_id"),
+            Literal.of(Paths.get(tmpFile.toURI()).toUri().toString()),
+            Arrays.<Symbol>asList(
+                createReference("name", DataTypes.STRING),
+                createReference(new ColumnIdent("details", "age"), DataTypes.INTEGER)
+            ),
+            Collections.emptyList(),
+            null,
+            false
         );
         String threadPoolName = JobCollectContext.threadPoolName(collectNode, "noop_id");
 
         CollectingRowReceiver cd = new CollectingRowReceiver();
-        cd.prepare();
         JobCollectContext jobCollectContext = mock(JobCollectContext.class);
         Collection<CrateCollector> collectors = collectOperation.createCollectors(collectNode, cd, jobCollectContext);
         collectOperation.launchCollectors(collectors, threadPoolName);
         assertThat(cd.result(), contains(
-                isRow("Arthur", 38),
-                isRow("Trillian", 33)
+            isRow("Arthur", 38),
+            isRow("Trillian", 33)
         ));
     }
 }

@@ -28,17 +28,15 @@ import io.crate.operation.AggregationContext;
 import io.crate.operation.aggregation.Aggregator;
 import io.crate.operation.collect.CollectExpression;
 
-import java.util.Set;
-
 public class AggregationPipe extends AbstractProjector {
 
     private final Aggregator[] aggregators;
-    private final Set<CollectExpression<Row, ?>> collectExpressions;
+    private final Iterable<CollectExpression<Row, ?>> collectExpressions;
     private final Object[] cells;
     private final Row row;
     private final Object[] states;
 
-    public AggregationPipe(Set<CollectExpression<Row, ?>> collectExpressions,
+    public AggregationPipe(Iterable<CollectExpression<Row, ?>> collectExpressions,
                            AggregationContext[] aggregations,
                            RamAccountingContext ramAccountingContext) {
         cells = new Object[aggregations.length];
@@ -48,10 +46,10 @@ public class AggregationPipe extends AbstractProjector {
         aggregators = new Aggregator[aggregations.length];
         for (int i = 0; i < aggregators.length; i++) {
             aggregators[i] = new Aggregator(
-                    ramAccountingContext,
-                    aggregations[i].symbol(),
-                    aggregations[i].function(),
-                    aggregations[i].inputs()
+                ramAccountingContext,
+                aggregations[i].symbol(),
+                aggregations[i].function(),
+                aggregations[i].inputs()
             );
             // prepareState creates the aggregationState. In case of the AggregationProjector
             // we only want to have 1 global state not 1 state per node/shard or even document.

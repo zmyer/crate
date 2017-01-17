@@ -46,13 +46,13 @@ public class MetaDataModule extends AbstractModule {
 
     protected void bindFunctions() {
         functionBinder = MapBinder.newMapBinder(binder(), FunctionIdent.class, FunctionImplementation.class);
-        MapBinder.newMapBinder(binder(), String.class, DynamicFunctionResolver.class);
+        MapBinder.newMapBinder(binder(), String.class, FunctionResolver.class);
         MapBinder.newMapBinder(binder(), String.class, TableFunctionImplementation.class);
         bind(Functions.class).asEagerSingleton();
     }
 
     protected void bindSchemas() {
         schemaBinder = MapBinder.newMapBinder(binder(), String.class, SchemaInfo.class);
-        bind(Schemas.class).to(ReferenceInfos.class).asEagerSingleton();
+        bind(Schemas.class).asEagerSingleton();
     }
 }

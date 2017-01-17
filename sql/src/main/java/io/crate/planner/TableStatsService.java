@@ -25,50 +25,62 @@ package io.crate.planner;
 
 import com.carrotsearch.hppc.ObjectLongHashMap;
 import com.carrotsearch.hppc.ObjectLongMap;
-import io.crate.action.sql.SQLRequest;
-import io.crate.action.sql.SQLResponse;
-import io.crate.action.sql.TransportSQLAction;
+import com.google.common.annotations.VisibleForTesting;
+import io.crate.action.sql.BaseResultReceiver;
+import io.crate.action.sql.Option;
+import io.crate.action.sql.SQLOperations;
+import io.crate.core.collections.Row;
 import io.crate.metadata.TableIdent;
-import org.elasticsearch.action.ActionListener;
+import io.crate.metadata.settings.CrateSettings;
+import io.crate.types.DataType;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.common.component.AbstractComponent;
-import org.elasticsearch.common.inject.BindingAnnotation;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Provider;
 import org.elasticsearch.common.inject.Singleton;
+import org.elasticsearch.common.lucene.BytesRefs;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.node.settings.NodeSettingsService;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Singleton
-public class TableStatsService extends AbstractComponent implements Runnable {
+public class TableStatsService extends AbstractComponent implements NodeSettingsService.Listener, Runnable {
 
-    private static final SQLRequest REQUEST = new SQLRequest(
-            "select cast(sum(num_docs) as long), schema_name, table_name from sys.shards group by 2, 3");
+    static final String UNNAMED = "";
+    static final int DEFAULT_SOFT_LIMIT = 10_000;
+    static final String STMT =
+        "select cast(sum(num_docs) as long), schema_name, table_name from sys.shards group by 2, 3";
+
     private final ClusterService clusterService;
-    private final Provider<TransportSQLAction> transportSQLAction;
+    private final Provider<SQLOperations> sqlOperationsProvider;
+    private final ThreadPool threadPool;
     private volatile ObjectLongMap<TableIdent> tableStats = null;
-
-    @BindingAnnotation
-    @Target({ ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD })
-    @Retention(RetentionPolicy.RUNTIME)
-    public @interface StatsUpdateInterval {}
+    private TimeValue initialRefreshInterval;
+    @VisibleForTesting
+    ThreadPool.Cancellable refreshScheduledTask = null;
+    @VisibleForTesting
+    TimeValue lastRefreshInterval;
 
     @Inject
     public TableStatsService(Settings settings,
                              ThreadPool threadPool,
                              ClusterService clusterService,
-                             @StatsUpdateInterval TimeValue updateInterval,
-                             Provider<TransportSQLAction> transportSQLAction) {
+                             NodeSettingsService nodeSettingsService,
+                             Provider<SQLOperations> sqlOperationsProvider) {
         super(settings);
+        this.threadPool = threadPool;
         this.clusterService = clusterService;
-        this.transportSQLAction = transportSQLAction;
-        threadPool.scheduleWithFixedDelay(this, updateInterval);
+        this.sqlOperationsProvider = sqlOperationsProvider;
+        initialRefreshInterval = extractRefreshInterval(settings);
+        lastRefreshInterval = initialRefreshInterval;
+        refreshScheduledTask = scheduleRefresh(initialRefreshInterval);
+        nodeSettingsService.addListener(this);
     }
 
     @Override
@@ -78,40 +90,59 @@ public class TableStatsService extends AbstractComponent implements Runnable {
 
     private void updateStats() {
         if (clusterService.localNode() == null) {
-            /**
-             * During a long startup (e.g. during an upgrade process) the localNode() may be null
-             * and this would lead to NullPointerException in the TransportExecutor.
+            /*
+              During a long startup (e.g. during an upgrade process) the localNode() may be null
+              and this would lead to NullPointerException in the TransportExecutor.
              */
             logger.debug("Could not retrieve table stats. localNode is not fully available yet.");
             return;
         }
-        transportSQLAction.get().execute(
-                REQUEST,
-                new ActionListener<SQLResponse>() {
 
-                    @Override
-                    public void onResponse(SQLResponse sqlResponse) {
-                        tableStats = statsFromResponse(sqlResponse);
-                    }
-
-                    @Override
-                    public void onFailure(Throwable e) {
-                        logger.error("error retrieving table stats", e);
-                    }
-                });
+        SQLOperations.Session session =
+            sqlOperationsProvider.get().createSession("sys", Option.NONE, DEFAULT_SOFT_LIMIT);
+        try {
+            session.parse(UNNAMED, STMT, Collections.<DataType>emptyList());
+            session.bind(UNNAMED, UNNAMED, Collections.emptyList(), null);
+            session.execute(UNNAMED, 0, new TableStatsResultReceiver());
+            session.sync();
+        } catch (Throwable t) {
+            logger.error("error retrieving table stats", t);
+        }
     }
 
-    private static ObjectLongMap<TableIdent> statsFromResponse(SQLResponse sqlResponse) {
-        ObjectLongMap<TableIdent> newStats = new ObjectLongHashMap<>((int) sqlResponse.rowCount());
-        for (Object[] row : sqlResponse.rows()) {
-            newStats.put(new TableIdent((String) row[1], (String) row[2]), (long) row[0]);
+    class TableStatsResultReceiver extends BaseResultReceiver {
+
+        private final List<Object[]> rows = new ArrayList<>();
+
+        @Override
+        public void setNextRow(Row row) {
+            rows.add(row.materialize());
+        }
+
+        @Override
+        public void allFinished() {
+            tableStats = statsFromRows(rows);
+            super.allFinished();
+        }
+
+        @Override
+        public void fail(@Nonnull Throwable t) {
+            logger.error("error retrieving table stats", t);
+            super.fail(t);
+        }
+    }
+
+    ObjectLongMap<TableIdent> statsFromRows(List<Object[]> rows) {
+        ObjectLongMap<TableIdent> newStats = new ObjectLongHashMap<>(rows.size());
+        for (Object[] row : rows) {
+            newStats.put(new TableIdent(BytesRefs.toString(row[1]), BytesRefs.toString(row[2])), (long) row[0]);
         }
         return newStats;
     }
 
     /**
      * Returns the number of docs a table has.
-     *
+     * <p>
      * <p>
      * The returned number isn't an accurate real-time value but a cached value that is periodically updated
      * </p>
@@ -124,4 +155,31 @@ public class TableStatsService extends AbstractComponent implements Runnable {
         }
         return -1;
     }
+
+    @Override
+    public void onRefreshSettings(Settings settings) {
+        TimeValue newRefreshInterval = extractRefreshInterval(settings);
+        if (!newRefreshInterval.equals(lastRefreshInterval)) {
+            if (refreshScheduledTask != null) {
+                refreshScheduledTask.cancel();
+            }
+            refreshScheduledTask = scheduleRefresh(newRefreshInterval);
+            lastRefreshInterval = newRefreshInterval;
+        }
+    }
+
+    private ThreadPool.Cancellable scheduleRefresh(TimeValue newRefreshInterval) {
+        if (newRefreshInterval.millis() > 0) {
+            return threadPool.scheduleWithFixedDelay(
+                this,
+                newRefreshInterval,
+                ThreadPool.Names.REFRESH);
+        }
+        return null;
+    }
+
+    private TimeValue extractRefreshInterval(Settings settings) {
+        return CrateSettings.STATS_SERVICE_REFRESH_INTERVAL.extractTimeValue(settings, initialRefreshInterval);
+    }
 }
+

@@ -24,14 +24,24 @@ package io.crate.testing;
 import com.carrotsearch.randomizedtesting.RandomizedContext;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import io.crate.action.sql.*;
+import io.crate.analyze.symbol.Field;
+import io.crate.core.collections.Row;
+import io.crate.exceptions.Exceptions;
+import io.crate.executor.BytesRefUtils;
 import io.crate.protocols.postgres.types.PGType;
 import io.crate.protocols.postgres.types.PGTypes;
+import io.crate.shade.org.postgresql.util.PGobject;
+import io.crate.shade.org.postgresql.util.PSQLException;
+import io.crate.shade.org.postgresql.util.ServerErrorMessage;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.elasticsearch.ElasticsearchTimeoutException;
 import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionFuture;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.support.AdapterActionFuture;
 import org.elasticsearch.client.Client;
@@ -47,8 +57,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.rest.RestStatus;
 import org.hamcrest.Matchers;
-import org.postgresql.util.PGobject;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -57,6 +67,7 @@ import java.sql.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static io.crate.action.sql.SQLOperations.Session.UNNAMED;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertThat;
 
@@ -64,8 +75,10 @@ public class SQLTransportExecutor {
 
     private static final String SQL_REQUEST_TIMEOUT = "CRATE_TESTS_SQL_REQUEST_TIMEOUT";
 
+    public final static int DEFAULT_SOFT_LIMIT = 10_000;
+
     public static final TimeValue REQUEST_TIMEOUT = new TimeValue(Long.parseLong(
-            MoreObjects.firstNonNull(System.getenv(SQL_REQUEST_TIMEOUT), "5")), TimeUnit.SECONDS);
+        MoreObjects.firstNonNull(System.getenv(SQL_REQUEST_TIMEOUT), "5")), TimeUnit.SECONDS);
 
     private static final ESLogger LOGGER = Loggers.getLogger(SQLTransportExecutor.class);
     private final ClientProvider clientProvider;
@@ -75,49 +88,43 @@ public class SQLTransportExecutor {
     }
 
     public SQLResponse exec(String statement) {
-        return exec(new SQLRequest(statement));
+        return exec(statement, null, REQUEST_TIMEOUT);
     }
 
     public SQLResponse exec(String statement, Object... params) {
-        return exec(new SQLRequest(statement, params));
+        return exec(statement, params, REQUEST_TIMEOUT);
     }
 
-    public SQLResponse exec(String statement, Object[] params, TimeValue timeout) {
-        return exec(new SQLRequest(statement, params), timeout);
+    public SQLBulkResponse execBulk(String statement, @Nullable  Object[][] bulkArgs) {
+        return executeBulk(statement, bulkArgs, REQUEST_TIMEOUT);
     }
 
-    public SQLBulkResponse execBulk(String statement, Object[][] bulkArgs) {
-        return exec(new SQLBulkRequest(statement, bulkArgs), REQUEST_TIMEOUT);
+    public SQLBulkResponse execBulk(String statement, @Nullable  Object[][] bulkArgs, TimeValue timeout) {
+        return executeBulk(statement, bulkArgs, timeout);
     }
 
-    public SQLBulkResponse execBulk(String statement, Object[][] bulkArgs, TimeValue timeout) {
-        return exec(new SQLBulkRequest(statement, bulkArgs), timeout);
-    }
-
-    public SQLResponse exec(SQLRequest request) {
-        return exec(request, REQUEST_TIMEOUT);
-    }
-
-    public SQLResponse exec(SQLRequest request, TimeValue timeout) {
+    private SQLResponse exec(String stmt, @Nullable Object[] args, TimeValue timeout) {
         String pgUrl = clientProvider.pgUrl();
         Random random = RandomizedContext.current().getRandom();
-        if (pgUrl != null && random.nextBoolean() && isJdbcCompatible()) {
-            return executeWithPg(request, pgUrl, random);
+        if (pgUrl != null && isJdbcEnabled()) {
+            LOGGER.trace("Executing with pgJDBC: {}", stmt);
+            return executeWithPg(stmt, args, pgUrl, random);
         }
         try {
-            return execute(request).actionGet(timeout);
+            return execute(stmt, args).actionGet(timeout);
         } catch (ElasticsearchTimeoutException e) {
-            LOGGER.error("Timeout on SQL statement: {}", e, request.stmt());
+            LOGGER.error("Timeout on SQL statement: {}", e, stmt);
             throw e;
         }
     }
 
     /**
-     * @return true if a class or method in the stacktrace contains a @UseJdbc(true) annotation.
-     *
+     * @return true if a class or method in the stacktrace contains a @UseJdbc annotation
+     * and based on the ration provided
+     * <p>
      * Method annotations have higher priority than class annotations.
      */
-    private boolean isJdbcCompatible() {
+    private boolean isJdbcEnabled() {
         StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
         for (StackTraceElement element : stackTrace) {
             try {
@@ -130,28 +137,134 @@ public class SQLTransportExecutor {
                         continue;
                     }
                 }
-                return annotation.value();
+                double ratio = annotation.value();
+                assert ratio >= 0.0 && ratio <= 1.0;
+                if (ratio == 0) {
+                    return false;
+                }
+                if (ratio == 1) {
+                    return true;
+                }
+                return RandomizedContext.current().getRandom().nextDouble() < ratio;
             } catch (NoSuchMethodException | ClassNotFoundException ignored) {
             }
         }
         return false;
     }
 
-    private SQLResponse executeWithPg(SQLRequest request, String pgUrl, Random random) {
+
+    public ActionFuture<SQLResponse> execute(String stmt, @Nullable Object[] args) {
+        return execute(stmt, args, clientProvider.sqlOperations().createSession(
+            null,
+            Option.NONE,
+            DEFAULT_SOFT_LIMIT
+        ));
+    }
+
+    public static ActionFuture<SQLResponse>  execute(String stmt, @Nullable Object[] args, SQLOperations.Session session) {
+        final AdapterActionFuture<SQLResponse, SQLResponse> actionFuture = new TestTransportActionFuture<>();
+        execute(stmt, args, actionFuture, session);
+        return actionFuture;
+    }
+
+    private static void execute(String stmt, @Nullable Object[] args, ActionListener<SQLResponse> listener,
+                                SQLOperations.Session session) {
+        try {
+            session.parse(UNNAMED, stmt, Collections.<DataType>emptyList());
+            List<Object> argsList = args == null ? Collections.emptyList() : Arrays.asList(args);
+            session.bind(UNNAMED, UNNAMED, argsList, null);
+            List<Field> outputFields = session.describe('P', UNNAMED);
+            if (outputFields == null) {
+                ResultReceiver resultReceiver = new RowCountReceiver(listener);
+                session.execute(UNNAMED, 1, resultReceiver);
+            } else {
+                ResultReceiver resultReceiver = new ResultSetReceiver(listener, outputFields);
+                session.execute(UNNAMED, 0, resultReceiver);
+            }
+            session.sync();
+        } catch (Throwable t) {
+            listener.onFailure(Exceptions.createSQLActionException(t));
+        }
+    }
+
+    private void execute(String stmt, @Nullable  Object[][] bulkArgs, final ActionListener<SQLBulkResponse> listener) {
+        SQLOperations.Session session = clientProvider.sqlOperations().createSession(
+            null,
+            Option.NONE,
+            DEFAULT_SOFT_LIMIT
+        );
+        try {
+            session.parse(UNNAMED, stmt, Collections.<DataType>emptyList());
+            if (bulkArgs == null) {
+                bulkArgs = new Object[0][];
+            }
+            final SQLBulkResponse.Result[] results = new SQLBulkResponse.Result[bulkArgs.length];
+            if (results.length == 0) {
+                session.bind(UNNAMED, UNNAMED, Collections.emptyList(), null);
+                session.execute(UNNAMED, 1, new BaseResultReceiver());
+            } else {
+                for (int i = 0; i < bulkArgs.length; i++) {
+                    session.bind(UNNAMED, UNNAMED, Arrays.asList(bulkArgs[i]), null);
+                    ResultReceiver resultReceiver = new BulkRowCountReceiver(results, i);
+                    session.execute(UNNAMED, 1, resultReceiver);
+                }
+            }
+            List<Field> outputColumns = session.describe('P', UNNAMED);
+            if (outputColumns != null) {
+                throw new UnsupportedOperationException(
+                    "Bulk operations for statements that return result sets is not supported");
+            }
+            Futures.addCallback(session.sync(), new FutureCallback<Object>() {
+                @Override
+                public void onSuccess(@Nullable Object result) {
+                    listener.onResponse(new SQLBulkResponse(results));
+                }
+
+                @Override
+                public void onFailure(@Nonnull Throwable t) {
+                    listener.onFailure(Exceptions.createSQLActionException(t));
+
+                }
+            });
+        } catch (Throwable t) {
+            listener.onFailure(Exceptions.createSQLActionException(t));
+        }
+    }
+
+    private SQLResponse executeWithPg(String stmt, @Nullable Object[] args, String pgUrl, Random random) {
         try {
             Properties properties = new Properties();
             if (random.nextBoolean()) {
-                properties.setProperty("prepareThreshold", "-1"); // force binary transfer
+                properties.setProperty("prepareThreshold", "-1"); // disable prepared statements
             }
             try (Connection conn = DriverManager.getConnection(pgUrl, properties)) {
                 conn.setAutoCommit(true);
-                PreparedStatement preparedStatement = conn.prepareStatement(request.stmt());
-                Object[] args = request.args();
-                for (int i = 0; i < args.length; i++) {
-                    preparedStatement.setObject(i + 1, toJdbcCompatObject(conn, args[i]));
+                PreparedStatement preparedStatement = conn.prepareStatement(stmt);
+                if (args != null) {
+                    for (int i = 0; i < args.length; i++) {
+                        preparedStatement.setObject(i + 1, toJdbcCompatObject(conn, args[i]));
+                    }
                 }
                 return executeAndConvertResult(preparedStatement);
             }
+        } catch (PSQLException e) {
+            ServerErrorMessage serverErrorMessage = e.getServerErrorMessage();
+            StackTraceElement[] stacktrace;
+            if (serverErrorMessage != null) {
+                StackTraceElement stackTraceElement = new StackTraceElement(
+                    serverErrorMessage.getFile(),
+                    serverErrorMessage.getRoutine(),
+                    serverErrorMessage.getFile(),
+                    serverErrorMessage.getLine());
+                stacktrace = new StackTraceElement[]{stackTraceElement};
+            } else {
+                stacktrace = new StackTraceElement[]{};
+            }
+            throw new SQLActionException(
+                e.getMessage(),
+                0,
+                RestStatus.BAD_REQUEST,
+                stacktrace);
         } catch (SQLException e) {
             throw new SQLActionException(e.getMessage(), 0, RestStatus.BAD_REQUEST);
         }
@@ -196,6 +309,11 @@ public class SQLTransportExecutor {
             try {
                 return connection.createArrayOf(pgType.typName(), convertedValues.toArray(new Object[0]));
             } catch (SQLException e) {
+                /*
+                 * pg error message doesn't include a stacktrace.
+                 * Set a breakpoint in {@link io.crate.protocols.postgres.Messages#sendErrorResponse(Channel, Throwable)}
+                 * to inspect the error
+                 */
                 throw Throwables.propagate(e);
             }
         }
@@ -252,9 +370,7 @@ public class SQLTransportExecutor {
                 columnNames.toArray(new String[0]),
                 rows.toArray(new Object[0][]),
                 dataTypes,
-                rows.size(),
-                1,
-                true
+                rows.size()
             );
         } else {
             int updateCount = preparedStatement.getUpdateCount();
@@ -269,9 +385,7 @@ public class SQLTransportExecutor {
                 new String[0],
                 new Object[0][],
                 new DataType[0],
-                updateCount,
-                1,
-                true
+                updateCount
             );
         }
     }
@@ -287,16 +401,13 @@ public class SQLTransportExecutor {
             case "int2":
                 value = resultSet.getShort(i + 1);
                 break;
-            case "_char":
-                value = getCharArray(resultSet, i);
-                break;
-            case "char":
+            case "byte":
                 value = resultSet.getByte(i + 1);
                 break;
             case "_json":
                 List<Object> jsonObjects = new ArrayList<>();
-                for (String json : (String[]) resultSet.getArray(i + 1).getArray()) {
-                    jsonObjects.add(jsonToObject(json));
+                for (Object json : (Object[]) resultSet.getArray(i + 1).getArray()) {
+                    jsonObjects.add(jsonToObject(((PGobject) json).getValue()));
                 }
                 value = jsonObjects.toArray();
                 break;
@@ -323,7 +434,7 @@ public class SQLTransportExecutor {
                 XContentParser parser = JsonXContent.jsonXContent.createParser(bytes);
                 if (bytes.length >= 1 && bytes[0] == '[') {
                     parser.nextToken();
-                    return parser.list().toArray(new Object[0]);
+                    return recursiveListToArray(parser.list());
                 } else {
                     return parser.mapOrdered();
                 }
@@ -335,45 +446,27 @@ public class SQLTransportExecutor {
         }
     }
 
-    private static Object getCharArray(ResultSet resultSet, int i) throws SQLException {
-        Object value;
-        Array array = resultSet.getArray(i + 1);
-        if (array == null) {
-            value = null;
-        } else {
-            ResultSet arrRS = array.getResultSet();
-            List<Object> values = new ArrayList<>();
-            while (arrRS.next()) {
-                values.add(arrRS.getByte(2));
+    private Object recursiveListToArray(Object value) {
+        if (value instanceof List) {
+            List list = (List) value;
+            Object[] arr = list.toArray(new Object[0]);
+            for (int i = 0; i < list.size(); i++) {
+                arr[i] = recursiveListToArray(list.get(i));
             }
-            value = values.toArray(new Object[0]);
+            return arr;
         }
         return value;
     }
 
-    public SQLBulkResponse exec(SQLBulkRequest request) {
-        return exec(request, REQUEST_TIMEOUT);
-    }
-
-    public SQLBulkResponse exec(SQLBulkRequest request, TimeValue timeout) {
+    private SQLBulkResponse executeBulk(String stmt, Object[][] bulkArgs, TimeValue timeout) {
         try {
-            return execute(request).actionGet(timeout);
+            AdapterActionFuture<SQLBulkResponse, SQLBulkResponse> actionFuture = new TestTransportActionFuture<>();
+            execute(stmt, bulkArgs, actionFuture);
+            return actionFuture.actionGet(timeout);
         } catch (ElasticsearchTimeoutException e) {
-            LOGGER.error("Timeout on SQL statement: {}", e, request.stmt());
+            LOGGER.error("Timeout on SQL statement: {}", e, stmt);
             throw e;
         }
-    }
-
-    public ActionFuture<SQLResponse> execute(SQLRequest request) {
-        AdapterActionFuture<SQLResponse, SQLResponse> actionFuture = new TestTransportActionFuture<>();
-        clientProvider.client().execute(SQLAction.INSTANCE, request, actionFuture);
-        return actionFuture;
-    }
-
-    private ActionFuture<SQLBulkResponse> execute(SQLBulkRequest request) {
-        AdapterActionFuture<SQLBulkResponse, SQLBulkResponse> actionFuture = new TestTransportActionFuture<>();
-        clientProvider.client().execute(SQLBulkAction.INSTANCE, request, actionFuture);
-        return actionFuture;
     }
 
     public ClusterHealthStatus ensureGreen() {
@@ -385,14 +478,15 @@ public class SQLTransportExecutor {
     }
 
     private ClusterHealthStatus ensureState(ClusterHealthStatus state) {
-        ClusterHealthResponse actionGet = client().admin().cluster().health(
-                Requests.clusterHealthRequest()
-                        .waitForStatus(state)
-                        .waitForEvents(Priority.LANGUID).waitForRelocatingShards(0)
+        Client client = clientProvider.client();
+        ClusterHealthResponse actionGet = client.admin().cluster().health(
+            Requests.clusterHealthRequest()
+                .waitForStatus(state)
+                .waitForEvents(Priority.LANGUID).waitForRelocatingShards(0)
         ).actionGet();
 
         if (actionGet.isTimedOut()) {
-            LOGGER.info("ensure state timed out, cluster state:\n{}\n{}", client().admin().cluster().prepareState().get().getState().prettyPrint(), client().admin().cluster().preparePendingClusterTasks().get().prettyPrint());
+            LOGGER.info("ensure state timed out, cluster state:\n{}\n{}", client.admin().cluster().prepareState().get().getState().prettyPrint(), client.admin().cluster().preparePendingClusterTasks().get().prettyPrint());
             assertThat("timed out waiting for state", actionGet.isTimedOut(), equalTo(false));
         }
         if (state == ClusterHealthStatus.YELLOW) {
@@ -403,21 +497,19 @@ public class SQLTransportExecutor {
         return actionGet.getStatus();
     }
 
-    public Client client() {
-        return clientProvider.client();
-    }
-
     public interface ClientProvider {
         Client client();
 
         @Nullable
         String pgUrl();
+
+        SQLOperations sqlOperations();
     }
 
-    private class TestTransportActionFuture<Response extends SQLBaseResponse> extends AdapterActionFuture<Response, Response> {
+    private static class TestTransportActionFuture<R> extends AdapterActionFuture<R, R> {
 
         @Override
-        protected Response convert(Response response) {
+        protected R convert(R response) {
             return response;
         }
 
@@ -434,4 +526,138 @@ public class SQLTransportExecutor {
             super.onFailure(e);
         }
     }
+
+    private static final DataType[] EMPTY_TYPES = new DataType[0];
+    private static final String[] EMPTY_NAMES = new String[0];
+    private static final Object[][] EMPTY_ROWS = new Object[0][];
+
+    /**
+     * Wrapper for testing issues. Creates a {@link SQLResponse} from
+     * query results.
+     *
+     */
+    private static class ResultSetReceiver extends BaseResultReceiver {
+
+        private final List<Object[]> rows = new ArrayList<>();
+        private final ActionListener<SQLResponse> listener;
+        private final List<Field> outputFields;
+
+        ResultSetReceiver(ActionListener<SQLResponse> listener,
+                                 List<Field> outputFields) {
+            this.listener = listener;
+            this.outputFields = outputFields;
+        }
+
+        @Override
+        public void setNextRow(Row row) {
+            rows.add(row.materialize());
+        }
+
+        @Override
+        public void allFinished() {
+            listener.onResponse(createSqlResponse());
+            super.allFinished();
+        }
+
+        @Override
+        public void fail(@Nonnull Throwable t) {
+            listener.onFailure(Exceptions.createSQLActionException(t));
+            super.fail(t);
+        }
+
+        private SQLResponse createSqlResponse() {
+            String[] outputNames = new String[outputFields.size()];
+            DataType[] outputTypes = new DataType[outputFields.size()];
+
+            for (int i = 0, outputFieldsSize = outputFields.size(); i < outputFieldsSize; i++) {
+                Field field = outputFields.get(i);
+                outputNames[i] = field.path().outputName();
+                outputTypes[i] = field.valueType();
+            }
+
+            Object[][] rowsArr = rows.toArray(new Object[0][]);
+            BytesRefUtils.ensureStringTypesAreStrings(outputTypes, rowsArr);
+            return new SQLResponse(
+                outputNames,
+                rowsArr,
+                outputTypes,
+                rowsArr.length
+            );
+        }
+    }
+
+    /**
+     * Wrapper for testing issues. Creates a {@link SQLResponse} with
+     * rowCount and duration of query execution.
+     *
+     */
+    private static class RowCountReceiver extends BaseResultReceiver {
+
+        private final ActionListener<SQLResponse> listener;
+
+        private long rowCount;
+
+        RowCountReceiver(ActionListener<SQLResponse> listener) {
+            this.listener = listener;
+        }
+
+        @Override
+        public void setNextRow(Row row) {
+            rowCount = (long) row.get(0);
+        }
+
+        @Override
+        public void allFinished() {
+            SQLResponse sqlResponse = new SQLResponse(
+                EMPTY_NAMES,
+                EMPTY_ROWS,
+                EMPTY_TYPES,
+                rowCount
+            );
+            listener.onResponse(sqlResponse);
+            super.allFinished();
+
+        }
+
+        @Override
+        public void fail(@Nonnull Throwable t) {
+            listener.onFailure(Exceptions.createSQLActionException(t));
+            super.fail(t);
+        }
+    }
+
+
+    /**
+     * Wraps results of bulk requests for testing.
+     *
+     */
+    private static class BulkRowCountReceiver extends BaseResultReceiver {
+
+        private final SQLBulkResponse.Result[] results;
+        private final int resultIdx;
+        private long rowCount;
+
+        BulkRowCountReceiver(SQLBulkResponse.Result[] results, int resultIdx) {
+            this.results = results;
+            this.resultIdx = resultIdx;
+        }
+
+        @Override
+        public void setNextRow(Row row) {
+            rowCount = ((long) row.get(0));
+        }
+
+        @Override
+        public void allFinished() {
+            results[resultIdx] = new SQLBulkResponse.Result(null, rowCount);
+            super.allFinished();
+        }
+
+        @Override
+        public void fail(@Nonnull Throwable t) {
+            results[resultIdx] = new SQLBulkResponse.Result(Exceptions.messageOf(t), rowCount);
+            super.fail(t);
+        }
+    }
+
 }

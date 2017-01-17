@@ -44,15 +44,15 @@ import java.util.Locale;
 
 /**
  * Regular data packet is in the following format:
- *
+ * <p>
  * +----------+-----------+----------+
  * | char tag | int32 len | payload  |
  * +----------+-----------+----------+
- *
+ * <p>
  * The tag indicates the message type, the second field is the length of the packet
  * (excluding the tag, but including the length itself)
- *
- *
+ * <p>
+ * <p>
  * See https://www.postgresql.org/docs/9.2/static/protocol-message-formats.html
  */
 class Messages {
@@ -79,7 +79,7 @@ class Messages {
     /**
      * | 'C' | int32 len | str commandTag
      *
-     * @param query :the query
+     * @param query    :the query
      * @param rowCount : number of rows in the result set or number of rows affected by the DML statement
      */
     static void sendCommandComplete(Channel channel, String query, long rowCount) {
@@ -93,8 +93,7 @@ class Messages {
          */
         if ("BEGIN".equals(query)) {
             commandTag = "BEGIN";
-        }
-        else if ("INSERT".equals(query)) {
+        } else if ("INSERT".equals(query)) {
             commandTag = "INSERT 0 " + rowCount;
         } else {
             commandTag = query + " " + rowCount;
@@ -119,19 +118,19 @@ class Messages {
 
     /**
      * ReadyForQuery (B)
-     *
+     * <p>
      * Byte1('Z')
-     *      Identifies the message type. ReadyForQuery is sent whenever the
-     *      backend is ready for a new query cycle.
-     *
+     * Identifies the message type. ReadyForQuery is sent whenever the
+     * backend is ready for a new query cycle.
+     * <p>
      * Int32(5)
-     *      Length of message contents in bytes, including self.
-     *
+     * Length of message contents in bytes, including self.
+     * <p>
      * Byte1
-     *      Current backend transaction status indicator. Possible values are
-     *      'I' if idle (not in a transaction block); 'T' if in a transaction
-     *      block; or 'E' if in a failed transaction block (queries will be
-     *      rejected until block is ended).
+     * Current backend transaction status indicator. Possible values are
+     * 'I' if idle (not in a transaction block); 'T' if in a transaction
+     * block; or 'E' if in a failed transaction block (queries will be
+     * rejected until block is ended).
      */
     static void sendReadyForQuery(Channel channel) {
         ChannelBuffer buffer = ChannelBuffers.buffer(6);
@@ -151,22 +150,22 @@ class Messages {
 
     /**
      * | 'S' | int32 len | str name | str value
-     *
+     * <p>
      * See https://www.postgresql.org/docs/9.2/static/protocol-flow.html#PROTOCOL-ASYNC
-     *
+     * <p>
      * > At present there is a hard-wired set of parameters for which ParameterStatus will be generated: they are
-     *
-     *  - server_version,
-     *  - server_encoding,
-     *  - client_encoding,
-     *  - application_name,
-     *  - is_superuser,
-     *  - session_authorization,
-     *  - DateStyle,
-     *  - IntervalStyle,
-     *  - TimeZone,
-     *  - integer_datetimes,
-     *  - standard_conforming_string
+     * <p>
+     * - server_version,
+     * - server_encoding,
+     * - client_encoding,
+     * - application_name,
+     * - is_superuser,
+     * - session_authorization,
+     * - DateStyle,
+     * - IntervalStyle,
+     * - TimeZone,
+     * - integer_datetimes,
+     * - standard_conforming_string
      */
     static void sendParameterStatus(Channel channel, final String name, final String value) {
         byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
@@ -191,33 +190,49 @@ class Messages {
 
     /**
      * 'E' | int32 len | char code | str value | \0 | char code | str value | \0 | ... | \0
-     *
+     * <p>
      * char code / str value -> key-value fields
      * example error fields are: message, detail, hint, error position
-     *
+     * <p>
      * See https://www.postgresql.org/docs/9.2/static/protocol-error-fields.html for a list of error codes
-     *
      */
     static void sendErrorResponse(Channel channel, Throwable throwable) {
         final String message = Exceptions.messageOf(throwable);
         byte[] msg = message.getBytes(StandardCharsets.UTF_8);
         byte[] severity = "ERROR".getBytes(StandardCharsets.UTF_8);
+        byte[] lineNumber = null;
+        byte[] fileName = null;
+        byte[] methodName = null;
+
+        StackTraceElement[] stackTrace = throwable.getStackTrace();
+        if (stackTrace != null && stackTrace.length > 0) {
+            StackTraceElement stackTraceElement = stackTrace[0];
+            lineNumber = String.valueOf(stackTraceElement.getLineNumber()).getBytes(StandardCharsets.UTF_8);
+            if (stackTraceElement.getFileName() != null) {
+                fileName = stackTraceElement.getFileName().getBytes(StandardCharsets.UTF_8);
+            }
+            if (stackTraceElement.getMethodName() != null) {
+                methodName = stackTraceElement.getMethodName().getBytes(StandardCharsets.UTF_8);
+            }
+        }
 
         // See https://www.postgresql.org/docs/9.2/static/errcodes-appendix.html
         // need to add a throwable -> error code mapping later on
         byte[] errorCode;
         if (throwable instanceof IllegalArgumentException || throwable instanceof UnsupportedOperationException) {
-             // feature_not_supported
+            // feature_not_supported
             errorCode = "0A000".getBytes(StandardCharsets.UTF_8);
         } else {
             // internal_error
             errorCode = "XX000".getBytes(StandardCharsets.UTF_8);
         }
-        int length =
-            4 +
+        int length = 4 +
             1 + (severity.length + 1) +
             1 + (msg.length + 1) +
             1 + (errorCode.length + 1) +
+            (fileName != null ? 1 + (fileName.length + 1) : 0) +
+            (lineNumber != null ? 1 + (lineNumber.length + 1) : 0) +
+            (methodName != null ? 1 + (methodName.length + 1) : 0) +
             1;
         ChannelBuffer buffer = ChannelBuffers.buffer(length + 1);
         buffer.writeByte('E');
@@ -228,7 +243,18 @@ class Messages {
         writeCString(buffer, msg);
         buffer.writeByte(('C'));
         writeCString(buffer, errorCode);
-
+        if (fileName != null) {
+            buffer.writeByte('F');
+            writeCString(buffer, fileName);
+        }
+        if (lineNumber != null) {
+            buffer.writeByte('L');
+            writeCString(buffer, lineNumber);
+        }
+        if (methodName != null) {
+            buffer.writeByte('R');
+            writeCString(buffer, methodName);
+        }
         buffer.writeByte(0);
         ChannelFuture channelFuture = channel.write(buffer);
         if (LOGGER.isTraceEnabled()) {
@@ -242,27 +268,28 @@ class Messages {
     }
 
     /**
-     *
      * Byte1('D')
      * Identifies the message as a data row.
-     *
+     * <p>
      * Int32
      * Length of message contents in bytes, including self.
-     *
+     * <p>
      * Int16
      * The number of column values that follow (possibly zero).
-     *
+     * <p>
      * Next, the following pair of fields appear for each column:
-     *
+     * <p>
      * Int32
      * The length of the column value, in bytes (this count does not include itself).
      * Can be zero. As a special case, -1 indicates a NULL column value. No value bytes follow in the NULL case.
-     *
+     * <p>
      * ByteN
      * The value of the column, in the format indicated by the associated format code. n is the above length.
      */
     static void sendDataRow(Channel channel, Row row, List<? extends DataType> columnTypes, @Nullable FormatCodes.FormatCode[] formatCodes) {
         int length = 4 + 2;
+        assert columnTypes.size() == row.size()
+            : "Number of columns in the row must match number of columnTypes. Row: " + row + " types: " + columnTypes;
 
         ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
         buffer.writeByte('D');
@@ -293,15 +320,7 @@ class Messages {
         }
 
         buffer.setInt(1, length);
-        ChannelFuture channelFuture = channel.write(buffer);
-        if (LOGGER.isTraceEnabled()) {
-            channelFuture.addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    LOGGER.trace("sentDataRow");
-                }
-            });
-        }
+        channel.write(buffer);
     }
 
     static void writeCString(ChannelBuffer buffer, byte[] valBytes) {
@@ -311,13 +330,13 @@ class Messages {
 
     /**
      * RowDescription (B)
-     *
-     *  | 'T' | int32 len | int16 numCols
-     *
-     *  For each field:
-     *
-     *  | string name | int32 table_oid | int16 attr_num | int32 oid | int16 typlen | int32 type_modifier | int16 format_code
-     *
+     * <p>
+     * | 'T' | int32 len | int16 numCols
+     * <p>
+     * For each field:
+     * <p>
+     * | string name | int32 table_oid | int16 attr_num | int32 oid | int16 typlen | int32 type_modifier | int16 format_code
+     * <p>
      * See https://www.postgresql.org/docs/current/static/protocol-message-formats.html
      */
     static void sendRowDescription(Channel channel, Collection<Field> columns, @Nullable FormatCodes.FormatCode[] formatCodes) {
@@ -379,7 +398,7 @@ class Messages {
 
     /**
      * EmptyQueryResponse
-     *  | 'I' | int32 len |
+     * | 'I' | int32 len |
      */
     static void sendEmptyQueryResponse(Channel channel) {
         sendShortMsg(channel, 'I', "sentEmptyQueryResponse");
@@ -387,7 +406,7 @@ class Messages {
 
     /**
      * NoData
-     *  | 'n' | int32 len |
+     * | 'n' | int32 len |
      */
     static void sendNoData(Channel channel) {
         sendShortMsg(channel, 'n', "sentNoData");

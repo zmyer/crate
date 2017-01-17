@@ -30,7 +30,7 @@ import io.crate.core.collections.Bucket;
 import io.crate.core.collections.Row;
 import io.crate.executor.transport.TransportActionProvider;
 import io.crate.metadata.*;
-import io.crate.operation.ImplementationSymbolVisitor;
+import io.crate.operation.InputFactory;
 import io.crate.operation.aggregation.impl.AverageAggregation;
 import io.crate.operation.aggregation.impl.CountAggregation;
 import io.crate.operation.operator.EqOperator;
@@ -38,7 +38,6 @@ import io.crate.planner.projection.*;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.CollectingRowReceiver;
 import io.crate.testing.RowSender;
-import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.action.bulk.BulkRetryCoordinatorPool;
@@ -55,7 +54,8 @@ import org.mockito.Answers;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -66,11 +66,10 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.mock;
 
-
 public class ProjectionToProjectorVisitorTest extends CrateUnitTest {
 
-    protected static final RamAccountingContext RAM_ACCOUNTING_CONTEXT =
-            new RamAccountingContext("dummy", new NoopCircuitBreaker(CircuitBreaker.FIELDDATA));
+    private static final RamAccountingContext RAM_ACCOUNTING_CONTEXT =
+        new RamAccountingContext("dummy", new NoopCircuitBreaker(CircuitBreaker.FIELDDATA));
     private ProjectionToProjectorVisitor visitor;
     private FunctionInfo countInfo;
     private FunctionInfo avgInfo;
@@ -87,24 +86,26 @@ public class ProjectionToProjectorVisitorTest extends CrateUnitTest {
     @Before
     public void prepare() {
         MockitoAnnotations.initMocks(this);
-        NestedReferenceResolver referenceResolver = new GlobalReferenceResolver(new HashMap<ReferenceIdent, ReferenceImplementation>());
         functions = getFunctions();
         threadPool = new ThreadPool("testing");
-        ImplementationSymbolVisitor symbolvisitor = new ImplementationSymbolVisitor(functions);
         visitor = new ProjectionToProjectorVisitor(
-                mock(ClusterService.class),
-                functions,
-                new IndexNameExpressionResolver(Settings.EMPTY),
-                threadPool,
-                Settings.EMPTY,
-                mock(TransportActionProvider.class, Answers.RETURNS_DEEP_STUBS.get()),
-                mock(BulkRetryCoordinatorPool.class),
-                symbolvisitor,
-                new EvaluatingNormalizer(functions, RowGranularity.DOC, referenceResolver)
+            mock(ClusterService.class),
+            functions,
+            new IndexNameExpressionResolver(Settings.EMPTY),
+            threadPool,
+            Settings.EMPTY,
+            mock(TransportActionProvider.class, Answers.RETURNS_DEEP_STUBS.get()),
+            mock(BulkRetryCoordinatorPool.class),
+            new InputFactory(functions),
+            EvaluatingNormalizer.functionOnlyNormalizer(functions, ReplaceMode.COPY)
         );
 
-        countInfo = new FunctionInfo(new FunctionIdent(CountAggregation.NAME, Arrays.<DataType>asList(DataTypes.STRING)), DataTypes.LONG);
-        avgInfo = new FunctionInfo(new FunctionIdent(AverageAggregation.NAME, Arrays.<DataType>asList(DataTypes.INTEGER)), DataTypes.DOUBLE);
+        countInfo = new FunctionInfo(
+            new FunctionIdent(CountAggregation.NAME, Collections.singletonList(DataTypes.STRING)),
+            DataTypes.LONG);
+        avgInfo = new FunctionInfo(
+            new FunctionIdent(AverageAggregation.NAME, Collections.singletonList(DataTypes.INTEGER)),
+            DataTypes.DOUBLE);
     }
 
     @After
@@ -115,8 +116,8 @@ public class ProjectionToProjectorVisitorTest extends CrateUnitTest {
 
     @Test
     public void testSimpleTopNProjection() throws Exception {
-        TopNProjection projection = new TopNProjection(10, 2);
-        projection.outputs(Arrays.<Symbol>asList(Literal.newLiteral("foo"), new InputColumn(0)));
+        List<Symbol> outputs = Arrays.asList(Literal.of("foo"), new InputColumn(0));
+        TopNProjection projection = new TopNProjection(10, 2, outputs);
 
         CollectingRowReceiver collectingProjector = new CollectingRowReceiver();
         Projector projector = visitor.create(projection, RAM_ACCOUNTING_CONTEXT, UUID.randomUUID());
@@ -133,35 +134,40 @@ public class ProjectionToProjectorVisitorTest extends CrateUnitTest {
 
     @Test
     public void testSortingTopNProjection() throws Exception {
-        TopNProjection projection = new TopNProjection(10, 0,
-                Arrays.<Symbol>asList(new InputColumn(0), new InputColumn(1)),
-                new boolean[]{false, false},
-                new Boolean[]{null, null}
+        List<Symbol> outputs = Arrays.asList(Literal.of("foo"), new InputColumn(0), new InputColumn(1));
+        OrderedTopNProjection projection = new OrderedTopNProjection(10, 0, outputs,
+            Arrays.asList(new InputColumn(0), new InputColumn(1)),
+            new boolean[]{false, false},
+            new Boolean[]{null, null}
         );
-        projection.outputs(Arrays.<Symbol>asList(Literal.newLiteral("foo"), new InputColumn(0), new InputColumn(1)));
         Projector projector = visitor.create(projection, RAM_ACCOUNTING_CONTEXT, UUID.randomUUID());
         assertThat(projector, instanceOf(SortingTopNProjector.class));
     }
 
     @Test
     public void testTopNProjectionToSortingProjector() throws Exception {
-        TopNProjection projection = new TopNProjection(TopN.NO_LIMIT, TopN.NO_OFFSET,
-                Arrays.<Symbol>asList(new InputColumn(0), new InputColumn(1)),
-                new boolean[]{false, false},
-                new Boolean[]{null, null}
+        List<Symbol> outputs = Arrays.asList(Literal.of("foo"), new InputColumn(0), new InputColumn(1));
+        OrderedTopNProjection projection = new OrderedTopNProjection(TopN.NO_LIMIT, TopN.NO_OFFSET, outputs,
+            Arrays.asList(new InputColumn(0), new InputColumn(1)),
+            new boolean[]{false, false},
+            new Boolean[]{null, null}
         );
-        projection.outputs(Arrays.<Symbol>asList(Literal.newLiteral("foo"), new InputColumn(0), new InputColumn(1)));
         Projector projector = visitor.create(projection, RAM_ACCOUNTING_CONTEXT, UUID.randomUUID());
         assertThat(projector, instanceOf(SortingProjector.class));
     }
 
     @Test
     public void testAggregationProjector() throws Exception {
-        AggregationProjection projection = new AggregationProjection();
-        projection.aggregations(Arrays.asList(
-                Aggregation.finalAggregation(avgInfo, Arrays.<Symbol>asList(new InputColumn(1)), Aggregation.Step.ITER),
-                Aggregation.finalAggregation(countInfo, Arrays.<Symbol>asList(new InputColumn(0)), Aggregation.Step.ITER)
-        ));
+        AggregationProjection projection = new AggregationProjection(Arrays.asList(
+            Aggregation.finalAggregation(
+                avgInfo,
+                Collections.singletonList(new InputColumn(1)),
+                Aggregation.Step.ITER),
+            Aggregation.finalAggregation(
+                countInfo,
+                Collections.singletonList(new InputColumn(0)),
+                Aggregation.Step.ITER)
+        ), RowGranularity.SHARD);
         Projector projector = visitor.create(projection, RAM_ACCOUNTING_CONTEXT, UUID.randomUUID());
 
         CollectingRowReceiver collectingProjector = new CollectingRowReceiver();
@@ -169,7 +175,6 @@ public class ProjectionToProjectorVisitorTest extends CrateUnitTest {
         assertThat(projector, instanceOf(AggregationPipe.class));
 
 
-        projector.prepare();
         projector.setNextRow(spare("foo", 10));
         projector.setNextRow(spare("bar", 20));
         projector.finish(RepeatHandle.UNSUPPORTED);
@@ -182,32 +187,34 @@ public class ProjectionToProjectorVisitorTest extends CrateUnitTest {
     public void testGroupProjector() throws Exception {
         //         in(0)  in(1)      in(0),      in(2)
         // select  race, avg(age), count(race), gender  ... group by race, gender
-        GroupProjection projection = new GroupProjection();
-        projection.keys(Arrays.<Symbol>asList(new InputColumn(0, DataTypes.STRING), new InputColumn(2, DataTypes.STRING)));
-        projection.values(Arrays.asList(
-                Aggregation.finalAggregation(avgInfo, Arrays.<Symbol>asList(new InputColumn(1)), Aggregation.Step.ITER),
-                Aggregation.finalAggregation(countInfo, Arrays.<Symbol>asList(new InputColumn(0)), Aggregation.Step.ITER)
-        ));
+        List<Symbol> keys = Arrays.asList(new InputColumn(0, DataTypes.STRING), new InputColumn(2, DataTypes.STRING));
+        List<Aggregation> aggregations = Arrays.asList(
+            Aggregation.finalAggregation(
+                avgInfo,
+                Collections.singletonList(new InputColumn(1)),
+                Aggregation.Step.ITER),
+            Aggregation.finalAggregation(
+                countInfo,
+                Collections.singletonList(new InputColumn(0)),
+                Aggregation.Step.ITER)
+        );
+        GroupProjection projection = new GroupProjection(keys, aggregations, RowGranularity.CLUSTER);
 
         Projector projector = visitor.create(projection, RAM_ACCOUNTING_CONTEXT, UUID.randomUUID());
 
         // use a topN projection in order to get sorted outputs
-        TopNProjection topNProjection = new TopNProjection(10, 0,
-                ImmutableList.<Symbol>of(new InputColumn(2, DataTypes.DOUBLE)),
-                new boolean[]{false},
-                new Boolean[]{null});
-        topNProjection.outputs(Arrays.<Symbol>asList(
-                new InputColumn(0, DataTypes.STRING), new InputColumn(1, DataTypes.STRING),
-                new InputColumn(2, DataTypes.DOUBLE), new InputColumn(3, DataTypes.LONG)));
+        List<Symbol> outputs = Arrays.asList(
+            new InputColumn(0, DataTypes.STRING), new InputColumn(1, DataTypes.STRING),
+            new InputColumn(2, DataTypes.DOUBLE), new InputColumn(3, DataTypes.LONG));
+        OrderedTopNProjection topNProjection = new OrderedTopNProjection(10, 0, outputs,
+            ImmutableList.of(new InputColumn(2, DataTypes.DOUBLE)),
+            new boolean[]{false},
+            new Boolean[]{null});
         Projector topNProjector = visitor.create(topNProjection, RAM_ACCOUNTING_CONTEXT, UUID.randomUUID());
         projector.downstream(topNProjector);
 
         CollectingRowReceiver collector = new CollectingRowReceiver();
         topNProjector.downstream(collector);
-
-        collector.prepare();
-        topNProjector.prepare();
-        projector.prepare();
 
         assertThat(projector, instanceOf(GroupingProjector.class));
 
@@ -224,27 +231,26 @@ public class ProjectionToProjectorVisitorTest extends CrateUnitTest {
 
         Bucket rows = collector.result();
         assertThat(rows, contains(
-                isRow(human, female, 22.0, 1L),
-                isRow(human, male, 34.0, 2L),
-                isRow(vogon, male, 44.0, 2L)
+            isRow(human, female, 22.0, 1L),
+            isRow(human, male, 34.0, 2L),
+            isRow(vogon, male, 44.0, 2L)
         ));
     }
 
     @Test
     public void testFilterProjection() throws Exception {
         EqOperator op = (EqOperator) functions.get(
-                new FunctionIdent(EqOperator.NAME, ImmutableList.<DataType>of(DataTypes.INTEGER, DataTypes.INTEGER)));
+            new FunctionIdent(EqOperator.NAME, ImmutableList.of(DataTypes.INTEGER, DataTypes.INTEGER)));
         Function function = new Function(
-                op.info(), Arrays.<Symbol>asList(Literal.newLiteral(2), new InputColumn(1)));
-        FilterProjection projection = new FilterProjection(function);
-        projection.outputs(Arrays.<Symbol>asList(new InputColumn(0), new InputColumn(1)));
+            op.info(), Arrays.asList(Literal.of(2), new InputColumn(1)));
+        FilterProjection projection = new FilterProjection(function,
+            Arrays.asList(new InputColumn(0), new InputColumn(1)));
 
         CollectingRowReceiver collectingProjector = new CollectingRowReceiver();
         Projector projector = visitor.create(projection, RAM_ACCOUNTING_CONTEXT, UUID.randomUUID());
         projector.downstream(collectingProjector);
         assertThat(projector, instanceOf(FilterProjector.class));
 
-        projector.prepare();
         projector.setNextRow(spare("human", 2));
         projector.setNextRow(spare("vogon", 1));
 

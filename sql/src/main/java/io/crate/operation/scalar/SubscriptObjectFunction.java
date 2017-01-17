@@ -22,8 +22,7 @@
 
 package io.crate.operation.scalar;
 
-import com.google.common.base.Preconditions;
-import io.crate.analyze.symbol.Function;
+import com.google.common.collect.ImmutableList;
 import io.crate.metadata.*;
 import io.crate.operation.Input;
 import io.crate.types.DataType;
@@ -34,13 +33,17 @@ import org.elasticsearch.common.lucene.BytesRefs;
 import java.util.List;
 import java.util.Map;
 
-public class SubscriptObjectFunction extends Scalar<Object, Map> implements DynamicFunctionResolver {
+public class SubscriptObjectFunction extends Scalar<Object, Map> implements FunctionResolver {
 
     public static final String NAME = "subscript_obj";
+
+    private static final List<Signature> SIGNATURES = ImmutableList.of(
+        new Signature(DataTypes.OBJECT, DataTypes.STRING));
 
     private static FunctionInfo createInfo(List<DataType> argumentTypes, DataType returnType) {
         return new FunctionInfo(new FunctionIdent(NAME, argumentTypes), returnType);
     }
+
     public static void register(ScalarFunctionModule module) {
         module.register(NAME, new SubscriptObjectFunction());
     }
@@ -50,7 +53,7 @@ public class SubscriptObjectFunction extends Scalar<Object, Map> implements Dyna
     private SubscriptObjectFunction() {
     }
 
-    public SubscriptObjectFunction(FunctionInfo info) {
+    private SubscriptObjectFunction(FunctionInfo info) {
         this.info = info;
     }
 
@@ -77,12 +80,12 @@ public class SubscriptObjectFunction extends Scalar<Object, Map> implements Dyna
     }
 
     @Override
-    public FunctionImplementation<Function> getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
-        Preconditions.checkArgument(dataTypes.size() == 2
-                && dataTypes.get(0) == DataTypes.OBJECT
-                && dataTypes.get(1) == DataTypes.STRING);
+    public FunctionImplementation getForTypes(List<DataType> dataTypes) throws IllegalArgumentException {
         return new SubscriptObjectFunction(createInfo(dataTypes.subList(0, 2), DataTypes.UNDEFINED));
     }
 
-
+    @Override
+    public List<Signature> signatures() {
+        return SIGNATURES;
+    }
 }

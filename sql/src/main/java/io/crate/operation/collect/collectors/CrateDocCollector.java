@@ -22,11 +22,9 @@
 
 package io.crate.operation.collect.collectors;
 
-import io.crate.action.sql.query.CrateSearchContext;
 import io.crate.breaker.CrateCircuitBreakerService;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.core.collections.Row;
-import io.crate.exceptions.CircuitBreakingException;
 import io.crate.operation.Input;
 import io.crate.operation.InputRow;
 import io.crate.operation.collect.CollectionFinishedEarlyException;
@@ -40,11 +38,11 @@ import io.crate.operation.reference.doc.lucene.LuceneCollectorExpression;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.*;
 import org.apache.lucene.util.Bits;
+import org.elasticsearch.common.breaker.CircuitBreakingException;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.lucene.MinimumScoreCollector;
-import org.elasticsearch.search.internal.ContextIndexSearcher;
-import org.elasticsearch.search.internal.SearchContext;
+import org.elasticsearch.index.shard.ShardId;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -58,7 +56,9 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
     private static final ESLogger LOGGER = Loggers.getLogger(CrateDocCollector.class);
 
     private final CollectorContext collectorContext;
-    private final CrateSearchContext searchContext;
+    private final ShardId shardId;
+    private final IndexSearcher indexSearcher;
+    private final Query query;
     private final RowReceiver rowReceiver;
     private final Collection<? extends LuceneCollectorExpression<?>> expressions;
     private final SimpleCollector luceneCollector;
@@ -66,33 +66,86 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
     private final ExecutorResumeHandle resumeable;
     private final boolean doScores;
 
-    public CrateDocCollector(final CrateSearchContext searchContext,
+    public static class Builder implements CrateCollector.Builder {
+
+        private final ShardId shardId;
+        private final IndexSearcher indexSearcher;
+        private final Query query;
+        private final Float minScore;
+        private final Executor executor;
+        private final boolean doScores;
+        private final CollectorContext collectorContext;
+        private final RamAccountingContext ramAccountingContext;
+        private final List<Input<?>> inputs;
+        private final Collection<? extends LuceneCollectorExpression<?>> expressions;
+
+        public Builder(ShardId shardId,
+                       IndexSearcher indexSearcher,
+                       Query query,
+                       Float minScore,
+                       Executor executor,
+                       boolean doScores,
+                       CollectorContext collectorContext,
+                       RamAccountingContext ramAccountingContext,
+                       List<Input<?>> inputs,
+                       Collection<? extends LuceneCollectorExpression<?>> expressions) {
+            this.shardId = shardId;
+            this.indexSearcher = indexSearcher;
+            this.query = query;
+            this.minScore = minScore;
+            this.executor = executor;
+            this.doScores = doScores;
+            this.collectorContext = collectorContext;
+            this.ramAccountingContext = ramAccountingContext;
+            this.inputs = inputs;
+            this.expressions = expressions;
+        }
+
+        @Override
+        public CrateCollector build(RowReceiver rowReceiver) {
+            return new CrateDocCollector(
+                shardId,
+                indexSearcher,
+                query,
+                minScore,
+                executor,
+                doScores,
+                collectorContext,
+                ramAccountingContext,
+                rowReceiver,
+                inputs,
+                expressions
+            );
+        }
+    }
+
+    public CrateDocCollector(ShardId shardId,
+                             IndexSearcher indexSearcher,
+                             Query query,
+                             Float minScore,
                              Executor executor,
                              boolean doScores,
+                             CollectorContext collectorContext,
                              RamAccountingContext ramAccountingContext,
                              RowReceiver rowReceiver,
                              List<Input<?>> inputs,
                              Collection<? extends LuceneCollectorExpression<?>> expressions) {
-        this.searchContext = searchContext;
+        this.shardId = shardId;
+        this.indexSearcher = indexSearcher;
+        this.query = query;
+        this.collectorContext = collectorContext;
         this.rowReceiver = rowReceiver;
         this.expressions = expressions;
-        CollectorFieldsVisitor fieldsVisitor = new CollectorFieldsVisitor(expressions.size());
-        collectorContext = new CollectorContext(
-                searchContext.mapperService(),
-                searchContext.fieldData(),
-                fieldsVisitor,
-                ((int) searchContext.id())
-        );
-        this.doScores = doScores || searchContext.minimumScore() != null;
+        this.doScores = doScores || minScore != null;
         SimpleCollector collector = new LuceneDocCollector(
-                ramAccountingContext,
-                rowReceiver,
-                this.doScores,
-                new InputRow(inputs),
-                expressions
+            ramAccountingContext,
+            rowReceiver,
+            this.doScores,
+            new InputRow(inputs),
+            expressions
         );
-        if (searchContext.minimumScore() != null) {
-            collector = new MinimumScoreCollector(collector, searchContext.minimumScore());
+        if (minScore != null) {
+            collector = new MinimumScoreCollector(collector, minScore);
         }
         luceneCollector = collector;
         this.resumeable = new ExecutorResumeHandle(executor, new Runnable() {
@@ -106,18 +159,19 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
 
     private void debugLog(String message) {
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("{} {} {}", Thread.currentThread().getName(), searchContext.indexShard().shardId(), message);
+            LOGGER.debug("{} {} {}", Thread.currentThread().getName(), shardId, message);
         }
     }
 
     private void traceLog(String message) {
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("{} {} {}", Thread.currentThread().getName(), searchContext.indexShard().shardId(), message);
+            LOGGER.trace("{} {} {}", Thread.currentThread().getName(), shardId, message);
         }
     }
 
     @Override
     public void doCollect() {
+        debugLog("doCollect");
         for (LuceneCollectorExpression<?> expression : expressions) {
             expression.startCollect(collectorContext);
         }
@@ -125,13 +179,12 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
         if (collectorContext.visitor().required()) {
             collector = new FieldVisitorCollector(collector, collectorContext.visitor());
         }
-        ContextIndexSearcher contextIndexSearcher = searchContext.searcher();
 
         Weight weight;
         Iterator<LeafReaderContext> leavesIt;
         try {
-            weight = searchContext.engineSearcher().searcher().createNormalizedWeight(searchContext.query(), doScores);
-            leavesIt = contextIndexSearcher.getTopReaderContext().leaves().iterator();
+            weight = indexSearcher.createNormalizedWeight(query, doScores);
+            leavesIt = indexSearcher.getTopReaderContext().leaves().iterator();
         } catch (Throwable e) {
             fail(e);
             return;
@@ -147,10 +200,10 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
     private void innerCollect(SimpleCollector collector, Weight weight, Iterator<LeafReaderContext> leavesIt,
                               @Nullable BulkScorer scorer, @Nullable LeafReaderContext leaf) {
         try {
-            if (collectLeaves(collector, weight, leavesIt, scorer, leaf) == Result.FINISHED) {
-                finishCollect();
-            } else {
+            if (collectLeaves(collector, weight, leavesIt, scorer, leaf) == RowReceiver.Result.PAUSE) {
                 traceLog("paused collect");
+            } else {
+                finishCollect();
             }
         } catch (CollectionFinishedEarlyException e) {
             finishCollect();
@@ -161,45 +214,34 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
 
     private void fail(Throwable t) {
         debugLog("finished collect with failure");
-        try {
-            searchContext.clearReleasables(SearchContext.Lifetime.PHASE);
-        } catch (AssertionError e) {
-            // log it, the original failure is more interesting than the stage assertion
-            LOGGER.error("Invalid searcher stage: ", e);
-        }
         rowReceiver.fail(t);
     }
 
     private void finishCollect() {
         debugLog("finished collect");
-        searchContext.clearReleasables(SearchContext.Lifetime.PHASE);
         rowReceiver.finish(this);
     }
 
-    private Result collectLeaves(SimpleCollector collector,
-                                 Weight weight,
-                                 Iterator<LeafReaderContext> leaves,
-                                 @Nullable BulkScorer bulkScorer,
-                                 @Nullable LeafReaderContext leaf) throws IOException {
+    private RowReceiver.Result collectLeaves(SimpleCollector collector,
+                                             Weight weight,
+                                             Iterator<LeafReaderContext> leaves,
+                                             @Nullable BulkScorer bulkScorer,
+                                             @Nullable LeafReaderContext leaf) throws IOException {
         if (bulkScorer != null) {
             assert leaf != null : "leaf must not be null if bulkScorer isn't null";
-            if (processScorer(collector, leaf, bulkScorer)) return Result.PAUSED;
+            if (processScorer(collector, leaf, bulkScorer)) return RowReceiver.Result.PAUSE;
         }
-        try {
-            while (leaves.hasNext()) {
-                leaf = leaves.next();
-                LeafCollector leafCollector = collector.getLeafCollector(leaf);
-                Scorer scorer = weight.scorer(leaf);
-                if (scorer == null) {
-                    continue;
-                }
-                bulkScorer = new DefaultBulkScorer(scorer);
-                if (processScorer(leafCollector, leaf, bulkScorer)) return Result.PAUSED;
+        while (leaves.hasNext()) {
+            leaf = leaves.next();
+            LeafCollector leafCollector = collector.getLeafCollector(leaf);
+            Scorer scorer = weight.scorer(leaf);
+            if (scorer == null) {
+                continue;
             }
-        } finally {
-            searchContext.clearReleasables(SearchContext.Lifetime.COLLECTION);
+            bulkScorer = new DefaultBulkScorer(scorer);
+            if (processScorer(leafCollector, leaf, bulkScorer)) return RowReceiver.Result.PAUSE;
         }
-        return Result.FINISHED;
+        return RowReceiver.Result.CONTINUE;
     }
 
     private boolean processScorer(LeafCollector leafCollector, LeafReaderContext leaf, BulkScorer scorer) throws IOException {
@@ -216,13 +258,13 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
 
     @Override
     public void kill(@Nullable Throwable throwable) {
+        debugLog("kill CrateDocCollector");
         rowReceiver.kill(throwable);
     }
 
     @Override
     public void repeat() {
         debugLog("repeat collect");
-        ContextIndexSearcher indexSearcher = searchContext.searcher();
         Iterator<LeafReaderContext> iterator = indexSearcher.getTopReaderContext().leaves().iterator();
         innerCollect(state.collector, state.weight, iterator, null, null);
     }
@@ -292,8 +334,8 @@ public class CrateDocCollector implements CrateCollector, RepeatHandle {
             if (ramAccountingContext != null && ramAccountingContext.trippedBreaker()) {
                 // stop collecting because breaker limit was reached
                 throw new CircuitBreakingException(
-                        CrateCircuitBreakerService.breakingExceptionMessage(ramAccountingContext.contextId(),
-                                ramAccountingContext.limit()));
+                    CrateCircuitBreakerService.breakingExceptionMessage(ramAccountingContext.contextId(),
+                        ramAccountingContext.limit()));
             }
         }
 

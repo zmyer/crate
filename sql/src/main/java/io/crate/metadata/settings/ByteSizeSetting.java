@@ -39,7 +39,7 @@ public class ByteSizeSetting extends Setting<ByteSizeValue, String> {
         this(name, defaultValue, isRuntime, null);
     }
 
-    public ByteSizeSetting(String name, ByteSizeValue defaultValue, boolean isRuntime, @Nullable  Setting<?, ?> parent) {
+    public ByteSizeSetting(String name, ByteSizeValue defaultValue, boolean isRuntime, @Nullable Setting<?, ?> parent) {
         this.name = name;
         this.defaultValue = defaultValue;
         this.isRuntime = isRuntime;
@@ -85,7 +85,7 @@ public class ByteSizeSetting extends Setting<ByteSizeValue, String> {
     }
 
     public long extractBytes(Settings settings) {
-        return extractByteSizeValue(settings).bytes();
+        return extractByteSizeValue(settings).getBytes();
     }
 
     private ByteSizeValue extractByteSizeValue(Settings settings) {

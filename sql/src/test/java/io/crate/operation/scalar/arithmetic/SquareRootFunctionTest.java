@@ -24,7 +24,8 @@ package io.crate.operation.scalar.arithmetic;
 import io.crate.operation.scalar.AbstractScalarFunctionsTest;
 import org.junit.Test;
 
-import static io.crate.testing.TestingHelpers.isFunction;
+import static io.crate.testing.SymbolMatchers.isFunction;
+
 
 public class SquareRootFunctionTest extends AbstractScalarFunctionsTest {
 
@@ -45,7 +46,7 @@ public class SquareRootFunctionTest extends AbstractScalarFunctionsTest {
 
     @Test
     public void testInvalidType() throws Exception {
-        expectedException.expectMessage("invalid datatype for sqrt function");
+        expectedException.expectMessage("unknown function: sqrt(string)");
         assertEvaluate("sqrt('foo')", null);
     }
 

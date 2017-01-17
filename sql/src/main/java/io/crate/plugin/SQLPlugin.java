@@ -23,10 +23,6 @@ package io.crate.plugin;
 
 import com.google.common.collect.ImmutableList;
 import io.crate.Constants;
-import io.crate.action.sql.SQLAction;
-import io.crate.action.sql.SQLBulkAction;
-import io.crate.action.sql.TransportSQLAction;
-import io.crate.action.sql.TransportSQLBulkAction;
 import io.crate.analyze.repositories.RepositorySettingsModule;
 import io.crate.breaker.CircuitBreakerModule;
 import io.crate.breaker.CrateCircuitBreakerService;
@@ -38,19 +34,17 @@ import io.crate.jobs.JobModule;
 import io.crate.jobs.transport.NodeDisconnectJobMonitorService;
 import io.crate.lucene.CrateIndexModule;
 import io.crate.metadata.MetaDataModule;
+import io.crate.metadata.Schemas;
 import io.crate.metadata.blob.MetaDataBlobModule;
-import io.crate.metadata.doc.MetaDataDocModule;
 import io.crate.metadata.information.MetaDataInformationModule;
 import io.crate.metadata.pg_catalog.PgCatalogModule;
 import io.crate.metadata.settings.CrateSettings;
 import io.crate.metadata.settings.Setting;
 import io.crate.metadata.settings.SettingsAppliers;
-import io.crate.metadata.shard.MetaDataShardModule;
 import io.crate.metadata.sys.MetaDataSysModule;
 import io.crate.monitor.MonitorModule;
 import io.crate.operation.aggregation.impl.AggregationImplModule;
 import io.crate.operation.collect.CollectOperationModule;
-import io.crate.operation.collect.CollectShardModule;
 import io.crate.operation.collect.files.FileCollectModule;
 import io.crate.operation.merge.MergeOperationModule;
 import io.crate.operation.operator.OperatorModule;
@@ -59,13 +53,12 @@ import io.crate.operation.reference.sys.check.SysChecksModule;
 import io.crate.operation.reference.sys.check.SysNodeChecksModule;
 import io.crate.operation.reference.sys.cluster.SysClusterExpressionModule;
 import io.crate.operation.reference.sys.node.local.SysNodeExpressionModule;
-import io.crate.operation.reference.sys.shard.SysShardExpressionModule;
-import io.crate.operation.reference.sys.shard.blob.BlobShardExpressionModule;
+import io.crate.operation.reference.sys.repositories.SysRepositoriesModule;
+import io.crate.operation.reference.sys.repositories.SysRepositoriesService;
 import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.operation.tablefunctions.TableFunctionModule;
 import io.crate.protocols.postgres.PostgresNetty;
 import io.crate.rest.action.RestSQLAction;
-import org.elasticsearch.action.ActionModule;
 import org.elasticsearch.action.bulk.BulkModule;
 import org.elasticsearch.action.bulk.BulkRetryCoordinatorPool;
 import org.elasticsearch.cluster.ClusterModule;
@@ -119,7 +112,9 @@ public class SQLPlugin extends Plugin {
             BulkRetryCoordinatorPool.class,
             NodeDisconnectJobMonitorService.class,
             PostgresNetty.class,
-            JobContextService.class);
+            JobContextService.class,
+            Schemas.class,
+            SysRepositoriesService.class);
     }
 
     @Override
@@ -135,7 +130,6 @@ public class SQLPlugin extends Plugin {
         modules.add(new MergeOperationModule());
         modules.add(new MetaDataModule());
         modules.add(new MetaDataSysModule());
-        modules.add(new MetaDataDocModule());
         modules.add(new MetaDataBlobModule());
         modules.add(new PgCatalogModule());
         modules.add(new MetaDataInformationModule());
@@ -151,6 +145,7 @@ public class SQLPlugin extends Plugin {
         modules.add(new SysChecksModule());
         modules.add(new SysNodeChecksModule());
         modules.add(new RepositorySettingsModule());
+        modules.add(new SysRepositoriesModule());
         return modules;
     }
 
@@ -160,18 +155,6 @@ public class SQLPlugin extends Plugin {
         Collection<Module> modules = newArrayList();
         if (!settings.getAsBoolean("node.client", false)) {
             modules.add(new CrateIndexModule());
-        }
-        return modules;
-    }
-
-    @Override
-    public Collection<Module> shardModules(Settings indexSettings) {
-        Collection<Module> modules = newArrayList();
-        if (!settings.getAsBoolean("node.client", false)) {
-            modules.add(new MetaDataShardModule());
-            modules.add(new SysShardExpressionModule());
-            modules.add(new BlobShardExpressionModule(indexSettings));
-            modules.add(new CollectShardModule());
         }
         return modules;
     }
@@ -205,12 +188,6 @@ public class SQLPlugin extends Plugin {
             clusterModule.registerClusterDynamicSetting(setting.settingName(), Validator.EMPTY);
             registerSettings(clusterModule, setting.children());
         }
-    }
-
-
-    public void onModule(ActionModule actionModule) {
-        actionModule.registerAction(SQLAction.INSTANCE, TransportSQLAction.class);
-        actionModule.registerAction(SQLBulkAction.INSTANCE, TransportSQLBulkAction.class);
     }
 
     public void onModule(IndicesModule indicesModule) {

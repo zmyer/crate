@@ -29,8 +29,10 @@ import io.crate.exceptions.ColumnUnknownException;
 import io.crate.metadata.OutputName;
 import io.crate.metadata.Path;
 import io.crate.metadata.table.Operation;
+import io.crate.sql.tree.QualifiedName;
 import io.crate.types.DataTypes;
 
+import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
@@ -71,5 +73,15 @@ public class ExplainAnalyzedStatement implements AnalyzedStatement, AnalyzedRela
     @Override
     public boolean isWriteOperation() {
         return false;
+    }
+
+    @Override
+    public QualifiedName getQualifiedName() {
+        throw new UnsupportedOperationException("method not supported");
+    }
+
+    @Override
+    public void setQualifiedName(@Nonnull QualifiedName qualifiedName) {
+        throw new UnsupportedOperationException("method not supported");
     }
 }

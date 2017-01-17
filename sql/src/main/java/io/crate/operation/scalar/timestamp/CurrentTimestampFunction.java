@@ -30,7 +30,7 @@ import io.crate.analyze.symbol.format.FunctionFormatSpec;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.Scalar;
-import io.crate.metadata.StmtCtx;
+import io.crate.metadata.TransactionContext;
 import io.crate.operation.Input;
 import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.types.DataType;
@@ -46,7 +46,7 @@ public class CurrentTimestampFunction extends Scalar<Long, Integer> implements F
     public static final int DEFAULT_PRECISION = 3;
 
     public static final FunctionInfo INFO = new FunctionInfo(
-            new FunctionIdent(NAME, ImmutableList.<DataType>of(DataTypes.INTEGER)), DataTypes.TIMESTAMP);
+        new FunctionIdent(NAME, ImmutableList.<DataType>of(DataTypes.INTEGER)), DataTypes.TIMESTAMP);
 
     public static void register(ScalarFunctionModule function) {
         function.register(new CurrentTimestampFunction());
@@ -93,22 +93,22 @@ public class CurrentTimestampFunction extends Scalar<Long, Integer> implements F
     }
 
     @Override
-    public Symbol normalizeSymbol(Function function, StmtCtx stmtCtx) {
-        if (stmtCtx == null) {
+    public Symbol normalizeSymbol(Function function, TransactionContext transactionContext) {
+        if (transactionContext == null) {
             return eval(function, DateTimeUtils.currentTimeMillis());
         }
         // use evaluatedFunctions map to make sure multiple occurrences of current_timestamp within a query result in the same result
-        return eval(function, stmtCtx.currentTimeMillis());
+        return eval(function, transactionContext.currentTimeMillis());
     }
 
     private Symbol eval(Function function, long currentTimeMillis) {
         Symbol symbol;
         if (function.arguments().isEmpty()) {
-            symbol = Literal.newLiteral(INFO.returnType(), currentTimeMillis);
+            symbol = Literal.of(INFO.returnType(), currentTimeMillis);
         } else {
             Symbol precision = function.arguments().get(0);
             if (precision.symbolType().isValueSymbol()) {
-                symbol = Literal.newLiteral(INFO.returnType(),
+                symbol = Literal.of(INFO.returnType(),
                     applyPrecision(currentTimeMillis, (Integer) ((Input) precision).value()));
             } else {
                 throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Invalid argument to %s", NAME));

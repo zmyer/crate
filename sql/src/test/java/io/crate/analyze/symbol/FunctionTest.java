@@ -26,13 +26,14 @@ import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.TestingHelpers;
-import io.crate.types.DataType;
 import io.crate.types.DataTypes;
-import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
+import org.elasticsearch.common.io.stream.StreamInput;
 import org.junit.Test;
 
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -42,13 +43,13 @@ public class FunctionTest extends CrateUnitTest {
     @Test
     public void testSerialization() throws Exception {
         Function fn = new Function(
-                new FunctionInfo(
-                        new FunctionIdent(
-                                randomAsciiOfLength(10),
-                                ImmutableList.<DataType>of(DataTypes.BOOLEAN)
-                        ),
-                        TestingHelpers.randomPrimitiveType(), FunctionInfo.Type.SCALAR, randomBoolean(), randomBoolean()),
-                Arrays.<Symbol>asList(TestingHelpers.createReference(randomAsciiOfLength(2), DataTypes.BOOLEAN))
+            new FunctionInfo(
+                new FunctionIdent(
+                    randomAsciiOfLength(10),
+                    ImmutableList.of(DataTypes.BOOLEAN)
+                ),
+                TestingHelpers.randomPrimitiveType(), FunctionInfo.Type.SCALAR, randomFeatures()),
+            Collections.singletonList(TestingHelpers.createReference(randomAsciiOfLength(2), DataTypes.BOOLEAN))
         );
 
         BytesStreamOutput output = new BytesStreamOutput();
@@ -65,13 +66,13 @@ public class FunctionTest extends CrateUnitTest {
     public void testCloning() throws Exception {
 
         Function fn = new Function(
-                new FunctionInfo(
-                        new FunctionIdent(
-                                randomAsciiOfLength(10),
-                                ImmutableList.<DataType>of(DataTypes.BOOLEAN)
-                        ),
-                        TestingHelpers.randomPrimitiveType(), FunctionInfo.Type.SCALAR, randomBoolean(), randomBoolean()),
-                Arrays.<Symbol>asList(TestingHelpers.createReference(randomAsciiOfLength(2), DataTypes.BOOLEAN))
+            new FunctionInfo(
+                new FunctionIdent(
+                    randomAsciiOfLength(10),
+                    ImmutableList.of(DataTypes.BOOLEAN)
+                ),
+                TestingHelpers.randomPrimitiveType(), FunctionInfo.Type.SCALAR, randomFeatures()),
+            Collections.singletonList(TestingHelpers.createReference(randomAsciiOfLength(2), DataTypes.BOOLEAN))
         );
 
         Function fn2 = fn.clone();
@@ -79,5 +80,15 @@ public class FunctionTest extends CrateUnitTest {
         assertThat(fn, is(equalTo(fn2)));
         assertThat(fn.hashCode(), is(fn2.hashCode()));
 
+    }
+
+    private Set<FunctionInfo.Feature> randomFeatures() {
+        Set<FunctionInfo.Feature> features = EnumSet.noneOf(FunctionInfo.Feature.class);
+        for (FunctionInfo.Feature feature : FunctionInfo.Feature.values()) {
+            if (randomBoolean()) {
+                features.add(feature);
+            }
+        }
+        return features;
     }
 }

@@ -33,7 +33,7 @@ import io.crate.geo.GeoJSONUtils;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.Scalar;
-import io.crate.metadata.StmtCtx;
+import io.crate.metadata.TransactionContext;
 import io.crate.operation.Input;
 import io.crate.operation.scalar.ScalarFunctionModule;
 import io.crate.types.DataType;
@@ -51,16 +51,16 @@ public class WithinFunction extends Scalar<Boolean, Object> {
     public static final String NAME = "within";
 
     private static final Set<DataType> LEFT_TYPES = ImmutableSet.<DataType>of(
-            DataTypes.GEO_POINT,
-            DataTypes.GEO_SHAPE,
-            DataTypes.OBJECT,
-            DataTypes.STRING
+        DataTypes.GEO_POINT,
+        DataTypes.GEO_SHAPE,
+        DataTypes.OBJECT,
+        DataTypes.STRING
     );
 
     private static final Set<DataType> RIGHT_TYPES = ImmutableSet.<DataType>of(
-            DataTypes.GEO_SHAPE,
-            DataTypes.OBJECT,
-            DataTypes.STRING
+        DataTypes.GEO_SHAPE,
+        DataTypes.OBJECT,
+        DataTypes.STRING
     );
 
     public static void register(ScalarFunctionModule scalarFunctionModule) {
@@ -73,8 +73,8 @@ public class WithinFunction extends Scalar<Boolean, Object> {
 
     private static FunctionInfo info(DataType pointType, DataType shapeType) {
         return new FunctionInfo(
-                new FunctionIdent(NAME, ImmutableList.of(pointType, shapeType)),
-                DataTypes.BOOLEAN
+            new FunctionIdent(NAME, ImmutableList.of(pointType, shapeType)),
+            DataTypes.BOOLEAN
         );
     }
 
@@ -88,7 +88,7 @@ public class WithinFunction extends Scalar<Boolean, Object> {
 
     @Override
     public Boolean evaluate(Input[] args) {
-        assert args.length == 2;
+        assert args.length == 2 : "number of args must be 2";
         return evaluate(args[0], args[1]);
     }
 
@@ -112,7 +112,7 @@ public class WithinFunction extends Scalar<Boolean, Object> {
             shape = SpatialContext.GEO.makePoint(values[0], values[1]);
         } else if (left instanceof List) { // ESSearchTask / ESGetTask returns it as list
             List values = (List) left;
-            assert values.size() == 2;
+            assert values.size() == 2 : "number of values must be 2";
             shape = SpatialContext.GEO.makePoint((Double) values.get(0), (Double) values.get(1));
         } else if (left instanceof BytesRef) {
             shape = GeoJSONUtils.wkt2Shape(BytesRefs.toString(left));
@@ -125,8 +125,8 @@ public class WithinFunction extends Scalar<Boolean, Object> {
     @SuppressWarnings("unchecked")
     private Shape parseRightShape(Object right) {
         return (right instanceof BytesRef) ?
-                GeoJSONUtils.wkt2Shape(BytesRefs.toString(right)) :
-                GeoJSONUtils.map2Shape((Map<String, Object>) right);
+            GeoJSONUtils.wkt2Shape(BytesRefs.toString(right)) :
+            GeoJSONUtils.map2Shape((Map<String, Object>) right);
     }
 
     @Override
@@ -135,16 +135,12 @@ public class WithinFunction extends Scalar<Boolean, Object> {
     }
 
     @Override
-    public Symbol normalizeSymbol(Function symbol, StmtCtx stmtCtx) {
+    public Symbol normalizeSymbol(Function symbol, TransactionContext transactionContext) {
         Symbol left = symbol.arguments().get(0);
         Symbol right = symbol.arguments().get(1);
 
         boolean literalConverted = false;
         short numLiterals = 0;
-
-        if (containsNullLiteral(symbol.arguments())) {
-            return Literal.NULL;
-        }
 
         if (left.symbolType().isValueSymbol()) {
             numLiterals++;
@@ -161,7 +157,7 @@ public class WithinFunction extends Scalar<Boolean, Object> {
         }
 
         if (numLiterals == 2) {
-            return Literal.newLiteral(evaluate((Input) left, (Input) right));
+            return Literal.of(evaluate((Input) left, (Input) right));
         }
 
         if (literalConverted) {

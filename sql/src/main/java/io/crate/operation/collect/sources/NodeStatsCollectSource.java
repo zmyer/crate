@@ -28,19 +28,17 @@ import io.crate.analyze.EvaluatingNormalizer;
 import io.crate.analyze.WhereClause;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.executor.transport.TransportActionProvider;
-import io.crate.metadata.Functions;
-import io.crate.metadata.LocalSysColReferenceResolver;
-import io.crate.metadata.RowCollectExpression;
-import io.crate.metadata.RowGranularity;
+import io.crate.metadata.*;
 import io.crate.metadata.sys.SysNodesTableInfo;
-import io.crate.operation.collect.CollectInputSymbolVisitor;
+import io.crate.operation.InputFactory;
 import io.crate.operation.collect.CrateCollector;
 import io.crate.operation.collect.JobCollectContext;
 import io.crate.operation.collect.RowsCollector;
 import io.crate.operation.collect.collectors.NodeStatsCollector;
 import io.crate.operation.projectors.RowReceiver;
-import io.crate.operation.reference.sys.RowContextReferenceResolver;
 import io.crate.operation.reference.sys.node.NodeStatsContext;
+import io.crate.operation.reference.sys.node.local.NodeSysExpression;
+import io.crate.operation.reference.sys.node.local.NodeSysReferenceResolver;
 import io.crate.planner.node.dql.CollectPhase;
 import io.crate.planner.node.dql.RoutedCollectPhase;
 import org.elasticsearch.cluster.ClusterService;
@@ -57,29 +55,35 @@ import java.util.List;
 public class NodeStatsCollectSource implements CollectSource {
 
     private final TransportActionProvider transportActionProvider;
+    private final NodeSysExpression nodeSysExpression;
     private final ClusterService clusterService;
-    private final CollectInputSymbolVisitor<RowCollectExpression<?, ?>> inputSymbolVisitor;
     private final Functions functions;
+    private final InputFactory inputFactory;
 
     @Inject
     public NodeStatsCollectSource(TransportActionProvider transportActionProvider,
+                                  NodeSysExpression nodeSysExpression,
                                   ClusterService clusterService,
                                   Functions functions) {
         this.transportActionProvider = transportActionProvider;
+        this.nodeSysExpression = nodeSysExpression;
         this.clusterService = clusterService;
-        this.inputSymbolVisitor = new CollectInputSymbolVisitor<>(functions, RowContextReferenceResolver.INSTANCE);
+        this.inputFactory = new InputFactory(functions);
         this.functions = functions;
     }
 
     @Override
     public Collection<CrateCollector> getCollectors(CollectPhase phase, RowReceiver downstream, JobCollectContext jobCollectContext) {
         RoutedCollectPhase collectPhase = (RoutedCollectPhase) phase;
+        EvaluatingNormalizer normalizer = new EvaluatingNormalizer(
+            functions, RowGranularity.DOC, ReplaceMode.COPY, new NodeSysReferenceResolver(nodeSysExpression), null);
+        collectPhase = collectPhase.normalize(normalizer, null);
         if (collectPhase.whereClause().noMatch()) {
             return ImmutableList.<CrateCollector>of(RowsCollector.empty(downstream));
         }
         Collection<DiscoveryNode> nodes = nodeIds(collectPhase.whereClause(),
-                                                  Lists.newArrayList(clusterService.state().getNodes().iterator()),
-                                                  functions);
+            Lists.newArrayList(clusterService.state().getNodes().iterator()),
+            functions);
         if (nodes.isEmpty()) {
             return ImmutableList.<CrateCollector>of(RowsCollector.empty(downstream));
         }
@@ -88,14 +92,15 @@ public class NodeStatsCollectSource implements CollectSource {
                 downstream,
                 collectPhase,
                 nodes,
-                inputSymbolVisitor
+                inputFactory
             )
         );
     }
 
     @Nullable
-    protected static Collection<DiscoveryNode> nodeIds(WhereClause whereClause, Collection<DiscoveryNode> nodes,
-                                                       Functions functions) {
+    static Collection<DiscoveryNode> nodeIds(WhereClause whereClause,
+                                             Collection<DiscoveryNode> nodes,
+                                             Functions functions) {
         if (!whereClause.hasQuery()) {
             return nodes;
         }
@@ -105,12 +110,15 @@ public class NodeStatsCollectSource implements CollectSource {
         EvaluatingNormalizer normalizer = new EvaluatingNormalizer(
             functions,
             RowGranularity.DOC,
-            localSysColReferenceResolver
+            ReplaceMode.COPY,
+            localSysColReferenceResolver,
+            null
         );
         List<DiscoveryNode> newNodes = new ArrayList<>();
         for (DiscoveryNode node : nodes) {
+            String nodeId = node.getId();
             for (RowCollectExpression expression : localSysColReferenceResolver.expressions()) {
-                expression.setNextRow(new NodeStatsContext(node.id(), node.name()));
+                expression.setNextRow(new NodeStatsContext(nodeId, node.name()));
             }
             Symbol normalized = normalizer.normalize(whereClause.query(), null);
             if (normalized.equals(whereClause.query())) {

@@ -83,7 +83,8 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
         this.indexNameResolver = indexNameResolver;
         this.collectExpressions = collectExpressions;
         rowShardResolver = new RowShardResolver(functions, primaryKeyIdents, primaryKeySymbols, clusteredByColumn, routingSymbol);
-        assert columnReferences.size() == insertInputs.size();
+        assert columnReferences.size() == insertInputs.size()
+            : "number of insert inputs must be equal to the number of columns";
 
         String[] updateColumnNames;
         if (updateAssignments == null) {
@@ -95,25 +96,25 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
             assignments = convert.v2();
         }
         ShardUpsertRequest.Builder builder = new ShardUpsertRequest.Builder(
-                CrateSettings.BULK_REQUEST_TIMEOUT.extractTimeValue(settings),
-                false, // overwriteDuplicates
-                true, // continueOnErrors
-                updateColumnNames,
-                columnReferences.toArray(new Reference[columnReferences.size()]),
-                jobId);
+            CrateSettings.BULK_REQUEST_TIMEOUT.extractTimeValue(settings),
+            false, // overwriteDuplicates
+            true, // continueOnErrors
+            updateColumnNames,
+            columnReferences.toArray(new Reference[columnReferences.size()]),
+            jobId);
 
         insertValues = new InputRow(insertInputs);
         bulkShardProcessor = new BulkShardProcessor<>(
-                clusterService,
-                transportActionProvider.transportBulkCreateIndicesAction(),
-                indexNameExpressionResolver,
-                settings,
-                bulkRetryCoordinatorPool,
-                autoCreateIndices,
-                MoreObjects.firstNonNull(bulkActions, 100),
-                builder,
-                transportActionProvider.transportShardUpsertActionDelegate(),
-                jobId
+            clusterService,
+            transportActionProvider.transportBulkCreateIndicesAction(),
+            indexNameExpressionResolver,
+            settings,
+            bulkRetryCoordinatorPool,
+            autoCreateIndices,
+            MoreObjects.firstNonNull(bulkActions, 100),
+            builder,
+            transportActionProvider.transportShardUpsertActionDelegate(),
+            jobId
         );
     }
 
@@ -130,7 +131,7 @@ public class ColumnIndexWriterProjector extends AbstractProjector {
         }
         rowShardResolver.setNextRow(row);
         ShardUpsertRequest.Item item = new ShardUpsertRequest.Item(
-                rowShardResolver.id(), assignments, insertValues.materialize(), null);
+            rowShardResolver.id(), assignments, insertValues.materialize(), null);
         if (bulkShardProcessor.add(indexNameResolver.get(), item, rowShardResolver.routing())) {
             return Result.CONTINUE;
         }

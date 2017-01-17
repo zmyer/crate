@@ -23,7 +23,7 @@
 package io.crate.analyze.expressions;
 
 import com.google.common.base.Preconditions;
-import io.crate.analyze.EvaluatingNormalizer;
+import io.crate.analyze.AnalyzedColumnDefinition;
 import io.crate.analyze.symbol.DynamicReference;
 import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
@@ -35,7 +35,6 @@ import io.crate.exceptions.ConversionException;
 import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.Reference;
 import io.crate.metadata.Schemas;
-import io.crate.metadata.StmtCtx;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.ColumnPolicy;
 import io.crate.metadata.table.TableInfo;
@@ -50,11 +49,9 @@ import java.util.Map;
 public class ValueNormalizer {
 
     private Schemas schemas;
-    private EvaluatingNormalizer normalizer;
 
-    public ValueNormalizer(Schemas schemas, EvaluatingNormalizer normalizer) {
+    public ValueNormalizer(Schemas schemas) {
         this.schemas = schemas;
-        this.normalizer = normalizer;
     }
 
     /**
@@ -65,8 +62,7 @@ public class ValueNormalizer {
      * @return the normalized Symbol, should be a literal
      * @throws io.crate.exceptions.ColumnValidationException
      */
-    public Symbol normalizeInputForReference(Symbol valueSymbol, Reference reference, StmtCtx stmtCtx) {
-        valueSymbol = normalizer.normalize(valueSymbol, stmtCtx);
+    public Symbol normalizeInputForReference(Symbol valueSymbol, Reference reference) {
         assert valueSymbol != null : "valueSymbol must not be null";
 
         DataType<?> targetType = getTargetType(valueSymbol, reference);
@@ -78,9 +74,9 @@ public class ValueNormalizer {
             literal = Literal.convert(literal, reference.valueType());
         } catch (ConversionException e) {
             throw new ColumnValidationException(
-                    reference.ident().columnIdent().name(),
-                    String.format(Locale.ENGLISH, "%s cannot be cast to type %s", SymbolPrinter.INSTANCE.printSimple(valueSymbol),
-                            reference.valueType().getName()));
+                reference.ident().columnIdent().name(),
+                String.format(Locale.ENGLISH, "%s cannot be cast to type %s", SymbolPrinter.INSTANCE.printSimple(valueSymbol),
+                    reference.valueType().getName()));
         }
         Object value = literal.value();
         if (value == null) {
@@ -95,12 +91,13 @@ public class ValueNormalizer {
             }
         } catch (ConversionException e) {
             throw new ColumnValidationException(
-                    reference.ident().columnIdent().name(),
-                    SymbolFormatter.format(
-                            "\"%s\" has a type that can't be implicitly cast to that of \"%s\" (" + reference.valueType().getName() + ")",
-                            literal,
-                            reference
-                    ));
+                reference.ident().columnIdent().name(),
+                SymbolFormatter.format(
+                    "\"%s\" has a type that can't be implicitly cast to that of \"%s\" (" +
+                    reference.valueType().getName() + ")",
+                    literal,
+                    reference
+                ));
         }
         return literal;
     }
@@ -119,6 +116,7 @@ public class ValueNormalizer {
     @SuppressWarnings("unchecked")
     private void normalizeObjectValue(Map<String, Object> value, Reference info) {
         for (Map.Entry<String, Object> entry : value.entrySet()) {
+            AnalyzedColumnDefinition.validateName(entry.getKey());
             ColumnIdent nestedIdent = ColumnIdent.getChild(info.ident().columnIdent(), entry.getKey());
             TableInfo tableInfo = schemas.getTableInfo(info.ident().tableIdent());
             Reference nestedInfo = tableInfo.getReference(nestedIdent);
@@ -127,8 +125,8 @@ public class ValueNormalizer {
                     continue;
                 }
                 DynamicReference dynamicReference = null;
-                if (tableInfo instanceof DocTableInfo){
-                    dynamicReference = ((DocTableInfo)tableInfo).getDynamic(nestedIdent, true);
+                if (tableInfo instanceof DocTableInfo) {
+                    dynamicReference = ((DocTableInfo) tableInfo).getDynamic(nestedIdent, true);
                 }
                 if (dynamicReference == null) {
                     throw new ColumnUnknownException(nestedIdent.sqlFqn());
@@ -176,7 +174,7 @@ public class ValueNormalizer {
             return info.valueType().value(primitiveValue);
         } catch (Exception e) {
             throw new ColumnValidationException(info.ident().columnIdent().sqlFqn(),
-                    String.format(Locale.ENGLISH, "Invalid %s", info.valueType().getName())
+                String.format(Locale.ENGLISH, "Invalid %s", info.valueType().getName())
             );
         }
     }

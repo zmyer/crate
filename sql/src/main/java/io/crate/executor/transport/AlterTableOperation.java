@@ -33,19 +33,21 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.crate.Constants;
 import io.crate.action.FutureActionListener;
-import io.crate.action.sql.SQLRequest;
-import io.crate.action.sql.SQLResponse;
+import io.crate.action.sql.Option;
+import io.crate.action.sql.ResultReceiver;
+import io.crate.action.sql.SQLOperations;
 import io.crate.analyze.AddColumnAnalyzedStatement;
-import io.crate.analyze.AlterPartitionedTableParameterInfo;
+import io.crate.analyze.PartitionedTableParameterInfo;
 import io.crate.analyze.AlterTableAnalyzedStatement;
 import io.crate.analyze.TableParameter;
 import io.crate.core.MultiFutureCallback;
+import io.crate.core.collections.Row;
 import io.crate.exceptions.AlterTableAliasException;
 import io.crate.metadata.PartitionName;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
+import io.crate.types.DataType;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse;
@@ -77,39 +79,80 @@ public class AlterTableOperation {
     private static final Function<Object, Long> LONG_NULL_FUNCTION = Functions.constant(null);
     private final ClusterService clusterService;
     private final TransportActionProvider transportActionProvider;
+    private final SQLOperations sqlOperations;
 
     @Inject
-    public AlterTableOperation(ClusterService clusterService, TransportActionProvider transportActionProvider) {
+    public AlterTableOperation(ClusterService clusterService,
+                               TransportActionProvider transportActionProvider,
+                               SQLOperations sqlOperations) {
         this.clusterService = clusterService;
         this.transportActionProvider = transportActionProvider;
+        this.sqlOperations = sqlOperations;
     }
 
     public ListenableFuture<Long> executeAlterTableAddColumn(final AddColumnAnalyzedStatement analysis) {
         final SettableFuture<Long> result = SettableFuture.create();
         if (analysis.newPrimaryKeys() || analysis.hasNewGeneratedColumns()) {
-            String stmt = String.format(Locale.ENGLISH, "SELECT COUNT(*) FROM \"%s\".\"%s\"", analysis.table().ident().schema(), analysis.table().ident().name());
-            transportActionProvider.transportSQLAction().execute(new SQLRequest(stmt), new ActionListener<SQLResponse>() {
-                @Override
-                public void onResponse(SQLResponse sqlResponse) {
-                    Long count = (Long) sqlResponse.rows()[0][0];
-                    if (count == 0L) {
-                        addColumnToTable(analysis, result);
-                    } else {
-                        String columnFailure = analysis.newPrimaryKeys() ? "primary key" : "generated";
-                        result.setException(new UnsupportedOperationException(String.format(Locale.ENGLISH,
-                                "Cannot add a %s column to a table that isn't empty", columnFailure)));
-                    }
-                }
+            TableIdent ident = analysis.table().ident();
+            String stmt =
+                String.format(Locale.ENGLISH, "SELECT COUNT(*) FROM \"%s\".\"%s\"", ident.schema(), ident.name());
 
-                @Override
-                public void onFailure(Throwable e) {
-                    result.setException(e);
-                }
-            });
+            SQLOperations.Session session = sqlOperations.createSession(ident.schema(), Option.NONE, 1);
+            try {
+                session.parse(SQLOperations.Session.UNNAMED, stmt, Collections.<DataType>emptyList());
+                session.bind(SQLOperations.Session.UNNAMED, SQLOperations.Session.UNNAMED, Collections.emptyList(), null);
+                session.execute(SQLOperations.Session.UNNAMED, 1, new ResultSetReceiver(analysis, result));
+                session.sync();
+            } catch (Throwable t) {
+                result.setException(t);
+            }
         } else {
             addColumnToTable(analysis, result);
         }
         return result;
+    }
+
+    private class ResultSetReceiver implements ResultReceiver {
+
+        private final AddColumnAnalyzedStatement analysis;
+        private final SettableFuture<?> result;
+
+        private long count;
+
+        ResultSetReceiver(AddColumnAnalyzedStatement analysis, SettableFuture<?> result) {
+            this.analysis = analysis;
+            this.result = result;
+        }
+
+        @Override
+        public void setNextRow(Row row) {
+            count = (long) row.get(0);
+        }
+
+        @Override
+        public void batchFinished() {
+        }
+
+        @Override
+        public void allFinished() {
+            if (count == 0L) {
+                addColumnToTable(analysis, result);
+            } else {
+                String columnFailure = analysis.newPrimaryKeys() ? "primary key" : "generated";
+                fail(new UnsupportedOperationException(String.format(Locale.ENGLISH,
+                    "Cannot add a %s column to a table that isn't empty", columnFailure)));
+            }
+        }
+
+        @Override
+        public void fail(@Nonnull Throwable t) {
+            result.setException(t);
+        }
+
+        @Override
+        public ListenableFuture<?> completionFuture() {
+            return result;
+        }
     }
 
     public ListenableFuture<Long> executeAlterTable(AlterTableAnalyzedStatement analysis) {
@@ -122,11 +165,11 @@ public class AlterTableOperation {
 
         if (table.isPartitioned()) {
             // create new filtered partition table settings
-            AlterPartitionedTableParameterInfo tableSettingsInfo =
-                    (AlterPartitionedTableParameterInfo) table.tableParameterInfo();
+            PartitionedTableParameterInfo tableSettingsInfo =
+                (PartitionedTableParameterInfo) table.tableParameterInfo();
             TableParameter parameterWithFilteredSettings = new TableParameter(
-                    analysis.tableParameter().settings(),
-                    tableSettingsInfo.partitionTableSettingsInfo().supportedInternalSettings());
+                analysis.tableParameter().settings(),
+                tableSettingsInfo.partitionTableSettingsInfo().supportedInternalSettings());
 
             Optional<PartitionName> partitionName = analysis.partitionName();
             if (partitionName.isPresent()) {
@@ -162,7 +205,7 @@ public class AlterTableOperation {
                                                   TableIdent tableIdent) {
         String templateName = PartitionName.templateName(tableIdent.schema(), tableIdent.name());
         IndexTemplateMetaData indexTemplateMetaData =
-                clusterService.state().metaData().templates().get(templateName);
+            clusterService.state().metaData().templates().get(templateName);
         if (indexTemplateMetaData == null) {
             return Futures.immediateFailedFuture(new RuntimeException("Template for partitioned table is missing"));
         }
@@ -176,11 +219,11 @@ public class AlterTableOperation {
         settingsBuilder.put(newSettings);
 
         PutIndexTemplateRequest request = new PutIndexTemplateRequest(templateName)
-                .create(false)
-                .mapping(Constants.DEFAULT_MAPPING_TYPE, mapping)
-                .order(indexTemplateMetaData.order())
-                .settings(settingsBuilder.build())
-                .template(indexTemplateMetaData.template());
+            .create(false)
+            .mapping(Constants.DEFAULT_MAPPING_TYPE, mapping)
+            .order(indexTemplateMetaData.order())
+            .settings(settingsBuilder.build())
+            .template(indexTemplateMetaData.template());
         for (ObjectObjectCursor<String, AliasMetaData> container : indexTemplateMetaData.aliases()) {
             Alias alias = new Alias(container.key);
             request.alias(alias);
@@ -196,7 +239,7 @@ public class AlterTableOperation {
             return Futures.immediateFuture(null);
         }
         assert areAllMappingsEqual(clusterService.state().metaData(), indices) :
-                "Trying to update mapping for indices with different existing mappings";
+            "Trying to update mapping for indices with different existing mappings";
 
         Map<String, Object> mapping;
         try {
@@ -235,7 +278,8 @@ public class AlterTableOperation {
             try {
                 Map<String, Object> mapping = parseMapping(cursor.value.toString());
                 Object o = mapping.get(Constants.DEFAULT_MAPPING_TYPE);
-                assert o != null && o instanceof Map;
+                assert o != null && o instanceof Map :
+                    "o must not be null and must be instance of Map";
 
                 XContentHelper.update(mergedMapping, (Map) o, false);
             } catch (IOException e) {
@@ -258,7 +302,7 @@ public class AlterTableOperation {
         return listener;
     }
 
-    private void addColumnToTable(AddColumnAnalyzedStatement analysis, final SettableFuture<Long> result) {
+    private void addColumnToTable(AddColumnAnalyzedStatement analysis, final SettableFuture<?> result) {
         boolean updateTemplate = analysis.table().isPartitioned();
         List<ListenableFuture<Long>> results = new ArrayList<>(2);
         final Map<String, Object> mapping = analysis.analyzedTableElements().toMapping();
@@ -275,7 +319,7 @@ public class AlterTableOperation {
         applyMultiFutureCallback(result, results);
     }
 
-    private void applyMultiFutureCallback(final SettableFuture<Long> result, List<ListenableFuture<Long>> futures) {
+    private void applyMultiFutureCallback(final SettableFuture<?> result, List<ListenableFuture<Long>> futures) {
         MultiFutureCallback<Long> multiFutureCallback = new MultiFutureCallback<>(futures.size(), new FutureCallback<List<Long>>() {
             @Override
             public void onSuccess(@Nullable List<Long> future) {

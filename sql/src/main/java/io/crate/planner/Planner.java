@@ -1,45 +1,48 @@
 /*
- * Licensed to CRATE Technology GmbH ("Crate") under one or more contributor
- * license agreements.  See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership.  Crate licenses
- * this file to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.  You may
+ * Licensed to Crate under one or more contributor license agreements.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership.  Crate licenses this file
+ * to you under the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.  You may
  * obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * However, if you have executed another commercial license agreement
  * with Crate these terms will supersede the license and you may use the
- * software solely pursuant to the terms of the relevant commercial agreement.
+ * software solely pursuant to the terms of the relevant commercial
+ * agreement.
  */
 
 package io.crate.planner;
 
 import com.carrotsearch.hppc.IntHashSet;
 import com.carrotsearch.hppc.IntSet;
-import com.google.common.base.Optional;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import io.crate.analyze.*;
 import io.crate.analyze.relations.AnalyzedRelation;
-import io.crate.analyze.relations.PlannedAnalyzedRelation;
+import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.exceptions.UnhandledServerException;
 import io.crate.metadata.*;
 import io.crate.metadata.doc.DocTableInfo;
 import io.crate.metadata.table.TableInfo;
+import io.crate.operation.Input;
 import io.crate.operation.projectors.TopN;
 import io.crate.planner.consumer.ConsumerContext;
 import io.crate.planner.consumer.ConsumingPlanner;
 import io.crate.planner.consumer.UpdateConsumer;
 import io.crate.planner.fetch.IndexBaseVisitor;
+import io.crate.planner.node.ddl.CreateAnalyzerPlan;
 import io.crate.planner.node.ddl.DropTablePlan;
 import io.crate.planner.node.ddl.ESClusterUpdateSettingsPlan;
 import io.crate.planner.node.ddl.GenericDDLPlan;
@@ -50,10 +53,14 @@ import io.crate.planner.node.management.KillPlan;
 import io.crate.planner.statement.CopyStatementPlanner;
 import io.crate.planner.statement.DeleteStatementPlanner;
 import io.crate.planner.statement.SetSessionPlan;
+import io.crate.sql.tree.Expression;
 import io.crate.sql.tree.SetStatement;
+import io.crate.types.DataTypes;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 
 import javax.annotation.Nullable;
@@ -63,12 +70,14 @@ import java.util.*;
 @Singleton
 public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
 
+    private static final ESLogger LOGGER = Loggers.getLogger(Planner.class);
+
     private final ConsumingPlanner consumingPlanner;
     private final ClusterService clusterService;
     private final UpdateConsumer updateConsumer;
     private final CopyStatementPlanner copyStatementPlanner;
     private final SelectStatementPlanner selectStatementPlanner;
-    private final DeleteStatementPlanner deleteStatementPlanner;
+    private final EvaluatingNormalizer normalizer;
 
 
     public static class Context {
@@ -76,91 +85,88 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
         //index, shardId, node
         private Map<String, Map<Integer, String>> shardNodes;
 
+        private final Planner planner;
         private final ClusterService clusterService;
         private final UUID jobId;
         private final ConsumingPlanner consumingPlanner;
-        private final StmtCtx stmtCtx;
+        private final EvaluatingNormalizer normalizer;
+        private final TransactionContext transactionContext;
         private final int softLimit;
         private final int fetchSize;
         private int executionPhaseId = 0;
         private final Multimap<TableIdent, TableRouting> tableRoutings = HashMultimap.create();
         private ReaderAllocations readerAllocations;
         private HashMultimap<TableIdent, String> tableIndices;
+        private String handlerNode;
 
-        public Context(ClusterService clusterService,
+        public Context(Planner planner,
+                       ClusterService clusterService,
                        UUID jobId,
                        ConsumingPlanner consumingPlanner,
-                       StmtCtx stmtCtx,
+                       EvaluatingNormalizer normalizer,
+                       TransactionContext transactionContext,
                        int softLimit,
                        int fetchSize) {
+            this.planner = planner;
             this.clusterService = clusterService;
             this.jobId = jobId;
             this.consumingPlanner = consumingPlanner;
-            this.stmtCtx = stmtCtx;
+            this.normalizer = normalizer;
+            this.transactionContext = transactionContext;
             this.softLimit = softLimit;
             this.fetchSize = fetchSize;
+            this.handlerNode = clusterService.localNode().getId();
         }
 
-        private static int finalLimit(@Nullable Integer queryLimit, int softLimit) {
-            if (queryLimit == null) {
-                return softLimit > 0 ? softLimit : TopN.NO_LIMIT;
-            }
-            return queryLimit;
+        public EvaluatingNormalizer normalizer() {
+            return normalizer;
         }
 
-        public Limits getLimits(boolean isRootRelation, QuerySpec querySpec) {
-            Optional<Integer> optLimit = querySpec.limit();
-            if (!isRootRelation) {
-                /**
-                 * Don't apply softLimit or maxRows on child-relations,
-                 * The parent-relations might need more data to produce the correct result.
-                 * If the limit is present on the query it means the parent relation wanted it there, so keep it.
-                 */
-
-                if (optLimit.isPresent()) {
-                    //noinspection OptionalGetWithoutIsPresent it's present!
-                    Integer limit = optLimit.get();
-                    return new Limits(limit, querySpec.offset());
-                } else {
-                    return new Limits(TopN.NO_LIMIT, TopN.NO_OFFSET);
-                }
+        @Nullable
+        private Integer toInteger(@Nullable Symbol symbol) {
+            if (symbol == null) {
+                return null;
             }
-            int finalLimit = finalLimit(optLimit.orNull(), softLimit);
-            return new Limits(finalLimit, querySpec.offset());
+            Input input = (Input) (normalizer.normalize(symbol, transactionContext));
+            return DataTypes.INTEGER.value(input.value());
+        }
+
+        public Limits getLimits(QuerySpec querySpec) {
+            Optional<Symbol> optLimit = querySpec.limit();
+            Integer limit = toInteger(optLimit.orElse(null));
+            if (limit == null) {
+                limit = TopN.NO_LIMIT;
+            }
+
+            Integer offset = toInteger(querySpec.offset().orElse(Literal.ZERO));
+            if (offset == null) {
+                offset = 0;
+            }
+            return new Limits(limit, offset);
         }
 
         public int fetchSize() {
             return fetchSize;
         }
 
-        public StmtCtx statementContext() {
-            return stmtCtx;
+        public TransactionContext transactionContext() {
+            return transactionContext;
         }
 
-        public static class Limits {
-            public int finalLimit() {
-                return finalLimit;
-            }
+        public Plan planSingleRowSubselect(AnalyzedStatement statement) {
+            UUID subJobId = UUID.randomUUID();
+            return planner.process(statement, new Planner.Context(
+                planner, clusterService, subJobId, consumingPlanner, normalizer, transactionContext, 2, 2));
+        }
 
-            public int limitAndOffset() {
-                return limitAndOffset;
+        void applySoftLimit(QuerySpec querySpec) {
+            if (softLimit != 0 && !querySpec.limit().isPresent()) {
+                querySpec.limit(Optional.of(Literal.of((long) softLimit)));
             }
+        }
 
-            public boolean hasLimit() {
-                return finalLimit != TopN.NO_LIMIT;
-            }
-
-            final int finalLimit;
-            final int limitAndOffset;
-
-            Limits(int finalLimit, int offset) {
-                this.finalLimit = finalLimit;
-                if (finalLimit > TopN.NO_LIMIT) {
-                    this.limitAndOffset = finalLimit + offset;
-                } else {
-                    this.limitAndOffset = TopN.NO_LIMIT;
-                }
-            }
+        public String handlerNode() {
+            return handlerNode;
         }
 
         public static class ReaderAllocations {
@@ -192,7 +198,7 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
                     for (Map.Entry<Integer, String> nodeEntries : entry.getValue().entrySet()) {
                         int readerId = base + nodeEntries.getKey();
                         IntSet readerIds = nodeReaders.get(nodeEntries.getValue());
-                        if (readerIds == null){
+                        if (readerIds == null) {
                             readerIds = new IntHashSet();
                             nodeReaders.put(nodeEntries.getValue(), readerIds);
                         }
@@ -252,17 +258,9 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
             return readerAllocations;
         }
 
-        public ClusterService clusterService() {
-            return clusterService;
-        }
-
-        public PlannedAnalyzedRelation planSubRelation(AnalyzedRelation relation, ConsumerContext consumerContext) {
-            assert consumingPlanner != null;
-            boolean isRoot = consumerContext.isRoot();
-            consumerContext.isRoot(false);
-            PlannedAnalyzedRelation subPlan = consumingPlanner.plan(relation, consumerContext);
-            consumerContext.isRoot(isRoot);
-            return subPlan;
+        public Plan planSubRelation(AnalyzedRelation relation, ConsumerContext consumerContext) {
+            assert consumingPlanner != null : "consumingPlanner needs to be present to plan sub relations";
+            return consumingPlanner.plan(relation, consumerContext);
         }
 
         public UUID jobId() {
@@ -275,7 +273,7 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
 
         private boolean allocateRoutingNodes(TableIdent tableIdent, Map<String, Map<String, List<Integer>>> locations) {
             boolean success = true;
-            if (tableIndices == null){
+            if (tableIndices == null) {
                 tableIndices = HashMultimap.create();
             }
             if (shardNodes == null) {
@@ -315,24 +313,30 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
             Routing routing;
             if (existingRoutings.isEmpty()) {
                 routing = tableInfo.getRouting(where, preference);
+                assert routing != null : tableInfo + " returned empty routing. Routing must not be null";
             } else {
                 for (TableRouting existing : existingRoutings) {
-                    assert preference == null || preference.equals(existing.preference);
+                    assert preference == null || preference.equals(existing.preference) :
+                        "preference must not be null or equals existing preference";
                     if (Objects.equals(existing.where, where)) {
                         return existing.routing;
                     }
                 }
+
+                routing = tableInfo.getRouting(where, preference);
                 // ensure all routings of this table are allocated
+                // and update new routing by merging with existing ones
                 for (TableRouting existingRouting : existingRoutings) {
                     if (!existingRouting.nodesAllocated) {
                         allocateRoutingNodes(tableInfo.ident(), existingRouting.routing.locations());
                         existingRouting.nodesAllocated = true;
                     }
+                    // Merge locations with existing routing
+                    routing.mergeLocations(existingRouting.routing.locations());
                 }
-                routing = tableInfo.getRouting(where, preference);
                 if (!allocateRoutingNodes(tableInfo.ident(), routing.locations())) {
                     throw new UnsupportedOperationException(
-                            "Nodes of existing routing are not allocated, routing rebuild needed");
+                        "Nodes of existing routing are not allocated, routing rebuild needed");
                 }
             }
             tableRoutings.put(tableInfo.ident(), new TableRouting(where, preference, routing));
@@ -340,13 +344,14 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
         }
     }
 
-    private static class TableRouting {
+    @VisibleForTesting
+    static class TableRouting {
         final WhereClause where;
         final String preference;
         final Routing routing;
         boolean nodesAllocated = false;
 
-        public TableRouting(WhereClause where, String preference, Routing routing) {
+        TableRouting(WhereClause where, String preference, Routing routing) {
             this.where = where;
             this.preference = preference;
             this.routing = routing;
@@ -355,35 +360,32 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
 
     @Inject
     public Planner(ClusterService clusterService,
-                   ConsumingPlanner consumingPlanner,
-                   UpdateConsumer updateConsumer,
-                   CopyStatementPlanner copyStatementPlanner,
-                   SelectStatementPlanner selectStatementPlanner,
-                   DeleteStatementPlanner deleteStatementPlanner) {
+                   Functions functions,
+                   TableStatsService tableStatsService) {
         this.clusterService = clusterService;
-        this.updateConsumer = updateConsumer;
-        this.consumingPlanner = consumingPlanner;
-        this.copyStatementPlanner = copyStatementPlanner;
-        this.selectStatementPlanner = selectStatementPlanner;
-        this.deleteStatementPlanner = deleteStatementPlanner;
+        this.updateConsumer = new UpdateConsumer();
+        this.consumingPlanner = new ConsumingPlanner(clusterService, functions, tableStatsService);
+        this.copyStatementPlanner = new CopyStatementPlanner(clusterService);
+        this.selectStatementPlanner = new SelectStatementPlanner(consumingPlanner);
+        normalizer = EvaluatingNormalizer.functionOnlyNormalizer(functions, ReplaceMode.COPY);
     }
 
     /**
      * dispatch plan creation based on analysis type
      *
-     * @param analysis analysis to create plan from
+     * @param analysis  analysis to create plan from
      * @param softLimit A soft limit will be applied if there is no explicit limit within the query.
      *                  0 for unlimited (query limit or maxRows will still apply)
      *                  If the type of query doesn't have a resultSet this has no effect.
      * @param fetchSize Limit the number of rows that should be returned to a client.
-     *                If > 0 this overrides the limit that might be part of a query.
-     *                0 for unlimited (soft limit or query limit may still apply)
+     *                  If > 0 this overrides the limit that might be part of a query.
+     *                  0 for unlimited (soft limit or query limit may still apply)
      * @return plan
      */
     public Plan plan(Analysis analysis, UUID jobId, int softLimit, int fetchSize) {
         AnalyzedStatement analyzedStatement = analysis.analyzedStatement();
-        return process(analyzedStatement, new Context(
-            clusterService, jobId, consumingPlanner, analysis.statementContext(), softLimit, fetchSize));
+        return process(analyzedStatement, new Context(this,
+            clusterService, jobId, consumingPlanner, normalizer, analysis.transactionContext(), softLimit, fetchSize));
     }
 
     @Override
@@ -415,17 +417,17 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
 
     @Override
     protected Plan visitUpdateStatement(UpdateAnalyzedStatement statement, Context context) {
-        ConsumerContext consumerContext = new ConsumerContext(statement, context);
-        PlannedAnalyzedRelation plannedAnalyzedRelation = updateConsumer.consume(statement, consumerContext);
-        if (plannedAnalyzedRelation == null) {
+        ConsumerContext consumerContext = new ConsumerContext(context);
+        Plan plan = updateConsumer.consume(statement, consumerContext);
+        if (plan == null) {
             throw new IllegalArgumentException("Couldn't plan Update statement");
         }
-        return plannedAnalyzedRelation.plan();
+        return plan;
     }
 
     @Override
     protected Plan visitDeleteStatement(DeleteAnalyzedStatement analyzedStatement, Context context) {
-        return deleteStatementPlanner.planDelete(analyzedStatement, context);
+        return DeleteStatementPlanner.planDelete(analyzedStatement, context);
     }
 
     @Override
@@ -444,7 +446,7 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
     }
 
     @Override
-    protected Plan visitDDLAnalyzedStatement(AbstractDDLAnalyzedStatement statement, Context context) {
+    protected Plan visitDDLStatement(DDLStatement statement, Context context) {
         return new GenericDDLPlan(context.jobId(), statement);
     }
 
@@ -453,7 +455,7 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
         if (analysis.noop()) {
             return new NoopPlan(context.jobId());
         }
-        return visitDDLAnalyzedStatement(analysis, context);
+        return visitDDLStatement(analysis, context);
     }
 
     @Override
@@ -480,8 +482,7 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
         } catch (IOException ioe) {
             throw new UnhandledServerException("Could not build analyzer Settings", ioe);
         }
-
-        return new ESClusterUpdateSettingsPlan(context.jobId(), analyzerSettings);
+        return new CreateAnalyzerPlan(context.jobId(), analyzerSettings);
     }
 
     @Override
@@ -490,27 +491,36 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
             return new NoopPlan(context.jobId());
         }
         return new ESClusterUpdateSettingsPlan(context.jobId(),
-                resetStatement.settingsToRemove(), resetStatement.settingsToRemove());
+            resetStatement.settingsToRemove(), resetStatement.settingsToRemove());
     }
 
     @Override
     public Plan visitSetStatement(SetAnalyzedStatement setStatement, Context context) {
-        if (setStatement.settings() == null) {
+        if (SetStatement.Scope.LOCAL.equals(setStatement.scope())) {
+            LOGGER.warn("SET LOCAL STATEMENT  WILL BE IGNORED: {}", setStatement.settings());
             return new NoopPlan(context.jobId());
         } else if (SetStatement.Scope.SESSION.equals(setStatement.scope())) {
-            return new SetSessionPlan(context.jobId(), setStatement.settings());
+            return new SetSessionPlan(
+                context.jobId(),
+                setStatement.settings(),
+                context.transactionContext().sessionContext()
+            );
         } else if (setStatement.isPersistent()) {
             return new ESClusterUpdateSettingsPlan(context.jobId(), setStatement.settings());
         } else {
-            return new ESClusterUpdateSettingsPlan(context.jobId(), Settings.EMPTY, setStatement.settings());
+            return new ESClusterUpdateSettingsPlan(
+                context.jobId(),
+                Collections.<String, List<Expression>>emptyMap(),
+                setStatement.settings()
+            );
         }
     }
 
     @Override
     public Plan visitKillAnalyzedStatement(KillAnalyzedStatement analysis, Context context) {
         return analysis.jobId().isPresent() ?
-                new KillPlan(context.jobId(), analysis.jobId().get()) :
-                new KillPlan(context.jobId());
+            new KillPlan(context.jobId(), analysis.jobId().get()) :
+            new KillPlan(context.jobId());
     }
 
     @Override
@@ -541,12 +551,12 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
                     onDuplicateKeyAssignments = analysis.onDuplicateKeyAssignments().get(i);
                 }
                 upsertById.add(
-                        indices[i],
-                        analysis.ids().get(i),
-                        analysis.routingValues().get(i),
-                        onDuplicateKeyAssignments,
-                        null,
-                        analysis.sourceMaps().get(i));
+                    indices[i],
+                    analysis.ids().get(i),
+                    analysis.routingValues().get(i),
+                    onDuplicateKeyAssignments,
+                    null,
+                    analysis.sourceMaps().get(i));
             }
         } else {
             for (int i = 0; i < analysis.ids().size(); i++) {
@@ -555,12 +565,12 @@ public class Planner extends AnalyzedStatementVisitor<Planner.Context, Plan> {
                     onDuplicateKeyAssignments = analysis.onDuplicateKeyAssignments().get(i);
                 }
                 upsertById.add(
-                        analysis.tableInfo().ident().indexName(),
-                        analysis.ids().get(i),
-                        analysis.routingValues().get(i),
-                        onDuplicateKeyAssignments,
-                        null,
-                        analysis.sourceMaps().get(i));
+                    analysis.tableInfo().ident().indexName(),
+                    analysis.ids().get(i),
+                    analysis.routingValues().get(i),
+                    onDuplicateKeyAssignments,
+                    null,
+                    analysis.sourceMaps().get(i));
             }
         }
 
